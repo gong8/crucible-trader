@@ -14,6 +14,8 @@ interface RunsRouteDeps {
   readonly saveResult: (result: BacktestResult) => void;
   readonly getResult: (runId: string) => BacktestResult | undefined;
   readonly generateRunId: (request: BacktestRequest) => string;
+  readonly listRuns: () => RunSummary[];
+  readonly markRunQueued: (summary: RunSummary) => void;
 }
 
 interface RunParams {
@@ -24,7 +26,18 @@ interface RunCreatedResponse {
   readonly runId: string;
 }
 
+export interface RunSummary {
+  readonly runId: string;
+  readonly status: string;
+  readonly createdAt: string;
+}
+
 export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): void => {
+  app.get("/api/runs", async (_request, reply) => {
+    const runs = deps.listRuns();
+    return reply.send(runs);
+  });
+
   app.post(
     "/api/runs",
     async (
@@ -40,6 +53,11 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       };
 
       deps.enqueue(job);
+      deps.markRunQueued({
+        runId,
+        status: "queued",
+        createdAt: new Date().toISOString(),
+      });
       deps.saveResult(createStubResult(runId, payload));
 
       const response: RunCreatedResponse = { runId };

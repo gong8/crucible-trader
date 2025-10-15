@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
 
-import { registerRunsRoutes } from "./routes/runs.js";
+import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 import { enqueue, onJob, type QueueJob } from "./queue.js";
 
 type RunStore = Map<string, BacktestResult>;
@@ -15,15 +15,53 @@ export const createFastifyServer = (): FastifyInstance => {
     logger: false,
   });
 
+  app.addHook("onSend", async (request, reply, payload) => {
+    if (request.method !== "OPTIONS") {
+      reply.header("access-control-allow-origin", request.headers.origin ?? "*");
+      reply.header("access-control-allow-credentials", "true");
+    }
+    return payload;
+  });
+
+  app.options("/api/*", async (request, reply) => {
+    reply
+      .header("access-control-allow-origin", request.headers.origin ?? "*")
+      .header("access-control-allow-methods", "GET,POST,OPTIONS")
+      .header(
+        "access-control-allow-headers",
+        request.headers["access-control-request-headers"] ?? "content-type",
+      )
+      .header("access-control-allow-credentials", "true")
+      .code(204)
+      .send();
+  });
+
   const runStore: RunStore = new Map();
+  const runSummaries: Map<string, RunSummary> = new Map();
   const requestStore: Map<string, BacktestRequest> = new Map();
 
   const saveResult = (result: BacktestResult): void => {
     runStore.set(result.runId, result);
+    const existing = runSummaries.get(result.runId);
+    runSummaries.set(result.runId, {
+      runId: result.runId,
+      status: "completed",
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    });
   };
 
   const getResult = (runId: string): BacktestResult | undefined => {
     return runStore.get(runId);
+  };
+
+  const listRuns = (): RunSummary[] => {
+    return Array.from(runSummaries.values()).sort((a, b) =>
+      a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+    );
+  };
+
+  const markRunQueued = (summary: RunSummary): void => {
+    runSummaries.set(summary.runId, summary);
   };
 
   const generateRunId = (request: BacktestRequest): string => {
@@ -38,6 +76,8 @@ export const createFastifyServer = (): FastifyInstance => {
     saveResult,
     getResult,
     generateRunId,
+    listRuns,
+    markRunQueued,
   });
 
   onJob((job: QueueJob) => {
