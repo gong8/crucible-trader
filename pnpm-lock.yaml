@@ -82,6 +82,9 @@ importers:
 
   packages/engine:
     dependencies:
+      '@crucible-trader/data':
+        specifier: workspace:*
+        version: link:../data
       '@crucible-trader/sdk':
         specifier: workspace:*
         version: link:../sdk

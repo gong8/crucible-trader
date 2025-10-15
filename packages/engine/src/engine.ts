@@ -4,6 +4,7 @@ import type {
   MetricKey,
   DataRequest,
 } from "@crucible-trader/sdk";
+import { CsvSource } from "@crucible-trader/data";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
 
@@ -23,26 +24,7 @@ const createRng = (seed: number): (() => number) => {
   };
 };
 
-/**
- * Extracts user-supplied bar data from the backtest request.
- */
-const extractBars = (req: BacktestRequest): BarsBySymbol => {
-  const params = (req.strategy?.params ?? {}) as StrategyParams;
-  const rawBars = params.bars ?? params.__bars;
-
-  if (isBarsBySymbol(rawBars)) {
-    return Object.fromEntries(
-      Object.entries(rawBars).map(([symbol, bars]) => [symbol, sanitizeBars(bars)]),
-    );
-  }
-
-  if (Array.isArray(rawBars)) {
-    const firstSymbol = req.data[0]?.symbol ?? "primary";
-    return { [firstSymbol]: sanitizeBars(rawBars) };
-  }
-
-  return {};
-};
+const csvSource = new CsvSource();
 
 const isBarsBySymbol = (value: unknown): value is BarsBySymbol => {
   if (value === null || typeof value !== "object") {
@@ -96,7 +78,7 @@ const makeRunId = (request: BacktestRequest, seed: number): string => {
 export async function runBacktest(request: BacktestRequest): Promise<BacktestResult> {
   const seed = Number.isInteger(request.seed) ? (request.seed as number) : DEFAULT_SEED;
   const rng = createRng(seed);
-  const barsBySymbol = extractBars(request);
+  const barsBySymbol = await loadBarsBySymbol(request);
   const metrics = normaliseMetrics(request.metrics);
 
   const equityCurve: EquityPoint[] = [];
@@ -180,3 +162,39 @@ const buildSummary = (): Record<string, number> => ({
   max_dd: 0,
   cagr: 0,
 });
+
+const loadBarsBySymbol = async (req: BacktestRequest): Promise<BarsBySymbol> => {
+  const bars: BarsBySymbol = extractFallbackBars(req);
+
+  for (const dataRequest of req.data) {
+    if (dataRequest.source === "csv") {
+      try {
+        bars[dataRequest.symbol] = await csvSource.loadBars(dataRequest);
+      } catch {
+        bars[dataRequest.symbol] = bars[dataRequest.symbol] ?? [];
+      }
+    } else if (!bars[dataRequest.symbol]) {
+      bars[dataRequest.symbol] = [];
+    }
+  }
+
+  return bars;
+};
+
+const extractFallbackBars = (req: BacktestRequest): BarsBySymbol => {
+  const params = (req.strategy?.params ?? {}) as StrategyParams;
+  const rawBars = params.bars ?? params.__bars;
+
+  if (isBarsBySymbol(rawBars)) {
+    return Object.fromEntries(
+      Object.entries(rawBars).map(([symbol, bars]) => [symbol, sanitizeBars(bars)]),
+    );
+  }
+
+  if (Array.isArray(rawBars)) {
+    const firstSymbol = req.data[0]?.symbol ?? "primary";
+    return { [firstSymbol]: sanitizeBars(rawBars) };
+  }
+
+  return {};
+};

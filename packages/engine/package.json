@@ -17,6 +17,7 @@
     "./src": "./src/index.ts"
   },
   "dependencies": {
+    "@crucible-trader/data": "workspace:*",
     "@crucible-trader/sdk": "workspace:*"
   }
 }
