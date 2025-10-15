@@ -44,7 +44,11 @@ importers:
 
   packages/data: {}
 
-  packages/engine: {}
+  packages/engine:
+    dependencies:
+      '@crucible-trader/sdk':
+        specifier: workspace:*
+        version: link:../sdk
 
   packages/metrics: {}
 
