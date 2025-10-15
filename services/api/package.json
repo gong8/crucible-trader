@@ -1,0 +1,11 @@
+{
+  "name": "@crucible-trader/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "ts-node --esm src/index.ts",
+    "start": "node dist/index.js"
+  }
+}

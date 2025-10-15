@@ -1,0 +1,22 @@
+{
+  "name": "crucible-trader",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter services/api dev\" \"pnpm --filter services/backtest-worker dev\" \"pnpm --filter apps/web dev\"",
+    "build": "pnpm -r build",
+    "lint": "eslint \"./apps/**/*.{ts,tsx}\" \"./services/**/*.{ts,tsx}\" \"./packages/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.2"
+  }
+}
