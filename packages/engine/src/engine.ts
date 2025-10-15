@@ -7,6 +7,7 @@ import type {
 import { CsvSource } from "@crucible-trader/data";
 import { calculateMetricsSummary } from "@crucible-trader/metrics";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
 import { writeParquetArtifacts } from "./persistence.js";
@@ -29,6 +30,9 @@ const createRng = (seed: number): (() => number) => {
 };
 
 const csvSource = new CsvSource();
+const ENGINE_MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
+const ENGINE_REPO_ROOT = join(ENGINE_MODULE_DIR, "..", "..", "..");
+const RUNS_OUTPUT_ROOT = join(ENGINE_REPO_ROOT, "storage", "runs");
 
 const isBarsBySymbol = (value: unknown): value is BarsBySymbol => {
   if (value === null || typeof value !== "object") {
@@ -100,7 +104,7 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
 
   const runId = makeRunId(request, seed);
   const artifactsRelative = `storage/runs/${runId}`;
-  const runDirFilesystem = join(process.cwd(), "storage", "runs", runId);
+  const runDirFilesystem = join(RUNS_OUTPUT_ROOT, runId);
   const summary = buildSummary(metrics, equityCurve);
   const diagnostics: EngineDiagnostics = {
     seed,

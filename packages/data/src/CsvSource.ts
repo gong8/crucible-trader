@@ -1,11 +1,15 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { DataRequest } from "@crucible-trader/sdk";
 
 import type { Bar, IDataSource } from "./IDataSource.js";
 
-const DEFAULT_DATASETS_DIR = join(process.cwd(), "storage", "datasets");
+const DIST_DIR = fileURLToPath(new URL(".", import.meta.url));
+const PACKAGE_ROOT = join(DIST_DIR, "..");
+const REPO_ROOT = join(PACKAGE_ROOT, "..", "..");
+const DEFAULT_DATASETS_DIR = join(REPO_ROOT, "storage", "datasets");
 const DEFAULT_CACHE_DIR = join(DEFAULT_DATASETS_DIR, ".cache");
 
 interface CsvCachePayload {

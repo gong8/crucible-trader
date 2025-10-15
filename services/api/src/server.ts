@@ -3,7 +3,6 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
 
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
-import { enqueue, onJob, type QueueJob } from "./queue.js";
 
 type RunStore = Map<string, BacktestResult>;
 
@@ -38,7 +37,6 @@ export const createFastifyServer = (): FastifyInstance => {
 
   const runStore: RunStore = new Map();
   const runSummaries: Map<string, RunSummary> = new Map();
-  const requestStore: Map<string, BacktestRequest> = new Map();
 
   const saveResult = (result: BacktestResult): void => {
     runStore.set(result.runId, result);
@@ -64,6 +62,13 @@ export const createFastifyServer = (): FastifyInstance => {
     runSummaries.set(summary.runId, summary);
   };
 
+  const markRunCompleted = (runId: string): void => {
+    const current = runSummaries.get(runId);
+    if (current) {
+      runSummaries.set(runId, { ...current, status: "completed" });
+    }
+  };
+
   const generateRunId = (request: BacktestRequest): string => {
     const base = request.runName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const slug = base.replace(/^-+|-+$/g, "");
@@ -72,17 +77,12 @@ export const createFastifyServer = (): FastifyInstance => {
   };
 
   registerRunsRoutes(app, {
-    enqueue,
     saveResult,
     getResult,
     generateRunId,
     listRuns,
     markRunQueued,
-  });
-
-  onJob((job: QueueJob) => {
-    requestStore.set(job.runId, job.request);
-    // TODO[phase-0-next]: dispatch job to backtest worker and persist results.
+    markRunCompleted,
   });
 
   // TODO[phase-0-next]: persist runStore and requestStore to SQLite runs table.

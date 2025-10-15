@@ -11,6 +11,9 @@ importers:
       fastify:
         specifier: ^5.6.1
         version: 5.6.1
+      lightweight-charts:
+        specifier: ^5.0.9
+        version: 5.0.9
       next:
         specifier: 14.2.5
         version: 14.2.5(react-dom@18.2.0)(react@18.2.0)
@@ -57,6 +60,9 @@ importers:
       '@crucible-trader/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      lightweight-charts:
+        specifier: ^5.0.9
+        version: 5.0.9
       next:
         specifier: 14.2.5
         version: 14.2.5(react-dom@18.2.0)(react@18.2.0)
@@ -109,6 +115,9 @@ importers:
 
   services/api:
     dependencies:
+      '@crucible-trader/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@crucible-trader/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -934,6 +943,10 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
+  /fancy-canvas@2.1.0:
+    resolution: {integrity: sha512-nifxXJ95JNLFR2NgRV4/MxVP45G9909wJTEKz5fg/TZS20JJZA6hfgRVh/bC9bwl2zBtBNcYPjiBE4njQHVBwQ==}
+    dev: false
+
   /fast-decode-uri-component@1.0.1:
     resolution: {integrity: sha512-WKgKWg5eUxvRZGwW8FvfbaH7AXSh2cL+3j5fMGzUMCxWBJ3dV3a7Wz8y2f/uQ0e3B6WmodD3oS54jTQ9HVTIIg==}
     dev: false
@@ -1240,6 +1253,12 @@ packages:
       cookie: 1.0.2
       process-warning: 4.0.1
       set-cookie-parser: 2.7.1
+    dev: false
+
+  /lightweight-charts@5.0.9:
+    resolution: {integrity: sha512-8oQIis8jfZVfSwz8j9Z5x3O79dIRTkEYI9UY7DKtE4O3ZxlHjMK3L0+4nOVOOFq4FHI/oSIzz1RHeNImCk6/Jg==}
+    dependencies:
+      fancy-canvas: 2.1.0
     dev: false
 
   /locate-path@6.0.0:

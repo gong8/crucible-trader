@@ -1,7 +1,9 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ParquetSchema, ParquetWriter } from "parquetjs";
+import parquetjs from "parquetjs";
+
+const { ParquetSchema, ParquetWriter } = parquetjs;
 
 export interface EquityRow extends Record<string, unknown> {
   readonly time: string;
@@ -68,7 +70,7 @@ export const writeParquetArtifacts = async (
 
 const writeParquet = async <T extends Record<string, unknown>>(
   filePath: string,
-  schema: ParquetSchema,
+  schema: InstanceType<typeof ParquetSchema>,
   rows: ReadonlyArray<T>,
 ): Promise<void> => {
   const writer = await ParquetWriter.openFile(schema, filePath);

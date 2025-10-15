@@ -25,7 +25,9 @@
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",
-    "fastify": "^5.6.1"
+    "@crucible-trader/engine": "workspace:*",
+    "fastify": "^5.6.1",
+    "parquetjs": "0.11.2"
   },
   "typesVersions": {
     "*": {

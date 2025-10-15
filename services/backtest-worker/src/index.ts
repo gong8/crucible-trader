@@ -1,13 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { BacktestResult } from "@crucible-trader/sdk";
 
 import { runBacktest } from "@crucible-trader/engine";
 import { onJob, type QueueJob } from "@crucible-trader/api/queue";
 
-const STORAGE_ROOT = "storage";
-const RUNS_DIR = join(STORAGE_ROOT, "runs");
+const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
+const RUNS_DIR = join(MODULE_DIR, "..", "..", "..", "storage", "runs");
 
 interface Manifest {
   readonly runId: string;
