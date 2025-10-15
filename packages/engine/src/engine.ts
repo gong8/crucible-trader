@@ -5,6 +5,7 @@ import type {
   DataRequest,
 } from "@crucible-trader/sdk";
 import { CsvSource } from "@crucible-trader/data";
+import { calculateMetricsSummary } from "@crucible-trader/metrics";
 import { join } from "node:path";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
@@ -12,6 +13,7 @@ import { writeParquetArtifacts } from "./persistence.js";
 
 const DEFAULT_SEED = 42;
 const REQUIRED_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr", "winrate"];
+const FALLBACK_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr"];
 
 type StrategyParams = Record<string, unknown>;
 
@@ -99,7 +101,7 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
   const runId = makeRunId(request, seed);
   const artifactsRelative = `storage/runs/${runId}`;
   const runDirFilesystem = join(process.cwd(), "storage", "runs", runId);
-  const summary = buildSummary();
+  const summary = buildSummary(metrics, equityCurve);
   const diagnostics: EngineDiagnostics = {
     seed,
     processedBars,
@@ -185,11 +187,49 @@ const iterateSymbolBars = (
   return trades;
 };
 
-const buildSummary = (): Record<string, number> => ({
-  sharpe: 0,
-  max_dd: 0,
-  cagr: 0,
-});
+const buildSummary = (
+  metrics: ReadonlyArray<MetricKey>,
+  equityCurve: ReadonlyArray<EquityPoint>,
+): Record<string, number> => {
+  const results = calculateMetricsSummary(equityCurve);
+  const summary: Record<string, number> = {};
+
+  const metricSet = metrics.length > 0 ? metrics : FALLBACK_METRICS;
+
+  for (const metric of metricSet) {
+    switch (metric) {
+      case "sharpe":
+        summary.sharpe = results.sharpe;
+        break;
+      case "sortino":
+        summary.sortino = results.sortino;
+        break;
+      case "max_dd":
+        summary.max_dd = results.maxDrawdown;
+        break;
+      case "cagr":
+        summary.cagr = results.cagr;
+        break;
+      case "winrate":
+        summary.winrate = 0;
+        break;
+      default:
+        summary[metric] = 0;
+    }
+  }
+
+  if (!("sharpe" in summary)) {
+    summary.sharpe = results.sharpe;
+  }
+  if (!("max_dd" in summary)) {
+    summary.max_dd = results.maxDrawdown;
+  }
+  if (!("cagr" in summary)) {
+    summary.cagr = results.cagr;
+  }
+
+  return summary;
+};
 
 const dedupeBars = (bars: ReadonlyArray<Bar>): Bar[] => {
   const map = new Map<string, Bar>();

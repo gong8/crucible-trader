@@ -4,8 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "dev": "ts-node --esm src/index.ts",
-    "start": "node dist/index.js"
+    "build": "tsc -p .",
+    "test": "node --loader ts-node/esm --test test/metrics.test.ts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./src": "./src/index.ts"
   }
 }
