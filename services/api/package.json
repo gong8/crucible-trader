@@ -4,8 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsc -p .",
     "dev": "ts-node --esm src/index.ts",
     "start": "node dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./src": "./src/index.ts"
+  },
+  "dependencies": {
+    "@crucible-trader/sdk": "workspace:*",
+    "fastify": "^5.6.1"
   }
 }
