@@ -42,7 +42,11 @@ importers:
 
   apps/web: {}
 
-  packages/data: {}
+  packages/data:
+    dependencies:
+      '@crucible-trader/sdk':
+        specifier: workspace:*
+        version: link:../sdk
 
   packages/engine:
     dependencies:
