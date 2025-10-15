@@ -16,10 +16,20 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./src": "./src/index.ts"
+    "./src": "./src/index.ts",
+    "./queue": {
+      "types": "./dist/queue.d.ts",
+      "import": "./dist/queue.js",
+      "default": "./dist/queue.js"
+    }
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",
     "fastify": "^5.6.1"
+  },
+  "typesVersions": {
+    "*": {
+      "queue": ["src/queue.ts"]
+    }
   }
 }

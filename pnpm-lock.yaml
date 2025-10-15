@@ -78,7 +78,14 @@ importers:
         specifier: ^5.6.1
         version: 5.6.1
 
-  services/backtest-worker: {}
+  services/backtest-worker:
+    dependencies:
+      '@crucible-trader/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@crucible-trader/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
 
 packages:
 
