@@ -222,3 +222,6 @@ export const Schemas = {
   BacktestResult: BacktestResultSchema,
   RiskProfile: RiskProfileSchema,
 };
+
+export * from "./strategies/types.js";
+export * as strategies from "./strategies/index.js";
