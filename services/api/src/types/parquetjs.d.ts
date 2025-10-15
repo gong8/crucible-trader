@@ -19,3 +19,15 @@ declare module "parquetjs" {
     next(): Promise<Record<string, unknown> | null>;
   }
 }
+
+declare module "parquetjs/parquet.js" {
+  export class ParquetReader {
+    static openFile(path: string): Promise<ParquetReader>;
+    getCursor(columns?: string[]): ParquetCursor;
+    close(): Promise<void>;
+  }
+
+  export interface ParquetCursor {
+    next(): Promise<Record<string, unknown> | null>;
+  }
+}

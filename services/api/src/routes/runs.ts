@@ -11,8 +11,10 @@ import {
   type BacktestResult,
 } from "@crucible-trader/sdk";
 import { runBacktest } from "@crucible-trader/engine";
-import parquetjs from "parquetjs";
-const { ParquetReader } = parquetjs;
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const { ParquetReader } = require("parquetjs/parquet.js");
 
 interface RunsRouteDeps {
   readonly saveResult: (result: BacktestResult) => void;
