@@ -1,5 +1,4 @@
 packages:
-  - "apps/web"
-  - "services/api"
-  - "services/backtest-worker"
+  - "apps/*"
+  - "services/*"
   - "packages/*"

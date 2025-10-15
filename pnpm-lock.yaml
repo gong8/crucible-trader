@@ -80,6 +80,9 @@ importers:
 
   services/backtest-worker:
     dependencies:
+      '@crucible-trader/api':
+        specifier: workspace:*
+        version: link:../api
       '@crucible-trader/engine':
         specifier: workspace:*
         version: link:../../packages/engine
