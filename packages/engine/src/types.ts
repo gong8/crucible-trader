@@ -30,6 +30,7 @@ export interface TradeFill {
   readonly quantity: number;
   readonly price: number;
   readonly timestamp: ISODate;
+  readonly pnl: number;
 }
 
 /**

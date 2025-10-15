@@ -5,8 +5,10 @@ import type {
   DataRequest,
 } from "@crucible-trader/sdk";
 import { CsvSource } from "@crucible-trader/data";
+import { join } from "node:path";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
+import { writeParquetArtifacts } from "./persistence.js";
 
 const DEFAULT_SEED = 42;
 const REQUIRED_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr", "winrate"];
@@ -84,16 +86,19 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
   const equityCurve: EquityPoint[] = [];
   const trades: TradeFill[] = [];
   let processedBars = 0;
+  const barsForArtifacts: Bar[] = [];
 
   for (const dataRequest of request.data) {
     const symbolBars = barsBySymbol[dataRequest.symbol] ?? [];
+    barsForArtifacts.push(...symbolBars);
     const symbolTrades = iterateSymbolBars(dataRequest, symbolBars, rng, equityCurve, request);
     trades.push(...symbolTrades);
     processedBars += symbolBars.length;
   }
 
   const runId = makeRunId(request, seed);
-  const artifactsBase = `storage/runs/${runId}`;
+  const artifactsRelative = `storage/runs/${runId}`;
+  const runDirFilesystem = join(process.cwd(), "storage", "runs", runId);
   const summary = buildSummary();
   const diagnostics: EngineDiagnostics = {
     seed,
@@ -103,14 +108,36 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
     requestedMetrics: metrics,
   };
 
-  // TODO[phase-0-next] Emit parquet and report artifacts when persistence layer is ready.
+  const dedupedBars = dedupeBars(barsForArtifacts);
+  await writeParquetArtifacts(runDirFilesystem, {
+    equity: equityCurve.map((point) => ({
+      time: point.timestamp,
+      equity: point.equity,
+    })),
+    trades: trades.map((trade) => ({
+      time: trade.timestamp,
+      side: trade.side,
+      qty: trade.quantity,
+      price: trade.price,
+      pnl: trade.pnl,
+    })),
+    bars: dedupedBars.map((bar) => ({
+      time: bar.timestamp,
+      open: bar.open,
+      high: bar.high,
+      low: bar.low,
+      close: bar.close,
+      volume: bar.volume,
+    })),
+  });
+
   return {
     runId,
     summary,
     artifacts: {
-      equityParquet: `${artifactsBase}/equity.parquet`,
-      tradesParquet: `${artifactsBase}/trades.parquet`,
-      barsParquet: `${artifactsBase}/bars.parquet`,
+      equityParquet: `${artifactsRelative}/equity.parquet`,
+      tradesParquet: `${artifactsRelative}/trades.parquet`,
+      barsParquet: `${artifactsRelative}/bars.parquet`,
     },
     diagnostics: {
       ...diagnostics,
@@ -150,6 +177,7 @@ const iterateSymbolBars = (
         quantity: 1,
         price: bar.close,
         timestamp: bar.timestamp,
+        pnl: 0,
       });
     }
   });
@@ -162,6 +190,14 @@ const buildSummary = (): Record<string, number> => ({
   max_dd: 0,
   cagr: 0,
 });
+
+const dedupeBars = (bars: ReadonlyArray<Bar>): Bar[] => {
+  const map = new Map<string, Bar>();
+  for (const bar of bars) {
+    map.set(bar.timestamp, bar);
+  }
+  return Array.from(map.values()).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+};
 
 const loadBarsBySymbol = async (req: BacktestRequest): Promise<BarsBySymbol> => {
   const bars: BarsBySymbol = extractFallbackBars(req);

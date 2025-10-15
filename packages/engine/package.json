@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@crucible-trader/data": "workspace:*",
-    "@crucible-trader/sdk": "workspace:*"
+    "@crucible-trader/sdk": "workspace:*",
+    "parquetjs": "^1.8.0"
   }
 }
