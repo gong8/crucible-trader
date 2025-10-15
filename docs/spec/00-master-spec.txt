@@ -1,0 +1,239 @@
+CRUCIBLE TRADER
+Phase 0 Specification — Core Architecture and Documentation Skeleton (v0.1)
+
+────────────────────────────────────────────
+	1.	CONCEPT AND PHILOSOPHY
+────────────────────────────────────────────
+Name Meaning
+A crucible is a container built to withstand immense heat and purify metal through fire.
+Crucible Trader applies the same idea to trading: raw strategies are tested under intense statistical heat until only robust alpha remains.
+
+Design Ethos
+– Trial by fire: every idea must survive rigorous testing.
+– Purity of code: modular, deterministic, composable.
+– Developer forge: built for builders and researchers.
+– Clarity through data: everything logged and transparent.
+
+────────────────────────────────────────────
+2. PROJECT OVERVIEW
+────────────────────────────────────────────
+Purpose
+	1.	Backtesting – simulate ideas on historical data.
+	2.	Statistical validation – detect overfitting via permutation and bootstrap tests.
+	3.	Live execution – deploy robust strategies with risk controls.
+
+Stack Summary
+Frontend: Next.js 14 + Tailwind + TradingView Lightweight Charts
+Backend API: Node.js (Fastify + TypeScript)
+Engine: TypeScript (event-driven core)
+Quant Service: C++ 20 + gRPC (Black-Scholes, Greeks, IV, Monte Carlo)
+Stats Pod: Python 3 + FastAPI + SciPy / Statsmodels
+Storage: Parquet + DuckDB + SQLite (local-first)
+Testing: Vitest / Catch2 / Pytest
+Docs: Markdown modules under /docs/spec (< 300 lines each)
+
+────────────────────────────────────────────
+3. CORE PRINCIPLES
+────────────────────────────────────────────
+– Modular components (data, strategy, engine, broker).
+– Local-first operation.
+– Deterministic runs with seeded RNG.
+– Extensible plug-in interfaces.
+– Comprehensive tests.
+– Readable and documented code.
+
+────────────────────────────────────────────
+4. ARCHITECTURE
+────────────────────────────────────────────
+System Flow
+UI → API → Worker → Quant C++ → Stats Pod → Storage
+
+Directories
+apps/web
+services/api
+services/backtest-worker
+services/quant-cpp
+services/stats-pod
+packages/engine
+packages/data
+packages/sdk
+packages/risk
+packages/metrics
+packages/report
+storage/runs, datasets, db
+docs/spec
+ops/proto, ops/scripts
+
+────────────────────────────────────────────
+5. CORE MODULES
+────────────────────────────────────────────
+Engine
+Deterministic simulation of bars and ticks. Handles orders, fees, and equity tracking. Outputs Parquet files and summary JSON.
+
+Data Connectors
+CsvSource (Phase 0)
+TiingoSource (Phase 1 default)
+PolygonSource (Phase 3 extension)
+
+Strategy Interface
+id, params, onInit, onBar, onStop.
+Built-ins: sma crossover, momentum, mean reversion, breakout.
+
+Risk Module
+Default limits (max daily loss 3%, max position 20%, order cap 10%, kill switch 5% drawdown, cooldown 15 min).
+Editable via UI and config files.
+
+Metrics and Report
+Sharpe, Sortino, Max Drawdown, CAGR, Win Rate.
+Generates Markdown report → HTML/PDF.
+
+Quant-CPP Service
+C++ gRPC service for pricing and Monte Carlo.
+Validated against analytical benchmarks.
+
+Stats-Pod (Python Phase 2)
+Endpoints for permtest, bootstrap, walkforward, SPA tests.
+Returns JSON p-values and charts.
+
+Storage Layer
+Parquet (time series), SQLite (metadata), DuckDB (query).
+
+Frontend (UI)
+Dark industrial look, monospaced fonts.
+Pages: /runs, /new-run, /datasets, /risk, /reports.
+Features: JSON spec panel, trade markers, LLM copy button.
+
+────────────────────────────────────────────
+6. API SUMMARY
+────────────────────────────────────────────
+POST /api/runs – start backtest
+GET /api/runs/:id – fetch result
+POST /api/datasets/fetch – download or cache data
+GET/POST /api/risk-profiles – manage risk settings
+
+────────────────────────────────────────────
+7. DATA MODEL (SQLITE)
+────────────────────────────────────────────
+runs(run_id pk, name, created_at, status, request_json, summary_json)
+artifacts(id pk, run_id fk, kind, path, checksum)
+datasets(id pk, source, symbol, timeframe, start, end, adjusted, path, checksum, rows, created_at)
+risk_profiles(id pk, name, json)
+
+────────────────────────────────────────────
+8. RUN MANIFEST (EXAMPLE)
+────────────────────────────────────────────
+runId: 2025-10-15T12-34-56Z_aapl_sma
+summary: sharpe 1.14, max_dd -0.22, cagr 0.17
+artifacts: equity.parquet, trades.parquet, bars.parquet, report.md
+engine: version 0.1.0, seed 42
+
+────────────────────────────────────────────
+9. TESTING PLAN
+────────────────────────────────────────────
+Unit – engine math and indicators
+Property – balance and position invariants
+Golden – csv → known metrics
+E2E – api roundtrip
+C++ – numerical precision (< 1e-6 error)
+Python – permutation null distribution
+Nightly soak tests for determinism.
+
+────────────────────────────────────────────
+10. DOCUMENTATION STRUCTURE
+────────────────────────────────────────────
+docs/spec/01-architecture.md
+docs/spec/02-engine.md
+docs/spec/03-data-connectors.md
+docs/spec/04-strategy-interface.md
+docs/spec/05-risk.md
+docs/spec/06-metrics.md
+docs/spec/07-api.md
+docs/spec/08-ui.md
+docs/spec/09-quant-cpp.md
+docs/spec/10-stats-pod.md
+docs/spec/99-glossary.md
+
+Each doc includes: Purpose, Inputs, Outputs, Invariants, Example, Test Checklist.
+
+────────────────────────────────────────────
+11. STYLE GUIDE
+────────────────────────────────────────────
+Lowercase filenames, camelCase functions, PascalCase classes.
+Commit format: scope: message.
+All exports require JSDoc.
+Structured JSON logs (runId, module, message).
+Configs: YAML for runs, JSON for system.
+
+────────────────────────────────────────────
+12. PHASE 0 DELIVERABLES
+────────────────────────────────────────────
+	1.	Monorepo scaffold (pnpm, eslint, prettier).
+	2.	Engine core + CSV data source + metrics.
+	3.	API and worker with SQLite storage.
+	4.	Four seed strategies with tests.
+	5.	Next.js UI (SMA demo).
+	6.	Quant-CPP stubs compile and test.
+	7.	Spec stubs for each module.
+	8.	Manifest generated for sample run.
+
+────────────────────────────────────────────
+13. FUTURE PHASES
+────────────────────────────────────────────
+	1.	Research Backtester – Phase 0 base.
+	2.	Statistical Testing – permutation and walk-forward.
+	3.	Live Trading MVP – paper broker and realtime feeds.
+	4.	Options and Quant Pack – advanced C++ pricing.
+	5.	Scaling and Orchestration – docker and CI.
+
+────────────────────────────────────────────
+14. SECURITY AND RISK
+────────────────────────────────────────────
+No API keys in repo.
+Kill-switch always enforced.
+Paper mode before live.
+All trades audited via manifest.
+
+────────────────────────────────────────────
+15. QUICKSTART DEMO
+────────────────────────────────────────────
+	1.	Place aapl_1d.csv in storage/datasets.
+	2.	Create example_run.yaml:
+ run:
+  name: “sma_aapl_trial”
+  data:
+  source: “csv”
+  symbol: “AAPL”
+  timeframe: “1d”
+  start: “2022-01-01”
+  end: “2024-12-31”
+  strategy: sma_crossover (20, 50)
+  initialCash: 100000
+  costs: feeBps 1, slippageBps 2
+	3.	Run backend: pnpm dev
+	4.	POST config and view chart + metrics.
+
+────────────────────────────────────────────
+16. IDENTITY AND BRANDING
+────────────────────────────────────────────
+Logo concept: stylised crucible emitting a digital spark.
+Tagline: trial by fire for trading ideas.
+Vibe: industrial, scientific, minimalist.
+Palette: graphite, ember orange, steel grey.
+
+────────────────────────────────────────────
+17. DOCUMENTATION EXPANSION (POST PHASE 0)
+────────────────────────────────────────────
+/docs/research – whitepapers and tests
+/docs/usage – developer guides
+/docs/adr – architecture decisions
+/docs/api-ref – generated schemas
+
+────────────────────────────────────────────
+18. CORE MANTRA
+────────────────────────────────────────────
+“Ideas enter raw – data refines them – only truth survives.”
+Crucible Trader is the forge where weak hypotheses melt and strong edges emerge.
+
+────────────────────────────────────────────
+END OF PHASE 0 SPEC – CRUCIBLE TRADER V0.1
+────────────────────────────────────────────
