@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import type { Strategy, StrategyBar, StrategyContext, StrategySignal } from "./types.js";
-import type { StrategyFactory } from "./types.js";
+import type { StrategyBar, StrategyContext, StrategySignal, StrategyFactory } from "./types.js";
 
 export const name = "momentum" as const;
 
@@ -27,8 +26,9 @@ export const factory: StrategyFactory<MomentumParams> = (params) => {
         return null;
       }
 
-      const priorClose = closes[closes.length - 1 - params.lookback];
-      if (priorClose === 0) {
+      const priorIndex = closes.length - 1 - params.lookback;
+      const priorClose = closes[priorIndex];
+      if (priorClose === undefined || priorClose === 0) {
         return null;
       }
       const change = (bar.close - priorClose) / priorClose;

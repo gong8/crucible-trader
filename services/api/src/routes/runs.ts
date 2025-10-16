@@ -11,6 +11,7 @@ import {
   type BacktestResult,
 } from "@crucible-trader/sdk";
 import { runBacktest } from "@crucible-trader/engine";
+import { createLogger } from "@crucible-trader/logger";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -47,6 +48,7 @@ interface ArtifactParams {
 const ROUTES_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = join(ROUTES_DIR, "..", "..", "..", "..");
 const RUNS_ROOT = join(REPO_ROOT, "storage", "runs");
+const logger = createLogger("services/api");
 
 export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): void => {
   app.get("/api/runs", async (_request, reply) => {
@@ -296,7 +298,11 @@ const normalizeResultRunId = async (
     await rename(oldDir, newDir);
   } catch (error) {
     // If rename fails (e.g., oldDir missing), log and continue with newDir
-    console.error("Failed to rename run directory", { oldDir, newDir, error });
+    logger.error("Failed to rename run directory", {
+      oldDir,
+      newDir,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const remapPath = (path: string): string => {

@@ -147,14 +147,15 @@ const useChartData = (result: BacktestResult | null): ChartData | null => {
   return data;
 };
 
-const createMockMarkers = (
-  equity: Array<{ time: number; value: number }>,
-): TradeMarker[] => {
+const createMockMarkers = (equity: Array<{ time: number; value: number }>): TradeMarker[] => {
   if (equity.length === 0) {
     return [];
   }
   const first = equity[0];
   const last = equity[equity.length - 1];
+  if (!first || !last) {
+    return [];
+  }
   return [
     { time: first.time, side: "buy", price: first.value },
     { time: last.time, side: "sell", price: last.value },
@@ -185,7 +186,10 @@ export default function RunDetailPage(): JSX.Element {
         <h1 className="section-title">run {params?.runId ?? ""}</h1>
         {result ? (
           <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-            metrics: {Object.entries(result.summary).map(([key, value]) => `${key}: ${value.toFixed?.(3) ?? value}`).join(", ")}
+            metrics:{" "}
+            {Object.entries(result.summary)
+              .map(([key, value]) => `${key}: ${value.toFixed?.(3) ?? value}`)
+              .join(", ")}
           </p>
         ) : null}
       </header>

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@crucible-trader/api": "workspace:*",
+    "@crucible-trader/logger": "workspace:*",
     "@crucible-trader/engine": "workspace:*",
     "@crucible-trader/sdk": "workspace:*"
   }

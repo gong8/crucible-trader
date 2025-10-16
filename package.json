@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "prepare": "husky",
     "dev": "concurrently \"pnpm --filter @crucible-trader/api dev\" \"pnpm --filter @crucible-trader/backtest-worker dev\" \"pnpm --filter @crucible-trader/web dev\"",
     "build": "pnpm -r build",
-    "lint": "eslint \"./apps/**/*.{ts,tsx}\" \"./services/**/*.{ts,tsx}\" \"./packages/**/*.{ts,tsx}\"",
+    "lint": "pnpm run lint:ensure-no-ts-ignore && eslint \"./apps/**/*.{ts,tsx}\" \"./services/**/*.{ts,tsx}\" \"./packages/**/*.{ts,tsx}\"",
+    "lint:ensure-no-ts-ignore": "node ops/scripts/check-no-ts-ignore.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
@@ -15,6 +17,8 @@
     "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.4",
     "prettier": "^3.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2"
@@ -26,5 +30,14 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "zod": "^3.23.8"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,cjs,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

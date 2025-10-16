@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import type { Strategy, StrategyBar, StrategyContext, StrategySignal } from "./types.js";
-import type { StrategyFactory } from "./types.js";
+import type { StrategyBar, StrategyContext, StrategySignal, StrategyFactory } from "./types.js";
 
 export const name = "mean_reversion" as const;
 
@@ -29,10 +28,11 @@ export const factory: StrategyFactory<MeanReversionParams> = (params) => {
 
       const window = closes.slice(-params.lookback);
       const average = window.reduce((acc, value) => acc + value, 0) / window.length;
-      const variance = window.reduce((acc, value) => {
-        const diff = value - average;
-        return acc + diff * diff;
-      }, 0) / window.length;
+      const variance =
+        window.reduce((acc, value) => {
+          const diff = value - average;
+          return acc + diff * diff;
+        }, 0) / window.length;
       const std = Math.sqrt(variance);
       if (std === 0) {
         return null;

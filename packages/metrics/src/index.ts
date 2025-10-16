@@ -14,7 +14,7 @@ export const calculateReturns = (points: ReadonlyArray<EquityPoint>): number[] =
   for (let i = 1; i < points.length; i += 1) {
     const prev = points[i - 1];
     const current = points[i];
-    if (prev.equity <= 0) {
+    if (!prev || !current || prev.equity <= 0) {
       continue;
     }
     returns.push((current.equity - prev.equity) / prev.equity);
@@ -35,17 +35,15 @@ const standardDeviation = (values: ReadonlyArray<number>): number => {
     return 0;
   }
   const avg = mean(values);
-  const variance = values.reduce((acc, value) => {
-    const diff = value - avg;
-    return acc + diff * diff;
-  }, 0) / values.length;
+  const variance =
+    values.reduce((acc, value) => {
+      const diff = value - avg;
+      return acc + diff * diff;
+    }, 0) / values.length;
   return Math.sqrt(variance);
 };
 
-export const calculateSharpe = (
-  points: ReadonlyArray<EquityPoint>,
-  riskFreeRate = 0,
-): number => {
+export const calculateSharpe = (points: ReadonlyArray<EquityPoint>, riskFreeRate = 0): number => {
   const returns = calculateReturns(points);
   if (returns.length === 0) {
     return 0;
@@ -56,13 +54,10 @@ export const calculateSharpe = (
   if (std === 0) {
     return 0;
   }
-  return avg / std * Math.sqrt(TRADING_DAYS_PER_YEAR);
+  return (avg / std) * Math.sqrt(TRADING_DAYS_PER_YEAR);
 };
 
-export const calculateSortino = (
-  points: ReadonlyArray<EquityPoint>,
-  riskFreeRate = 0,
-): number => {
+export const calculateSortino = (points: ReadonlyArray<EquityPoint>, riskFreeRate = 0): number => {
   const returns = calculateReturns(points);
   if (returns.length === 0) {
     return 0;
@@ -72,20 +67,25 @@ export const calculateSortino = (
   if (downside.length === 0) {
     return 0;
   }
-  const downsideVariance = downside.reduce((acc, value) => acc + value * value, 0) / downside.length;
+  const downsideVariance =
+    downside.reduce((acc, value) => acc + value * value, 0) / downside.length;
   const downsideStd = Math.sqrt(downsideVariance);
   if (downsideStd === 0) {
     return 0;
   }
   const avg = mean(excessReturns);
-  return avg / downsideStd * Math.sqrt(TRADING_DAYS_PER_YEAR);
+  return (avg / downsideStd) * Math.sqrt(TRADING_DAYS_PER_YEAR);
 };
 
 export const calculateMaxDrawdown = (points: ReadonlyArray<EquityPoint>): number => {
   if (points.length === 0) {
     return 0;
   }
-  let peak = points[0].equity;
+  const first = points[0];
+  if (!first) {
+    return 0;
+  }
+  let peak = first.equity;
   let maxDrawdown = 0;
   for (const point of points) {
     if (point.equity > peak) {
@@ -107,6 +107,9 @@ export const calculateCagr = (points: ReadonlyArray<EquityPoint>): number => {
   }
   const start = points[0];
   const end = points[points.length - 1];
+  if (!start || !end) {
+    return 0;
+  }
   if (start.equity <= 0 || end.equity <= 0) {
     return 0;
   }
@@ -129,9 +132,7 @@ export interface MetricSummary {
   readonly cagr: number;
 }
 
-export const calculateMetricsSummary = (
-  points: ReadonlyArray<EquityPoint>,
-): MetricSummary => ({
+export const calculateMetricsSummary = (points: ReadonlyArray<EquityPoint>): MetricSummary => ({
   sharpe: calculateSharpe(points),
   sortino: calculateSortino(points),
   maxDrawdown: calculateMaxDrawdown(points),

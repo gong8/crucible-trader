@@ -24,6 +24,7 @@
     }
   },
   "dependencies": {
+    "@crucible-trader/logger": "workspace:*",
     "@crucible-trader/sdk": "workspace:*",
     "@crucible-trader/engine": "workspace:*",
     "fastify": "^5.6.1",
@@ -31,7 +32,9 @@
   },
   "typesVersions": {
     "*": {
-      "queue": ["src/queue.ts"]
+      "queue": [
+        "src/queue.ts"
+      ]
     }
   }
 }

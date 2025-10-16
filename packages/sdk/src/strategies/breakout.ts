@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import type { Strategy, StrategyBar, StrategyContext, StrategySignal } from "./types.js";
-import type { StrategyFactory } from "./types.js";
+import type { StrategyBar, StrategyContext, StrategySignal, StrategyFactory } from "./types.js";
 
 export const name = "breakout" as const;
 
