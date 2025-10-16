@@ -18,12 +18,12 @@ const require = createRequire(import.meta.url);
 const { ParquetReader } = require("parquetjs/parquet.js");
 
 interface RunsRouteDeps {
-  readonly saveResult: (result: BacktestResult) => void;
+  readonly saveResult: (result: BacktestResult) => Promise<void>;
   readonly getResult: (runId: string) => BacktestResult | undefined;
   readonly generateRunId: (request: BacktestRequest) => string;
-  readonly listRuns: () => RunSummary[];
-  readonly markRunQueued: (summary: RunSummary) => void;
-  readonly markRunCompleted: (runId: string) => void;
+  readonly listRuns: () => Promise<RunSummary[]>;
+  readonly markRunQueued: (summary: RunSummary, request: BacktestRequest) => Promise<void>;
+  readonly markRunCompleted: (runId: string) => Promise<void>;
 }
 
 interface RunParams {
@@ -38,6 +38,7 @@ export interface RunSummary {
   readonly runId: string;
   readonly status: string;
   readonly createdAt: string;
+  readonly name?: string;
 }
 
 interface ArtifactParams {
@@ -52,11 +53,12 @@ const logger = createLogger("services/api");
 
 export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): void => {
   app.get("/api/runs", async (_request, reply) => {
+    const summaries = await deps.listRuns();
     const runs = await Promise.all(
-      deps.listRuns().map(async (run) => {
+      summaries.map(async (run) => {
         const manifest = await loadManifest(run.runId);
         if (manifest) {
-          deps.markRunCompleted(run.runId);
+          await deps.markRunCompleted(run.runId);
           return { ...run, status: "completed" } satisfies RunSummary;
         }
         return run;
@@ -74,18 +76,22 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       const payload = assertValid(BacktestRequestSchema, request.body, "BacktestRequest");
 
       const runId = deps.generateRunId(payload);
-      deps.markRunQueued({
-        runId,
-        status: "queued",
-        createdAt: new Date().toISOString(),
-      });
+      await deps.markRunQueued(
+        {
+          runId,
+          status: "queued",
+          createdAt: new Date().toISOString(),
+          name: payload.runName,
+        },
+        payload,
+      );
 
       try {
         const result = await runBacktest(payload);
         const finalResult = await normalizeResultRunId(result, runId);
         await writeManifest(finalResult);
-        deps.saveResult(finalResult);
-        deps.markRunCompleted(runId);
+        await deps.saveResult(finalResult);
+        await deps.markRunCompleted(runId);
         const response: RunCreatedResponse = { runId };
         return reply.code(201).send(response);
       } catch (error) {
@@ -106,8 +112,8 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       const manifestResult = await loadManifestResult(runId);
 
       if (manifestResult) {
-        deps.saveResult(manifestResult);
-        deps.markRunCompleted(runId);
+        await deps.saveResult(manifestResult);
+        await deps.markRunCompleted(runId);
         result = manifestResult;
       }
 

@@ -2,14 +2,15 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
 
+import { createApiDatabase } from "./db/index.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 
-type RunStore = Map<string, BacktestResult>;
+type ResultCache = Map<string, BacktestResult>;
 
 /**
- * Creates the Fastify server and wires routes with in-memory dependencies.
+ * Creates the Fastify server and wires routes with SQLite-backed dependencies.
  */
-export const createFastifyServer = (): FastifyInstance => {
+export const createFastifyServer = async (): Promise<FastifyInstance> => {
   const app = Fastify({
     logger: false,
   });
@@ -35,42 +36,47 @@ export const createFastifyServer = (): FastifyInstance => {
       .send();
   });
 
-  const runStore: RunStore = new Map();
-  const runSummaries: Map<string, RunSummary> = new Map();
+  const database = await createApiDatabase();
+  const resultCache: ResultCache = new Map();
 
-  const saveResult = (result: BacktestResult): void => {
-    runStore.set(result.runId, result);
-    const existing = runSummaries.get(result.runId);
-    runSummaries.set(result.runId, {
-      runId: result.runId,
-      status: "completed",
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
-    });
+  const saveResult = async (result: BacktestResult): Promise<void> => {
+    resultCache.set(result.runId, result);
+    await database.saveRunResult(result);
   };
 
   const getResult = (runId: string): BacktestResult | undefined => {
-    return runStore.get(runId);
+    return resultCache.get(runId);
   };
 
-  const listRuns = (): RunSummary[] => {
-    return Array.from(runSummaries.values()).sort((a, b) =>
-      a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
-    );
+  const listRuns = async (): Promise<RunSummary[]> => {
+    const rows = await database.listRuns();
+    return rows.map((row) => ({
+      runId: row.runId,
+      name: row.name ?? undefined,
+      status: row.status,
+      createdAt: row.createdAt,
+    }));
   };
 
-  const markRunQueued = (summary: RunSummary): void => {
-    runSummaries.set(summary.runId, summary);
+  const markRunQueued = async (summary: RunSummary, request: BacktestRequest): Promise<void> => {
+    await database.insertRun({
+      runId: summary.runId,
+      name: request.runName,
+      createdAt: summary.createdAt,
+      status: summary.status,
+      requestJson: JSON.stringify(request),
+    });
   };
 
-  const markRunCompleted = (runId: string): void => {
-    const current = runSummaries.get(runId);
-    if (current) {
-      runSummaries.set(runId, { ...current, status: "completed" });
-    }
+  const markRunCompleted = async (runId: string): Promise<void> => {
+    await database.updateRunStatus(runId, "completed");
   };
 
   const generateRunId = (request: BacktestRequest): string => {
-    const base = request.runName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const base = request.runName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
     const slug = base.replace(/^-+|-+$/g, "");
     const suffix = Date.now().toString(36);
     return slug.length > 0 ? `${slug}-${suffix}` : `run-${suffix}`;
@@ -85,7 +91,9 @@ export const createFastifyServer = (): FastifyInstance => {
     markRunCompleted,
   });
 
-  // TODO[phase-0-next]: persist runStore and requestStore to SQLite runs table.
+  app.addHook("onClose", async () => {
+    await database.close();
+  });
 
   return app;
 };
