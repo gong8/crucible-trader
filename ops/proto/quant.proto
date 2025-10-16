@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package crucible.quant;
+
+option java_package = "io.crucible.quant";
+option csharp_namespace = "Crucible.Quant";
+
+message OptionSpecification {
+  double spot = 1;
+  double strike = 2;
+  double rate = 3;
+  double volatility = 4;
+  double time_to_maturity = 5;
+  double dividend = 6;
+  bool is_call = 7;
+}
+
+message PriceRequest {
+  OptionSpecification option = 1;
+}
+
+message PriceResponse {
+  double price = 1;
+}
+
+message GreeksResponse {
+  double price = 1;
+  double delta = 2;
+  double gamma = 3;
+  double vega = 4;
+  double theta = 5;
+  double rho = 6;
+}
+
+message ImpliedVolRequest {
+  OptionSpecification option = 1;
+  double target_price = 2;
+}
+
+message ImpliedVolResponse {
+  double implied_volatility = 1;
+  bool converged = 2;
+  uint32 iterations = 3;
+}
+
+message MonteCarloRequest {
+  OptionSpecification option = 1;
+  uint32 paths = 2;
+  uint32 seed = 3;
+}
+
+message MonteCarloResponse {
+  double price = 1;
+  double standard_error = 2;
+}
+
+service QuantService {
+  rpc Price(PriceRequest) returns (PriceResponse);
+  rpc Greeks(PriceRequest) returns (GreeksResponse);
+  rpc ImpliedVol(ImpliedVolRequest) returns (ImpliedVolResponse);
+  rpc MonteCarlo(MonteCarloRequest) returns (MonteCarloResponse);
+}
