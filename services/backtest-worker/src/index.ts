@@ -19,6 +19,11 @@ interface Manifest {
     readonly version: string;
     readonly seed: number;
   };
+  readonly metadata: {
+    readonly name?: string;
+    readonly createdAt: string;
+    readonly status: string;
+  };
 }
 
 const logger = createLogger("services/backtest-worker");
@@ -29,7 +34,14 @@ const ensureDirectory = async (...parts: string[]): Promise<string> => {
   return dir;
 };
 
-const writeManifest = async (result: BacktestResult): Promise<void> => {
+const writeManifest = async (
+  result: BacktestResult,
+  metadata?: {
+    readonly name?: string;
+    readonly createdAt?: string;
+    readonly status?: string;
+  },
+): Promise<void> => {
   const runDir = await ensureDirectory(RUNS_DIR, result.runId);
   const manifest: Manifest = {
     runId: result.runId,
@@ -41,6 +53,11 @@ const writeManifest = async (result: BacktestResult): Promise<void> => {
     engine: {
       version: "0.0.1",
       seed: (result.diagnostics?.seed as number) ?? 42,
+    },
+    metadata: {
+      name: metadata?.name,
+      createdAt: metadata?.createdAt ?? new Date().toISOString(),
+      status: metadata?.status ?? "completed",
     },
   };
 
@@ -57,7 +74,11 @@ const handleJob = async (job: QueueJob): Promise<void> => {
 
   try {
     const result = await runBacktest(job.request);
-    await writeManifest(result);
+    await writeManifest(result, {
+      name: job.request.runName,
+      createdAt: new Date().toISOString(),
+      status: "completed",
+    });
     logger.info("Manifest written", { runId: job.runId });
   } catch (error) {
     logger.error("Failed to process run", {

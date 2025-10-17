@@ -166,6 +166,18 @@ export class ApiDatabase {
     );
   }
 
+  public async reset(): Promise<void> {
+    await this.db.exec("begin immediate transaction");
+    try {
+      await this.db.exec("delete from artifacts;");
+      await this.db.exec("delete from runs;");
+      await this.db.exec("commit");
+    } catch (error) {
+      await this.db.exec("rollback");
+      throw error;
+    }
+  }
+
   public async close(): Promise<void> {
     await this.db.close();
   }

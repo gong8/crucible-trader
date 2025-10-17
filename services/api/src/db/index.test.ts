@@ -83,3 +83,39 @@ test("saveRunResult stores summary and artifacts for later retrieval", async (t)
   assert(report);
   assert.equal(report?.path, "storage/runs/run-2/report.md");
 });
+
+test("reset clears runs and artifacts tables", async (t) => {
+  const createApiDatabase = await loadDatabase();
+  const db = await createApiDatabase({ filename: ":memory:" });
+  t.after(async () => {
+    await db.close();
+  });
+
+  const createdAt = new Date().toISOString();
+  await db.insertRun({
+    runId: "run-3",
+    name: "Resettable Run",
+    createdAt,
+    status: "queued",
+    requestJson: JSON.stringify({ runName: "Resettable Run" }),
+  });
+
+  await db.saveRunResult({
+    runId: "run-3",
+    summary: { sharpe: 1.0 },
+    artifacts: {
+      equityParquet: "storage/runs/run-3/equity.parquet",
+      tradesParquet: "storage/runs/run-3/trades.parquet",
+      barsParquet: "storage/runs/run-3/bars.parquet",
+    },
+    diagnostics: {},
+  });
+
+  await db.reset();
+
+  const runs = await db.listRuns();
+  assert.equal(runs.length, 0);
+
+  const artifacts = await db.getArtifacts("run-3");
+  assert.equal(artifacts.length, 0);
+});

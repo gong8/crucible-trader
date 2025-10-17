@@ -72,6 +72,11 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     await database.updateRunStatus(runId, "completed");
   };
 
+  const resetRuns = async (): Promise<void> => {
+    resultCache.clear();
+    await database.reset();
+  };
+
   const generateRunId = (request: BacktestRequest): string => {
     const base = request.runName
       .trim()
@@ -89,6 +94,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     listRuns,
     markRunQueued,
     markRunCompleted,
+    resetRuns,
   });
 
   app.addHook("onClose", async () => {

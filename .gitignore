@@ -11,9 +11,11 @@ storage/datasets/
 storage/db/
 storage/**/*.parquet
 storage/**/*.json
+storage/api.sqlite
+storage/api.sqlite-*
 /_prompts/
 *.prompt.txt
 .vscode/
 .idea/
 .DS_Store
-agent.md
+Agents.md
