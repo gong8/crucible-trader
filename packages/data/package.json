@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p .",
-    "test": "node --loader ts-node/esm --test test/**/*.test.ts"
+    "test": "node --loader ts-node/esm --test test/csv-source.test.ts test/data-sources-errors.test.ts test/http-client.test.ts test/internal-utils.test.ts test/polygon-source.test.ts test/tiingo-source.test.ts"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
