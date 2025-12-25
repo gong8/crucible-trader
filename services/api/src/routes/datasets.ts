@@ -1,10 +1,18 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, normalize } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import type { DatasetRecord } from "../db/index.js";
+import type { DataRequest, DataSource, Timeframe } from "@crucible-trader/sdk";
+import {
+  DATASET_RELATIVE_ROOT,
+  DATASETS_DIR,
+  buildDatasetFilename,
+  extractCsvMetadata,
+  fetchDatasetWithFallback,
+  type RemoteSource,
+} from "./data-fetchers.js";
 
 interface DatasetRouteDeps {
   readonly listDatasets: () => Promise<DatasetRecord[]>;
@@ -23,15 +31,13 @@ interface DatasetRouteDeps {
 }
 
 interface DatasetFetchBody {
-  readonly source: "csv";
+  readonly source: DataSource;
   readonly symbol: string;
-  readonly timeframe: string;
+  readonly timeframe: Timeframe;
+  readonly start?: string;
+  readonly end?: string;
   readonly adjusted?: boolean;
 }
-
-const ROUTES_DIR = fileURLToPath(new URL(".", import.meta.url));
-const REPO_ROOT = join(ROUTES_DIR, "..", "..", "..", "..");
-const DATASETS_DIR = join(REPO_ROOT, "storage", "datasets");
 
 export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDeps): void => {
   app.get("/api/datasets", async (_request, reply) => {
@@ -65,91 +71,235 @@ export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDe
         const message = error instanceof Error ? error.message : "invalid dataset fetch payload";
         return reply.code(400).send({ message });
       }
-      const filename = `${slugify(payload.symbol)}_${slugify(payload.timeframe)}.csv`;
+      const filename = buildDatasetFilename(payload.symbol, payload.timeframe);
       const datasetPath = join(DATASETS_DIR, filename);
+      const exists = await fileExists(datasetPath);
 
-      try {
-        await stat(datasetPath);
-      } catch {
-        return reply.code(404).send({ message: `Dataset ${filename} not found` });
+      if (payload.source === "csv") {
+        return handleCsvDatasetRequest({
+          datasetPath,
+          filename,
+          payload,
+          deps,
+          reply,
+        });
       }
 
-      try {
-        const content = await readFile(datasetPath, { encoding: "utf-8" });
-        const metadata = extractCsvMetadata(content);
-        const relativePath = normalize(join("storage", "datasets", filename));
-        await deps.saveDataset({
-          source: payload.source,
-          symbol: payload.symbol,
-          timeframe: payload.timeframe,
-          start: metadata.start,
-          end: metadata.end,
-          adjusted: payload.adjusted ?? false,
-          path: relativePath,
-          checksum: null,
-          rows: metadata.rows,
-          createdAt: new Date().toISOString(),
+      if (exists) {
+        const recordedSource =
+          (await findExistingDatasetSource(deps, payload.symbol, payload.timeframe)) ??
+          (payload.source === "auto" ? "csv" : payload.source);
+        return registerExistingDataset({
+          datasetPath,
+          filename,
+          payload,
+          deps,
+          reply,
+          recordedSource,
         });
-        return reply.send({
-          symbol: payload.symbol,
-          timeframe: payload.timeframe,
-          rows: metadata.rows,
-          start: metadata.start,
-          end: metadata.end,
-          path: relativePath,
-        });
-      } catch (error) {
-        request.log.error({ err: error }, "dataset fetch failed");
-        return reply.code(500).send({ message: "Dataset fetch failed" });
       }
+
+      const preferredSources: RemoteSource[] =
+        payload.source === "auto" ? ["tiingo", "polygon"] : [payload.source as RemoteSource];
+
+      return handleRemoteDatasetRequest({
+        datasetPath,
+        filename,
+        payload,
+        deps,
+        reply,
+        request,
+        preferredSources,
+      });
     },
   );
 };
+
+const SUPPORTED_SOURCES: ReadonlyArray<DataSource> = ["auto", "csv", "tiingo", "polygon"];
+const SUPPORTED_TIMEFRAMES: ReadonlyArray<Timeframe> = ["1d", "1h", "15m", "1m"];
 
 const validateFetchPayload = (body: DatasetFetchBody | undefined): DatasetFetchBody => {
   if (!body || typeof body !== "object") {
     throw new Error("invalid payload");
   }
-  if (body.source !== "csv") {
-    throw new Error("only csv source supported in phase 0");
+  if (!SUPPORTED_SOURCES.includes(body.source)) {
+    throw new Error("unsupported data source");
   }
   if (typeof body.symbol !== "string" || body.symbol.trim().length === 0) {
     throw new Error("symbol is required");
   }
-  if (typeof body.timeframe !== "string" || body.timeframe.trim().length === 0) {
-    throw new Error("timeframe is required");
+  if (!SUPPORTED_TIMEFRAMES.includes(body.timeframe)) {
+    throw new Error("invalid timeframe");
+  }
+  if (body.source !== "csv") {
+    if (typeof body.start !== "string" || body.start.trim().length === 0) {
+      throw new Error("start date is required for remote sources");
+    }
+    if (typeof body.end !== "string" || body.end.trim().length === 0) {
+      throw new Error("end date is required for remote sources");
+    }
   }
   return {
-    source: "csv",
+    source: body.source,
     symbol: body.symbol.trim(),
-    timeframe: body.timeframe.trim(),
+    timeframe: body.timeframe,
+    start: body.start?.trim(),
+    end: body.end?.trim(),
     adjusted: body.adjusted ?? true,
   };
 };
 
-const extractCsvMetadata = (
-  content: string,
-): { readonly start: string | null; readonly end: string | null; readonly rows: number } => {
-  const lines = content
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length <= 1) {
-    return { start: null, end: null, rows: 0 };
+const handleCsvDatasetRequest = async ({
+  datasetPath,
+  filename,
+  payload,
+  deps,
+  reply,
+}: {
+  readonly datasetPath: string;
+  readonly filename: string;
+  readonly payload: DatasetFetchBody;
+  readonly deps: DatasetRouteDeps;
+  readonly reply: FastifyReply;
+}): Promise<FastifyReply> => {
+  if (!(await fileExists(datasetPath))) {
+    return reply.code(404).send({ message: `Dataset ${filename} not found` });
   }
-  const rows = lines.slice(1);
-  const first = rows[0]?.split(",")[0]?.trim() ?? null;
-  const last = rows[rows.length - 1]?.split(",")[0]?.trim() ?? null;
-  return {
-    start: first,
-    end: last,
-    rows: rows.length,
-  };
+
+  return registerExistingDataset({
+    datasetPath,
+    filename,
+    payload,
+    deps,
+    reply,
+    recordedSource: "csv",
+  });
 };
 
-const slugify = (value: string): string => {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, "_")
-    .replace(/^_+|_+$/gu, "");
+const handleRemoteDatasetRequest = async ({
+  datasetPath,
+  filename,
+  payload,
+  deps,
+  reply,
+  request,
+  preferredSources,
+}: {
+  readonly datasetPath: string;
+  readonly filename: string;
+  readonly payload: DatasetFetchBody;
+  readonly deps: DatasetRouteDeps;
+  readonly reply: FastifyReply;
+  readonly request: FastifyRequest;
+  readonly preferredSources: ReadonlyArray<RemoteSource>;
+}): Promise<FastifyReply> => {
+  const dataRequest: DataRequest = {
+    source: payload.source,
+    symbol: payload.symbol,
+    timeframe: payload.timeframe,
+    start: payload.start as string,
+    end: payload.end as string,
+    adjusted: payload.adjusted,
+  };
+
+  try {
+    const result = await fetchDatasetWithFallback({
+      preferredSources,
+      request: dataRequest,
+      datasetPath,
+    });
+
+    const relativePath = normalize(join(DATASET_RELATIVE_ROOT, filename));
+    await deps.saveDataset({
+      source: result.source,
+      symbol: payload.symbol,
+      timeframe: payload.timeframe,
+      start: result.start,
+      end: result.end,
+      adjusted: payload.adjusted ?? true,
+      path: relativePath,
+      checksum: null,
+      rows: result.rows,
+      createdAt: new Date().toISOString(),
+    });
+
+    return reply.send({
+      symbol: payload.symbol,
+      timeframe: payload.timeframe,
+      rows: result.rows,
+      start: result.start,
+      end: result.end,
+      path: relativePath,
+      source: result.source,
+    });
+  } catch (error) {
+    request.log.error({ err: error }, "remote dataset fetch failed");
+    const message = error instanceof Error ? error.message : "Remote dataset fetch failed";
+    return reply.code(500).send({ message });
+  }
+};
+
+const registerExistingDataset = async ({
+  datasetPath,
+  filename,
+  payload,
+  deps,
+  reply,
+  recordedSource,
+}: {
+  readonly datasetPath: string;
+  readonly filename: string;
+  readonly payload: DatasetFetchBody;
+  readonly deps: DatasetRouteDeps;
+  readonly reply: FastifyReply;
+  readonly recordedSource: string;
+}): Promise<FastifyReply> => {
+  try {
+    const content = await readFile(datasetPath, { encoding: "utf-8" });
+    const metadata = extractCsvMetadata(content);
+    const relativePath = normalize(join(DATASET_RELATIVE_ROOT, filename));
+    await deps.saveDataset({
+      source: recordedSource,
+      symbol: payload.symbol,
+      timeframe: payload.timeframe,
+      start: metadata.start,
+      end: metadata.end,
+      adjusted: payload.adjusted ?? true,
+      path: relativePath,
+      checksum: null,
+      rows: metadata.rows,
+      createdAt: new Date().toISOString(),
+    });
+    return reply.send({
+      symbol: payload.symbol,
+      timeframe: payload.timeframe,
+      rows: metadata.rows,
+      start: metadata.start,
+      end: metadata.end,
+      path: relativePath,
+      source: recordedSource,
+    });
+  } catch (error) {
+    reply.log.error({ err: error }, "failed to register existing dataset");
+    return reply.code(500).send({ message: "Dataset registration failed" });
+  }
+};
+
+const fileExists = async (filePath: string): Promise<boolean> => {
+  try {
+    await stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const findExistingDatasetSource = async (
+  deps: DatasetRouteDeps,
+  symbol: string,
+  timeframe: string,
+): Promise<string | null> => {
+  const rows = await deps.listDatasets();
+  const match = rows.find((row) => row.symbol === symbol && row.timeframe === timeframe);
+  return match?.source ?? null;
 };

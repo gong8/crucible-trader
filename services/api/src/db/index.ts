@@ -240,12 +240,10 @@ export class ApiDatabase {
     const existing = await this.db.get<{ id: number }>(
       `select id
          from datasets
-        where source = :source
-          and symbol = :symbol
+        where symbol = :symbol
           and timeframe = :timeframe
      limit 1`,
       {
-        ":source": args.source,
         ":symbol": args.symbol,
         ":timeframe": args.timeframe,
       },
@@ -267,7 +265,8 @@ export class ApiDatabase {
     if (existing?.id) {
       await this.db.run(
         `update datasets
-            set start = :start,
+            set source = :source,
+                start = :start,
                 end = :end,
                 adjusted = :adjusted,
                 path = :path,

@@ -18,7 +18,7 @@ const metricOptions: MetricKey[] = [
   "profit_factor",
 ];
 const timeframeOptions: Timeframe[] = ["1d", "1h", "15m", "1m"];
-const dataSources: DataSource[] = ["csv", "tiingo", "polygon"];
+const dataSources: DataSource[] = ["auto", "csv", "tiingo", "polygon"];
 
 // Strategy presets with default parameters
 const strategyPresets = {
@@ -57,7 +57,7 @@ interface SubmissionState {
 
 export default function NewRunPage(): JSX.Element {
   const [runName, setRunName] = useState("sma_aapl_trial");
-  const [dataSource, setDataSource] = useState<DataSource>("csv");
+  const [dataSource, setDataSource] = useState<DataSource>("auto");
   const [symbol, setSymbol] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [start, setStart] = useState("2022-01-01");
@@ -172,17 +172,30 @@ export default function NewRunPage(): JSX.Element {
       });
 
       if (!response.ok) {
-        const body = await response.text();
-        throw new Error(body || `status ${response.status}`);
+        let message = `run submission failed (status ${response.status})`;
+        try {
+          const body = (await response.json()) as { message?: string };
+          if (body?.message) {
+            message = body.message;
+          }
+        } catch {
+          const text = await response.text();
+          if (text.trim().length > 0) {
+            message = text;
+          }
+        }
+        throw new Error(message);
       }
 
       const payload = (await response.json()) as { runId: string };
       setSubmission({ status: "success", message: "run launched", runId: payload.runId });
     } catch (err) {
       console.error("run submission failed", err);
+      const message =
+        err instanceof Error ? err.message : "failed to launch run. inspect console for details.";
       setSubmission({
         status: "error",
-        message: "failed to launch run. inspect console for details.",
+        message,
       });
     }
   };

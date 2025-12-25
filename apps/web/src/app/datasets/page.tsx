@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { apiRoute } from "../../lib/api";
+import type { DataSource, Timeframe } from "@crucible-trader/sdk";
 
 interface DatasetRecord {
   readonly id: number;
@@ -20,7 +21,11 @@ interface DatasetRecord {
 export default function DatasetsPage(): JSX.Element {
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
   const [symbol, setSymbol] = useState("AAPL");
-  const [timeframe, setTimeframe] = useState("1d");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const [source, setSource] = useState<DataSource>("auto");
+  const [start, setStart] = useState("2022-01-01");
+  const [end, setEnd] = useState("2024-12-31");
+  const [adjusted, setAdjusted] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
 
   const loadDatasets = useCallback(async () => {
@@ -43,16 +48,18 @@ export default function DatasetsPage(): JSX.Element {
   }, [loadDatasets]);
 
   const handleFetch = async (): Promise<void> => {
-    setStatus("registering dataset…");
+    setStatus(source === "csv" ? "registering local dataset…" : "fetching remote dataset…");
     try {
       const response = await fetch(apiRoute("/api/datasets/fetch"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "csv",
+          source,
           symbol,
           timeframe,
-          adjusted: true,
+          start,
+          end,
+          adjusted,
         }),
         credentials: "include",
       });
@@ -72,7 +79,11 @@ export default function DatasetsPage(): JSX.Element {
       <header className="grid" style={{ gap: "0.5rem" }}>
         <h1 className="section-title">datasets</h1>
         <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-          register local CSV files for the engine to consume.
+          auto mode will reuse cached CSVs or fall back to Tiingo/Polygon as needed.
+        </p>
+        <p style={{ color: "#cbd5f5", fontSize: "0.8rem" }}>
+          Tip: set <code>TIINGO_API_KEY</code> / <code>POLYGON_API_KEY</code> in <code>.env</code>{" "}
+          when fetching remote datasets.
         </p>
       </header>
 
@@ -84,7 +95,10 @@ export default function DatasetsPage(): JSX.Element {
           </label>
           <label style={{ flex: 1 }}>
             timeframe
-            <select value={timeframe} onChange={(event) => setTimeframe(event.currentTarget.value)}>
+            <select
+              value={timeframe}
+              onChange={(event) => setTimeframe(event.currentTarget.value as Timeframe)}
+            >
               <option value="1d">1d</option>
               <option value="1h">1h</option>
               <option value="15m">15m</option>
@@ -92,6 +106,50 @@ export default function DatasetsPage(): JSX.Element {
             </select>
           </label>
         </div>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <label style={{ flex: 1 }}>
+            source
+            <select
+              value={source}
+              onChange={(event) => setSource(event.currentTarget.value as DataSource)}
+            >
+              <option value="auto">auto (prefer cached)</option>
+              <option value="csv">csv (local file)</option>
+              <option value="tiingo">tiingo (EOD)</option>
+              <option value="polygon">polygon (intraday)</option>
+            </select>
+          </label>
+          <label style={{ flex: 1 }}>
+            adjusted prices
+            <select
+              value={adjusted ? "true" : "false"}
+              onChange={(event) => setAdjusted(event.currentTarget.value === "true")}
+            >
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+        </div>
+        {source !== "csv" ? (
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <label style={{ flex: 1 }}>
+              start date
+              <input
+                type="date"
+                value={start}
+                onChange={(event) => setStart(event.currentTarget.value)}
+              />
+            </label>
+            <label style={{ flex: 1 }}>
+              end date
+              <input
+                type="date"
+                value={end}
+                onChange={(event) => setEnd(event.currentTarget.value)}
+              />
+            </label>
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -124,10 +182,13 @@ export default function DatasetsPage(): JSX.Element {
                   alignItems: "center",
                 }}
               >
-                <strong>
-                  {dataset.symbol} · {dataset.timeframe}
-                </strong>
-                <span style={{ color: "#38bdf8" }}>{dataset.rows} rows</span>
+                <div style={{ display: "grid" }}>
+                  <strong>
+                    {dataset.symbol} · {dataset.timeframe}
+                  </strong>
+                  <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{dataset.source}</span>
+                </div>
+                <span style={{ color: "#38bdf8", fontSize: "0.9rem" }}>{dataset.rows} rows</span>
               </header>
               <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.5rem" }}>
                 {dataset.start ?? "unknown"} → {dataset.end ?? "unknown"}

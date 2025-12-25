@@ -1,6 +1,12 @@
+import { config as loadEnv } from "dotenv";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
+const REPO_ROOT = join(MODULE_DIR, "..", "..", "..");
+loadEnv({ path: join(REPO_ROOT, ".env") });
+loadEnv();
 
 import type { BacktestResult } from "@crucible-trader/sdk";
 
@@ -11,7 +17,6 @@ import { createApiDatabase } from "@crucible-trader/api/db";
 // Import from compiled dist since workspace module resolution has issues
 import { JobQueue, type QueueJob } from "../../api/dist/queue.js";
 
-const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const RUNS_DIR = join(MODULE_DIR, "..", "..", "..", "storage", "runs");
 
 interface Manifest {

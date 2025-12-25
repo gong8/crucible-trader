@@ -8,7 +8,7 @@ import { z } from "zod";
  *  -------------------------------------------------------------------- */
 
 /** Represents supported data vendors for time series ingestion. */
-export type DataSource = "csv" | "tiingo" | "polygon";
+export type DataSource = "auto" | "csv" | "tiingo" | "polygon";
 
 /** Allowed bar intervals for Phase 0/1 usage. Extend in later phases. */
 export type Timeframe = "1d" | "1h" | "15m" | "1m";
@@ -53,7 +53,7 @@ export interface DataRequest {
 
 /** Runtime validator for {@link DataRequest}. */
 export const DataRequestSchema = z.object({
-  source: z.enum(["csv", "tiingo", "polygon"]),
+  source: z.enum(["auto", "csv", "tiingo", "polygon"]),
   symbol: z.string().min(1),
   timeframe: z.enum(["1d", "1h", "15m", "1m"]),
   start: z.string().min(1),

@@ -14,6 +14,7 @@ import {
 import { createLogger } from "@crucible-trader/logger";
 import { createRequire } from "node:module";
 import type { JobQueue } from "../queue.js";
+import { ensureDatasetsForRequest } from "./dataset-ensurer.js";
 import type { RunRecord } from "../db/index.js";
 
 const require = createRequire(import.meta.url);
@@ -29,6 +30,18 @@ interface RunsRouteDeps {
   readonly markRunCompleted: (runId: string) => Promise<void>;
   readonly resetRuns: () => Promise<void>;
   readonly getRiskProfile: (profileId: string) => Promise<RiskProfile | undefined>;
+  readonly saveDataset: (record: {
+    source: string;
+    symbol: string;
+    timeframe: string;
+    start?: string | null;
+    end?: string | null;
+    adjusted?: boolean;
+    path: string;
+    checksum?: string | null;
+    rows: number;
+    createdAt: string;
+  }) => Promise<void>;
   readonly queue: JobQueue;
 }
 
@@ -104,7 +117,6 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
         createdAt: new Date().toISOString(),
         name: payload.runName,
       };
-      await deps.markRunQueued(queuedSummary, payload);
 
       let riskProfile: RiskProfile | undefined;
       if (payload.riskProfileId) {
@@ -113,6 +125,17 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
           return reply.code(400).send({ message: `Unknown risk profile ${payload.riskProfileId}` });
         }
       }
+
+      try {
+        await ensureDatasetsForRequest(payload, {
+          saveDataset: deps.saveDataset,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "failed to prepare datasets";
+        return reply.code(400).send({ message });
+      }
+
+      await deps.markRunQueued(queuedSummary, payload);
 
       try {
         await deps.queue.enqueue({

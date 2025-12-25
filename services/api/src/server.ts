@@ -120,6 +120,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     markRunCompleted,
     resetRuns,
     getRiskProfile,
+    saveDataset: (record) => database.upsertDataset(record),
     queue,
   });
 

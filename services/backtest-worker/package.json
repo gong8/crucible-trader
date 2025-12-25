@@ -20,8 +20,9 @@
   },
   "dependencies": {
     "@crucible-trader/api": "workspace:*",
-    "@crucible-trader/logger": "workspace:*",
     "@crucible-trader/engine": "workspace:*",
-    "@crucible-trader/sdk": "workspace:*"
+    "@crucible-trader/logger": "workspace:*",
+    "@crucible-trader/sdk": "workspace:*",
+    "dotenv": "^17.2.3"
   }
 }

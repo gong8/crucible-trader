@@ -1,4 +1,12 @@
+import { config as loadEnv } from "dotenv";
 import type { FastifyInstance } from "fastify";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(MODULE_DIR, "..", "..", "..");
+loadEnv({ path: join(REPO_ROOT, ".env") });
+loadEnv();
 
 import { createLogger } from "@crucible-trader/logger";
 

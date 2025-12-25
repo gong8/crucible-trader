@@ -1,6 +1,6 @@
 import type { BacktestRequest, BacktestResult, MetricKey, RiskProfile } from "@crucible-trader/sdk";
 import { strategies } from "@crucible-trader/sdk";
-import { CsvSource } from "@crucible-trader/data";
+import { CsvSource, PolygonSource, TiingoSource } from "@crucible-trader/data";
 import { calculateMetricsSummary } from "@crucible-trader/metrics";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +44,8 @@ interface PositionState {
 }
 
 const csvSource = new CsvSource();
+const tiingoSource = new TiingoSource();
+const polygonSource = new PolygonSource();
 const ENGINE_MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const needsExtraAscend = ENGINE_MODULE_DIR.includes(`${sep}dist-test${sep}`);
 const ascenders = needsExtraAscend ? ["..", "..", "..", ".."] : ["..", "..", ".."];
@@ -337,14 +339,49 @@ const loadBarsBySymbol = async (req: BacktestRequest): Promise<BarsBySymbol> => 
   const bars: BarsBySymbol = extractFallbackBars(req);
 
   for (const dataRequest of req.data) {
-    if (dataRequest.source === "csv") {
-      try {
-        bars[dataRequest.symbol] = await csvSource.loadBars(dataRequest);
-      } catch {
-        bars[dataRequest.symbol] = bars[dataRequest.symbol] ?? [];
+    const symbol = dataRequest.symbol;
+    let loaded = false;
+    try {
+      const csvBars = await csvSource.loadBars(dataRequest);
+      if (csvBars.length > 0) {
+        bars[symbol] = csvBars;
+        loaded = true;
       }
-    } else if (!bars[dataRequest.symbol]) {
-      bars[dataRequest.symbol] = [];
+    } catch {
+      // ignore missing csv datasets here; fall back to remote sources below
+    }
+
+    if (loaded) {
+      continue;
+    }
+
+    if (dataRequest.source === "tiingo") {
+      bars[symbol] = await tiingoSource.loadBars(dataRequest);
+      continue;
+    }
+
+    if (dataRequest.source === "polygon") {
+      bars[symbol] = await polygonSource.loadBars(dataRequest);
+      continue;
+    }
+
+    if (dataRequest.source === "auto") {
+      try {
+        bars[symbol] = await tiingoSource.loadBars(dataRequest);
+        continue;
+      } catch {
+        /* swallow and try polygon */
+      }
+      try {
+        bars[symbol] = await polygonSource.loadBars(dataRequest);
+        continue;
+      } catch {
+        /* fall through */
+      }
+    }
+
+    if (!bars[symbol]) {
+      bars[symbol] = [];
     }
   }
 

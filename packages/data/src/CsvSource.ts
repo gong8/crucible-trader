@@ -5,6 +5,12 @@ import { fileURLToPath } from "node:url";
 import type { DataRequest } from "@crucible-trader/sdk";
 
 import type { Bar, IDataSource } from "./IDataSource.js";
+import {
+  filterBarsForRequest,
+  sanitizeBar,
+  slugify,
+  sortBarsChronologically,
+} from "./internalUtils.js";
 
 const DIST_DIR = fileURLToPath(new URL(".", import.meta.url));
 const PACKAGE_ROOT = join(DIST_DIR, "..");
@@ -120,30 +126,18 @@ export class CsvSource implements IDataSource {
       }
     }
 
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.timestamp === b.timestamp) {
-        return 0;
-      }
-      return a.timestamp < b.timestamp ? -1 : 1;
-    });
+    return sortBarsChronologically(Array.from(map.values()));
   }
 
   private filterBarsForRequest(bars: ReadonlyArray<Bar>, request: DataRequest): ReadonlyArray<Bar> {
-    const { start, end } = request;
-    if (!start && !end) {
-      return bars;
-    }
-
-    return bars.filter((bar) => {
-      const isAfterStart = start ? bar.timestamp >= start : true;
-      const isBeforeEnd = end ? bar.timestamp <= end : true;
-      return isAfterStart && isBeforeEnd;
-    });
+    return filterBarsForRequest(bars, request);
   }
 }
 
 const toBar = (row: string): Bar | null => {
-  const [timestamp, openStr, highStr, lowStr, closeStr, volumeStr] = row.split(",").map((part) => part.trim());
+  const [timestamp, openStr, highStr, lowStr, closeStr, volumeStr] = row
+    .split(",")
+    .map((part) => part.trim());
 
   if (!timestamp) {
     return null;
@@ -167,33 +161,6 @@ const toBar = (row: string): Bar | null => {
     close,
     volume,
   };
-};
-
-const sanitizeBar = (maybeBar: Bar | null | undefined): Bar | null => {
-  if (!maybeBar) {
-    return null;
-  }
-
-  const { timestamp, open, high, low, close, volume } = maybeBar;
-  if (
-    typeof timestamp !== "string" ||
-    typeof open !== "number" ||
-    typeof high !== "number" ||
-    typeof low !== "number" ||
-    typeof close !== "number" ||
-    typeof volume !== "number"
-  ) {
-    return null;
-  }
-
-  return { timestamp, open, high, low, close, volume };
-};
-
-const slugify = (value: string): string => {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, "_")
-    .replace(/^_+|_+$/gu, "");
 };
 
 /**
