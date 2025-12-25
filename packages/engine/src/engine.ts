@@ -1,5 +1,5 @@
 import type { BacktestRequest, BacktestResult, MetricKey, RiskProfile } from "@crucible-trader/sdk";
-import { strategies } from "@crucible-trader/sdk";
+import { strategies, Schemas, assertValid } from "@crucible-trader/sdk";
 import { CsvSource, PolygonSource, TiingoSource } from "@crucible-trader/data";
 import { calculateMetricsSummary } from "@crucible-trader/metrics";
 import { join, sep } from "node:path";
@@ -132,6 +132,9 @@ export async function runBacktest(
   request: BacktestRequest,
   options: RunBacktestOptions = {},
 ): Promise<BacktestResult> {
+  // Validate request structure and constraints
+  assertValid(Schemas.BacktestRequest, request, "BacktestRequest");
+
   const seed = Number.isInteger(request.seed) ? (request.seed as number) : DEFAULT_SEED;
   const barsBySymbol = await loadBarsBySymbol(request);
   const metrics = normaliseMetrics(request.metrics);

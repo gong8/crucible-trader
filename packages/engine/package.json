@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p .",
-    "test": "echo 'Engine integration tests temporarily disabled' && exit 0"
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/engine.test.js dist-test/test/engine-integration.test.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

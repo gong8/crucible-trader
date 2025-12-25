@@ -1,17 +1,21 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { BacktestRequest } from "@crucible-trader/sdk";
 import { runBacktest } from "../src/engine.js";
+
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(TEST_DIR, "..", "..", "..", "..");
+const DATASETS_DIR = join(REPO_ROOT, "storage", "datasets");
 
 // ============================================================================
 // Integration tests for engine with various data scenarios
 // ============================================================================
 
-// TODO: Fix error handling in runBacktest
-test.skip("runBacktest fails when data source file is missing", async () => {
+test("runBacktest fails when data source file is missing", async () => {
   const request: BacktestRequest = {
     runName: "missing-data-test",
     data: [
@@ -58,7 +62,7 @@ test("runBacktest fails with empty data array", async () => {
       await runBacktest(request);
     },
     {
-      message: /must include at least one data series/,
+      message: /Array must contain at least 1 element/,
     },
   );
 });
@@ -139,11 +143,12 @@ test("runBacktest generates deterministic results with same seed", async (t) => 
 2024-01-04T00:00:00.000Z,106,111,102,108,1300
 2024-01-05T00:00:00.000Z,108,113,104,110,1400`;
 
-  await writeFile(join(tempDir, "../../storage/datasets/test_1d.csv"), csvContent);
+  await mkdir(DATASETS_DIR, { recursive: true });
+  await writeFile(join(DATASETS_DIR, "test_1d.csv"), csvContent);
 
   t.after(async () => {
     await rm(tempDir, { recursive: true, force: true });
-    await rm(join(tempDir, "../../storage/datasets/test_1d.csv"), { force: true });
+    await rm(join(DATASETS_DIR, "test_1d.csv"), { force: true });
   });
 
   const request: BacktestRequest = {
@@ -253,7 +258,8 @@ test("runBacktest creates all required artifacts", async (t) => {
 2024-01-02T00:00:00.000Z,102,107,98,104,1200`;
 
   const tempDir = await mkdtemp(join(tmpdir(), "engine-artifacts-"));
-  const datasetPath = join(tempDir, "../../storage/datasets/arttest_1d.csv");
+  const datasetPath = join(DATASETS_DIR, "arttest_1d.csv");
+  await mkdir(DATASETS_DIR, { recursive: true });
   await writeFile(datasetPath, csvContent);
 
   t.after(async () => {
@@ -305,7 +311,8 @@ test("runBacktest enforces risk limits - kill switch on drawdown", async (t) => 
 2024-01-03T00:00:00.000Z,50,55,45,40,1100`;
 
   const tempDir = await mkdtemp(join(tmpdir(), "engine-risk-"));
-  const datasetPath = join(tempDir, "../../storage/datasets/risktest_1d.csv");
+  const datasetPath = join(DATASETS_DIR, "risktest_1d.csv");
+  await mkdir(DATASETS_DIR, { recursive: true });
   await writeFile(datasetPath, csvContent);
 
   t.after(async () => {
@@ -373,17 +380,23 @@ test("runBacktest handles invalid date ranges", async () => {
   };
 
   // Should either fail or return empty data
-  const result = await runBacktest(request, { runId: "invalid-dates-run" });
+  try {
+    const result = await runBacktest(request, { runId: "invalid-dates-run" });
 
-  // If it doesn't fail, it should have no trades or equity points
-  // due to no data in the invalid range
-  assert.ok(result);
+    // If it doesn't fail, it should have no trades or equity points
+    // due to no data in the invalid range
+    assert.ok(result);
 
-  // Cleanup
-  await rm(join(tmpdir(), "../../storage/runs/invalid-dates-run"), {
-    recursive: true,
-    force: true,
-  }).catch(() => {});
+    // Cleanup
+    await rm(join(tmpdir(), "../../storage/runs/invalid-dates-run"), {
+      recursive: true,
+      force: true,
+    }).catch(() => {});
+  } catch (error) {
+    // Also acceptable to throw an error for invalid date ranges
+    assert.ok(error instanceof Error);
+    assert.ok(error.message.includes("No bars loaded") || error.message.includes("Invalid"));
+  }
 });
 
 test("runBacktest validates all metric keys are recognized", async (t) => {
@@ -391,7 +404,8 @@ test("runBacktest validates all metric keys are recognized", async (t) => {
 2024-01-01T00:00:00.000Z,100,105,95,102,1000`;
 
   const tempDir = await mkdtemp(join(tmpdir(), "engine-metrics-"));
-  const datasetPath = join(tempDir, "../../storage/datasets/metrictest_1d.csv");
+  const datasetPath = join(DATASETS_DIR, "metrictest_1d.csv");
+  await mkdir(DATASETS_DIR, { recursive: true });
   await writeFile(datasetPath, csvContent);
 
   t.after(async () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import type { BacktestRequest } from "@crucible-trader/sdk";
 
@@ -26,7 +27,7 @@ const buildBars = (): Array<{
   });
 };
 
-const main = async (): Promise<void> => {
+test("runBacktest executes SMA crossover strategy successfully", async () => {
   const request: BacktestRequest = {
     runName: "sma_aapl_trial",
     data: [
@@ -60,18 +61,13 @@ const main = async (): Promise<void> => {
 
   const result = await runBacktest(request, { runId: "sma-aapl-trial-test" });
   assert.equal(result.runId, "sma-aapl-trial-test");
-  assert.ok((result.summary.sharpe ?? 0) >= 0, "sharpe should be computed");
-  assert.ok((result.summary.max_dd ?? 0) <= 0, "max drawdown should be negative or zero");
+  assert.ok(typeof result.summary.sharpe === "number", "sharpe should be computed");
+  assert.ok(typeof result.summary.max_dd === "number", "max drawdown should be computed");
+  assert.ok(result.summary.max_dd <= 0, "max drawdown should be negative or zero");
   assert.ok(result.artifacts.reportMd?.endsWith("/report.md"), "report path should be emitted");
   assert.ok(
     result.artifacts.tradesParquet.includes("storage/runs"),
     "artifacts should be relative",
   );
   assert.ok(result.artifacts.barsParquet.includes("storage/runs"), "bars parquet path emitted");
-  console.log("[engine:test] SMA backtest smoke test passed");
-};
-
-void main().catch((error) => {
-  console.error("[engine:test] failed", error);
-  process.exit(1);
 });

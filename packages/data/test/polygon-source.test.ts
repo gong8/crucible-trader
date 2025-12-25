@@ -32,8 +32,7 @@ class FakeHttpClient implements HttpClient {
   }
 }
 
-// TODO: Fix caching bug - httpClient.calls.length is 2 instead of 1
-test.skip("PolygonSource fetches, caches, and filters aggregates", async () => {
+test("PolygonSource fetches, caches, and filters aggregates", async () => {
   const cacheDir = await mkdtemp(join(tmpdir(), "polygon-source-"));
   const httpClient = new FakeHttpClient(SAMPLE_RESPONSE);
   const source = new PolygonSource({

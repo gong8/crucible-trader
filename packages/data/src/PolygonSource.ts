@@ -177,8 +177,6 @@ export class PolygonSource implements IDataSource {
     const slug = [
       slugify(request.symbol),
       slugify(request.timeframe),
-      slugify(request.start),
-      slugify(request.end),
       request.adjusted === false ? "raw" : "adj",
     ]
       .filter((segment) => segment.length > 0)

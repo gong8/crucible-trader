@@ -12,8 +12,7 @@ import { PolygonSource } from "../src/PolygonSource.js";
 // CSV Source Error Handling
 // ============================================================================
 
-// TODO: Implement proper error handling in CsvSource
-test.skip("CsvSource throws descriptive error when file doesn't exist", async () => {
+test("CsvSource throws descriptive error when file doesn't exist", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "csv-error-"));
   const source = new CsvSource({ datasetsDir: tempDir, cacheDir: join(tempDir, ".cache") });
 
@@ -216,8 +215,8 @@ test("TiingoSource requires start and end dates", async () => {
   );
 });
 
-// TODO: Implement proper error handling in TiingoSource
-test.skip("TiingoSource handles HTTP errors gracefully", async () => {
+test("TiingoSource handles HTTP errors gracefully", async () => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "tiingo-http-error-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 500,
@@ -228,6 +227,7 @@ test.skip("TiingoSource handles HTTP errors gracefully", async () => {
 
   const source = new TiingoSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 
@@ -249,8 +249,8 @@ test.skip("TiingoSource handles HTTP errors gracefully", async () => {
   );
 });
 
-// TODO: Implement proper error handling in TiingoSource
-test.skip("TiingoSource handles malformed JSON response", async () => {
+test("TiingoSource handles malformed JSON response", async () => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "tiingo-json-error-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -261,6 +261,7 @@ test.skip("TiingoSource handles malformed JSON response", async () => {
 
   const source = new TiingoSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 
@@ -391,8 +392,8 @@ test("PolygonSource requires start and end dates", async () => {
   );
 });
 
-// TODO: Implement proper error handling in PolygonSource
-test.skip("PolygonSource handles HTTP errors", async () => {
+test("PolygonSource handles HTTP errors", async () => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "polygon-http-error-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 401,
@@ -403,6 +404,7 @@ test.skip("PolygonSource handles HTTP errors", async () => {
 
   const source = new PolygonSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 
@@ -451,8 +453,8 @@ test("PolygonSource handles missing results in response", async () => {
   assert.equal(bars.length, 0, "Response without results should return empty array");
 });
 
-// TODO: Implement data filtering in PolygonSource
-test.skip("PolygonSource filters out bars with missing data", async () => {
+test("PolygonSource filters out bars with missing data", async () => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "polygon-filter-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -470,6 +472,7 @@ test.skip("PolygonSource filters out bars with missing data", async () => {
 
   const source = new PolygonSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 
@@ -488,8 +491,8 @@ test.skip("PolygonSource filters out bars with missing data", async () => {
   assert.equal(bars[1]?.open, 106);
 });
 
-// TODO: Implement timestamp validation in PolygonSource
-test.skip("PolygonSource handles invalid timestamp formats", async () => {
+test("PolygonSource handles invalid timestamp formats", async () => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "polygon-timestamp-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -505,6 +508,7 @@ test.skip("PolygonSource handles invalid timestamp formats", async () => {
 
   const source = new PolygonSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 

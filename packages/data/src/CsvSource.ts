@@ -45,12 +45,7 @@ export class CsvSource implements IDataSource {
   public async loadBars(request: DataRequest): Promise<ReadonlyArray<Bar>> {
     const datasetPath = this.resolveDatasetPath(request);
 
-    let datasetStat: Awaited<ReturnType<typeof stat>>;
-    try {
-      datasetStat = await stat(datasetPath);
-    } catch {
-      return [];
-    }
+    const datasetStat = await stat(datasetPath);
 
     const cachePath = this.resolveCachePath(request);
     const cached = await this.readCache(cachePath, datasetStat.mtimeMs);

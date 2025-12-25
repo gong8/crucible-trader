@@ -51,8 +51,7 @@ class FakeHttpClient implements HttpClient {
   }
 }
 
-// TODO: Fix caching bug - httpClient.calls.length is 2 instead of 1
-test.skip("TiingoSource fetches, caches, and filters bars", async () => {
+test("TiingoSource fetches, caches, and filters bars", async () => {
   const cacheDir = await mkdtemp(join(tmpdir(), "tiingo-source-"));
   const httpClient = new FakeHttpClient(SAMPLE_RESPONSE);
   const source = new TiingoSource({
