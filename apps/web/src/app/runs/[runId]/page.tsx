@@ -18,6 +18,14 @@ interface TradeMarker {
   readonly price: number;
 }
 
+interface Trade {
+  readonly time: string;
+  readonly side: "buy" | "sell";
+  readonly price: number;
+  readonly qty: number;
+  readonly pnl: number;
+}
+
 interface RunDetailState {
   readonly result: BacktestResult | null;
   readonly loading: boolean;
@@ -147,6 +155,65 @@ const useChartData = (result: BacktestResult | null): ChartData | null => {
   return data;
 };
 
+const useTrades = (runId: string | undefined): Trade[] | null => {
+  const [trades, setTrades] = useState<Trade[] | null>(null);
+
+  useEffect(() => {
+    if (!runId) {
+      setTrades(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async (): Promise<void> => {
+      try {
+        const response = await fetch(apiRoute(`/api/runs/${runId}/trades`), {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("trades data missing");
+        }
+
+        const data = (await response.json()) as Array<{
+          time: string;
+          side: string;
+          price: number;
+          qty: number;
+          pnl: number;
+        }>;
+
+        if (!cancelled) {
+          setTrades(
+            data.map((row) => ({
+              time: row.time,
+              side: row.side === "sell" ? "sell" : "buy",
+              price: Number(row.price ?? 0),
+              qty: Number(row.qty ?? 0),
+              pnl: Number(row.pnl ?? 0),
+            })),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load trades", error);
+        if (!cancelled) {
+          setTrades([]);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
+
+  return trades;
+};
+
 const createMockMarkers = (equity: Array<{ time: number; value: number }>): TradeMarker[] => {
   if (equity.length === 0) {
     return [];
@@ -179,6 +246,7 @@ export default function RunDetailPage(): JSX.Element {
   const params = useParams<{ runId: string }>();
   const { result, loading, error } = useRunDetail(params?.runId);
   const chartData = useChartData(result);
+  const trades = useTrades(params?.runId);
 
   return (
     <section className="grid" aria-label="run detail" style={{ gap: "1.5rem" }}>
@@ -204,6 +272,79 @@ export default function RunDetailPage(): JSX.Element {
       ) : result && !chartData && !loading ? (
         <div className="alert">chart data unavailable for this run</div>
       ) : null}
+
+      {trades && trades.length > 0 ? (
+        <div className="card">
+          <h2 className="section-title" style={{ marginBottom: "1rem" }}>
+            trade history
+          </h2>
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "0.875rem",
+              }}
+            >
+              <thead>
+                <tr style={{ borderBottom: "1px solid #334155" }}>
+                  <th style={{ padding: "0.75rem", textAlign: "left", color: "#94a3b8" }}>Time</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", color: "#94a3b8" }}>Side</th>
+                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>
+                    Price
+                  </th>
+                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>Qty</th>
+                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trades.map((trade, idx) => (
+                  <tr
+                    key={idx}
+                    style={{
+                      borderBottom: "1px solid #1e293b",
+                    }}
+                  >
+                    <td style={{ padding: "0.75rem" }}>{new Date(trade.time).toLocaleString()}</td>
+                    <td style={{ padding: "0.75rem" }}>
+                      <span
+                        style={{
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "4px",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          backgroundColor: trade.side === "buy" ? "#166534" : "#991b1b",
+                          color: trade.side === "buy" ? "#86efac" : "#fca5a5",
+                        }}
+                      >
+                        {trade.side.toUpperCase()}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
+                      ${trade.price.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "0.75rem", textAlign: "right" }}>{trade.qty}</td>
+                    <td
+                      style={{
+                        padding: "0.75rem",
+                        textAlign: "right",
+                        color: trade.pnl >= 0 ? "#86efac" : "#fca5a5",
+                        fontWeight: 600,
+                      }}
+                    >
+                      ${trade.pnl >= 0 ? "+" : ""}
+                      {trade.pnl.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : trades && trades.length === 0 ? (
+        <div className="alert">no trades executed in this run</div>
+      ) : null}
+
       {result?.artifacts.reportMd ? (
         <div>
           <a

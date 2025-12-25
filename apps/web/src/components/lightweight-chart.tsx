@@ -99,9 +99,8 @@ const LightweightChart = ({ equity, markers }: ChartProps): JSX.Element => {
       time: marker.time as Time,
       position: marker.side === "buy" ? "belowBar" : "aboveBar",
       color: markerColor[marker.side],
-      shape: marker.side === "buy" ? "arrowUp" : "arrowDown",
-      text: marker.side,
-      price: marker.price,
+      shape: "circle",
+      size: 0.5,
     }));
     markersRef.current?.setMarkers(markerPayload);
   }, [equity, markers]);
