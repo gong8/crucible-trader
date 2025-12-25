@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-import type { BacktestResult } from "@crucible-trader/sdk";
+import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
 
 import { apiRoute } from "../../../lib/api";
 
@@ -26,8 +26,12 @@ interface Trade {
   readonly pnl: number;
 }
 
+interface RunDetailResponse extends BacktestResult {
+  readonly request?: BacktestRequest;
+}
+
 interface RunDetailState {
-  readonly result: BacktestResult | null;
+  readonly result: RunDetailResponse | null;
   readonly loading: boolean;
   readonly error: string | null;
 }
@@ -63,7 +67,7 @@ const useRunDetail = (runId: string | undefined): RunDetailState => {
         if (!response.ok) {
           throw new Error(`status ${response.status}`);
         }
-        const payload = (await response.json()) as BacktestResult;
+        const payload = (await response.json()) as RunDetailResponse;
         if (!cancelled) {
           setState({ result: payload, loading: false, error: null });
         }
@@ -88,7 +92,7 @@ const useRunDetail = (runId: string | undefined): RunDetailState => {
   return state;
 };
 
-const useChartData = (result: BacktestResult | null): ChartData | null => {
+const useChartData = (result: RunDetailResponse | null): ChartData | null => {
   const [data, setData] = useState<ChartData | null>(null);
 
   useEffect(() => {
@@ -271,6 +275,47 @@ export default function RunDetailPage(): JSX.Element {
         </div>
       ) : result && !chartData && !loading ? (
         <div className="alert">chart data unavailable for this run</div>
+      ) : null}
+
+      {result?.request ? (
+        <div className="card" style={{ display: "grid", gap: "1rem" }}>
+          <section>
+            <h2 className="section-title">strategy</h2>
+            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{result.request.strategy.name}</p>
+            <pre style={{ background: "#0f172a", padding: "0.5rem", borderRadius: "0.5rem" }}>
+              {JSON.stringify(result.request.strategy.params, null, 2)}
+            </pre>
+          </section>
+
+          <section>
+            <h2 className="section-title">datasets</h2>
+            <div style={{ display: "grid", gap: "0.5rem" }}>
+              {result.request.data.map((series) => (
+                <article key={`${series.symbol}-${series.timeframe}`}>
+                  <strong>
+                    {series.symbol} · {series.timeframe}
+                  </strong>
+                  <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                    source: {series.source} · {series.start ?? "?"} → {series.end ?? "?"}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="section-title">costs & risk</h2>
+            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+              fees: {result.request.costs.feeBps} bps · slippage: {result.request.costs.slippageBps}{" "}
+              bps · initial cash: ${result.request.initialCash.toLocaleString()}
+            </p>
+            {result.request.riskProfileId ? (
+              <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                risk profile: {result.request.riskProfileId}
+              </p>
+            ) : null}
+          </section>
+        </div>
       ) : null}
 
       {trades && trades.length > 0 ? (

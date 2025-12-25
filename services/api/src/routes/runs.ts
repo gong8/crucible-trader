@@ -188,7 +188,17 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
         return reply.code(404).send({ message: "Run not found" });
       }
 
-      return reply.send(result);
+      let requestPayload: BacktestRequest | undefined;
+      try {
+        requestPayload = JSON.parse(runRecord.requestJson) as BacktestRequest;
+      } catch {
+        requestPayload = undefined;
+      }
+
+      return reply.send({
+        ...result,
+        request: requestPayload,
+      });
     },
   );
 

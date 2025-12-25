@@ -37,7 +37,8 @@ interface SubmissionState {
 }
 
 export default function NewRunPage(): JSX.Element {
-  const [runName, setRunName] = useState("sma_aapl_trial");
+  const [autoNameEnabled, setAutoNameEnabled] = useState(true);
+  const [runName, setRunName] = useState("sma_aapl_auto");
   const [dataSource, setDataSource] = useState<DataSource>("auto");
   const [symbol, setSymbol] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
@@ -68,6 +69,12 @@ export default function NewRunPage(): JSX.Element {
     setStrategyValues({ ...strategyConfigs[strategyName].defaults });
     setStrategyErrors({});
   }, [strategyName]);
+
+  useEffect(() => {
+    if (autoNameEnabled) {
+      setRunName(generateRunName(strategyName, symbol, timeframe));
+    }
+  }, [autoNameEnabled, strategyName, symbol, timeframe]);
 
   useEffect(() => {
     const parsed = selectedStrategy.schema.safeParse(strategyValues);
@@ -207,6 +214,16 @@ export default function NewRunPage(): JSX.Element {
       <form onSubmit={handleSubmit}>
         <fieldset className="grid">
           <legend>run id</legend>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={autoNameEnabled}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setAutoNameEnabled(event.currentTarget.checked)
+              }
+            />
+            auto-generate name
+          </label>
           <label>
             run name
             <input
@@ -214,6 +231,7 @@ export default function NewRunPage(): JSX.Element {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setRunName(event.currentTarget.value)
               }
+              disabled={autoNameEnabled}
               required
             />
           </label>
@@ -444,6 +462,15 @@ export default function NewRunPage(): JSX.Element {
     </section>
   );
 }
+
+const generateRunName = (strategy: string, symbol: string, timeframe: string): string => {
+  const slug = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  return `${slug(strategy)}_${slug(symbol)}_${slug(timeframe)}`;
+};
 
 interface BuildArgs {
   runName: string;
