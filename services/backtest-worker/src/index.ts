@@ -5,8 +5,11 @@ import { fileURLToPath } from "node:url";
 import type { BacktestResult } from "@crucible-trader/sdk";
 
 import { runBacktest } from "@crucible-trader/engine";
-import { onJob, type QueueJob } from "@crucible-trader/api/queue";
 import { createLogger } from "@crucible-trader/logger";
+import { createApiDatabase } from "@crucible-trader/api/db";
+
+// Import from compiled dist since workspace module resolution has issues
+import { JobQueue, type QueueJob } from "../../api/dist/queue.js";
 
 const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const RUNS_DIR = join(MODULE_DIR, "..", "..", "..", "storage", "runs");
@@ -65,31 +68,57 @@ const writeManifest = async (
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, {
     encoding: "utf-8",
   });
-
-  // TODO[phase-0-next]: emit parquet/trades/bars files once available.
 };
 
-const handleJob = async (job: QueueJob): Promise<void> => {
-  logger.info("Processing run", { runId: job.runId });
+// Main worker initialization
+const main = async (): Promise<void> => {
+  logger.info("Initializing backtest worker...");
 
-  try {
-    const result = await runBacktest(job.request);
-    await writeManifest(result, {
-      name: job.request.runName,
-      createdAt: new Date().toISOString(),
-      status: "completed",
-    });
-    logger.info("Manifest written", { runId: job.runId });
-  } catch (error) {
-    logger.error("Failed to process run", {
-      runId: job.runId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  const database = await createApiDatabase();
+  const queue = new JobQueue({ database });
+
+  const handleJob = async (job: QueueJob): Promise<void> => {
+    logger.info("Processing run", { runId: job.runId });
+
+    try {
+      // Fetch risk profile if specified
+      let riskProfile;
+      if (job.request.riskProfileId) {
+        riskProfile = await database.getRiskProfileById(job.request.riskProfileId);
+      }
+
+      const result = await runBacktest(job.request, { runId: job.runId, riskProfile });
+      await writeManifest(result, {
+        name: job.request.runName,
+        createdAt: new Date().toISOString(),
+        status: "completed",
+      });
+
+      // Save result to database
+      await database.saveRunResult(result);
+      await database.updateRunStatus(job.runId, "completed");
+
+      logger.info("Run completed successfully", { runId: job.runId });
+    } catch (error) {
+      logger.error("Failed to process run", {
+        runId: job.runId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Mark as failed in database
+      await database.updateRunStatus(job.runId, "failed");
+      throw error;
+    }
+  };
+
+  queue.onJob(handleJob);
+
+  logger.info("Backtest worker ready and polling for jobs");
 };
 
-onJob((job: QueueJob) => {
-  void handleJob(job);
+void main().catch((error) => {
+  logger.error("Worker initialization failed", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  process.exit(1);
 });
-
-logger.info("Backtest worker ready");

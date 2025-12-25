@@ -22,6 +22,11 @@
       "types": "./dist/queue.d.ts",
       "import": "./dist/queue.js",
       "default": "./dist/queue.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "import": "./dist/db/index.js",
+      "default": "./dist/db/index.js"
     }
   },
   "dependencies": {
@@ -39,7 +44,10 @@
   "typesVersions": {
     "*": {
       "queue": [
-        "src/queue.ts"
+        "dist/queue.d.ts"
+      ],
+      "db": [
+        "dist/db/index.d.ts"
       ]
     }
   }

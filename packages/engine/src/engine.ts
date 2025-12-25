@@ -1,38 +1,61 @@
-import type {
-  BacktestRequest,
-  BacktestResult,
-  MetricKey,
-  DataRequest,
-} from "@crucible-trader/sdk";
+import type { BacktestRequest, BacktestResult, MetricKey, RiskProfile } from "@crucible-trader/sdk";
+import { strategies } from "@crucible-trader/sdk";
 import { CsvSource } from "@crucible-trader/data";
 import { calculateMetricsSummary } from "@crucible-trader/metrics";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
-import { writeParquetArtifacts } from "./persistence.js";
+import { writeParquetArtifacts, writeReportArtifact } from "./persistence.js";
+
+export interface RunBacktestOptions {
+  readonly runId?: string;
+  readonly riskProfile?: RiskProfile;
+}
 
 const DEFAULT_SEED = 42;
 const REQUIRED_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr", "winrate"];
-const FALLBACK_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr"];
+const FALLBACK_METRICS: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr", "total_pnl"];
+const DEFAULT_RISK_PROFILE: RiskProfile = {
+  id: "default",
+  name: "phase-0-guardrails",
+  maxDailyLossPct: 0.03,
+  maxPositionPct: 0.2,
+  perOrderCapPct: 0.1,
+  globalDDKillPct: 0.05,
+  cooldownMinutes: 15,
+};
+
+type StrategyModule = (typeof strategies)[keyof typeof strategies];
 
 type StrategyParams = Record<string, unknown>;
 
-/**
- * Deterministic linear congruential generator.
- */
-const createRng = (seed: number): (() => number) => {
-  let state = seed >>> 0;
-  return () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 0xffffffff;
-  };
-};
+interface EngineRiskLimits {
+  readonly maxDailyLossPct: number;
+  readonly maxPositionPct: number;
+  readonly perOrderCapPct: number;
+  readonly killSwitchDrawdownPct: number;
+}
+
+interface PositionState {
+  quantity: number;
+  averagePrice: number;
+  realizedPnl: number;
+}
 
 const csvSource = new CsvSource();
 const ENGINE_MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
-const ENGINE_REPO_ROOT = join(ENGINE_MODULE_DIR, "..", "..", "..");
+const needsExtraAscend = ENGINE_MODULE_DIR.includes(`${sep}dist-test${sep}`);
+const ascenders = needsExtraAscend ? ["..", "..", "..", ".."] : ["..", "..", ".."];
+const ENGINE_REPO_ROOT = join(ENGINE_MODULE_DIR, ...ascenders);
 const RUNS_OUTPUT_ROOT = join(ENGINE_REPO_ROOT, "storage", "runs");
+const STRATEGY_REGISTRY: Record<string, StrategyModule> = {
+  [strategies.smaCrossover.name]: strategies.smaCrossover,
+  [strategies.momentum.name]: strategies.momentum,
+  [strategies.meanReversion.name]: strategies.meanReversion,
+  [strategies.breakout.name]: strategies.breakout,
+  [strategies.chaosTrader.name]: strategies.chaosTrader,
+};
 
 const isBarsBySymbol = (value: unknown): value is BarsBySymbol => {
   if (value === null || typeof value !== "object") {
@@ -76,42 +99,84 @@ const normaliseMetrics = (metrics?: MetricKey[]): MetricKey[] => {
 };
 
 const makeRunId = (request: BacktestRequest, seed: number): string => {
-  const slug = request.runName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return slug.length > 0 ? `${slug}-${seed.toString(36)}` : `run-${seed.toString(36)}`;
+  const slug = request.runName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[^0-9]+/g, "")
+    .slice(0, 14);
+  const suffix = seed.toString(36);
+  const base = slug.length > 0 ? slug : "run";
+  return `${base}-${timestamp}-${suffix}`;
+};
+
+const resolveRiskLimits = (profile?: RiskProfile): EngineRiskLimits => {
+  const source = profile ?? DEFAULT_RISK_PROFILE;
+  return {
+    maxDailyLossPct: Math.max(source.maxDailyLossPct, 0),
+    maxPositionPct: Math.max(source.maxPositionPct, 0.05),
+    perOrderCapPct: Math.max(source.perOrderCapPct, 0.02),
+    killSwitchDrawdownPct: Math.max(source.globalDDKillPct, 0.01),
+  };
 };
 
 /**
  * Executes a deterministic backtest over the supplied bar data.
  */
-export async function runBacktest(request: BacktestRequest): Promise<BacktestResult> {
+export async function runBacktest(
+  request: BacktestRequest,
+  options: RunBacktestOptions = {},
+): Promise<BacktestResult> {
   const seed = Number.isInteger(request.seed) ? (request.seed as number) : DEFAULT_SEED;
-  const rng = createRng(seed);
   const barsBySymbol = await loadBarsBySymbol(request);
   const metrics = normaliseMetrics(request.metrics);
 
   const equityCurve: EquityPoint[] = [];
   const trades: TradeFill[] = [];
-  let processedBars = 0;
   const barsForArtifacts: Bar[] = [];
+  const primaryRequest = request.data[0];
+  const runId = options.runId ?? makeRunId(request, seed);
+  const artifactsRelative = `storage/runs/${runId}`;
+  const runDirFilesystem = join(RUNS_OUTPUT_ROOT, runId);
+
+  if (!primaryRequest) {
+    throw new Error("BacktestRequest must include at least one data series");
+  }
 
   for (const dataRequest of request.data) {
     const symbolBars = barsBySymbol[dataRequest.symbol] ?? [];
     barsForArtifacts.push(...symbolBars);
-    const symbolTrades = iterateSymbolBars(dataRequest, symbolBars, rng, equityCurve, request);
-    trades.push(...symbolTrades);
-    processedBars += symbolBars.length;
   }
 
-  const runId = makeRunId(request, seed);
-  const artifactsRelative = `storage/runs/${runId}`;
-  const runDirFilesystem = join(RUNS_OUTPUT_ROOT, runId);
-  const summary = buildSummary(metrics, equityCurve);
+  const primaryBars = barsBySymbol[primaryRequest.symbol] ?? [];
+
+  if (primaryBars.length === 0) {
+    throw new Error(`No bars loaded for ${primaryRequest.symbol} ${primaryRequest.timeframe}`);
+  }
+
+  const strategy = instantiateStrategy(request);
+  const riskLimits = resolveRiskLimits(options.riskProfile);
+  const simulation = simulateStrategy({
+    bars: primaryBars,
+    strategy,
+    request,
+    riskLimits,
+  });
+
+  equityCurve.push(...simulation.equityCurve);
+  trades.push(...simulation.trades);
+
+  const summary = buildSummary(metrics, equityCurve, trades);
   const diagnostics: EngineDiagnostics = {
     seed,
-    processedBars,
+    processedBars: simulation.processedBars,
     equityCurve,
     trades,
     requestedMetrics: metrics,
+    runName: request.runName,
+    riskProfileId: options.riskProfile?.id ?? DEFAULT_RISK_PROFILE.id,
   };
 
   const dedupedBars = dedupeBars(barsForArtifacts);
@@ -126,6 +191,8 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
       qty: trade.quantity,
       price: trade.price,
       pnl: trade.pnl,
+      fees: trade.fees,
+      reason: trade.reason,
     })),
     bars: dedupedBars.map((bar) => ({
       time: bar.timestamp,
@@ -137,6 +204,14 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
     })),
   });
 
+  const reportRelativePath = `${artifactsRelative}/report.md`;
+  await writeReportArtifact(runDirFilesystem, {
+    runName: request.runName,
+    summary,
+    trades,
+    riskProfile: options.riskProfile ?? DEFAULT_RISK_PROFILE,
+  });
+
   return {
     runId,
     summary,
@@ -144,58 +219,33 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
       equityParquet: `${artifactsRelative}/equity.parquet`,
       tradesParquet: `${artifactsRelative}/trades.parquet`,
       barsParquet: `${artifactsRelative}/bars.parquet`,
+      reportMd: reportRelativePath,
     },
     diagnostics: {
       ...diagnostics,
-      notes: "Phase 0 stub result. Parquet emission TODO[phase-0-next].",
+      notes: "Phase 0 deterministic run",
     },
   };
 }
 
-const iterateSymbolBars = (
-  request: DataRequest,
-  bars: ReadonlyArray<Bar>,
-  rng: () => number,
-  equityCurve: EquityPoint[],
-  fullRequest: BacktestRequest,
-): TradeFill[] => {
-  const trades: TradeFill[] = [];
-  if (bars.length === 0) {
-    return trades;
+const instantiateStrategy = (request: BacktestRequest) => {
+  const module = STRATEGY_REGISTRY[request.strategy.name];
+  if (!module) {
+    throw new Error(`Unknown strategy "${request.strategy.name}"`);
   }
-
-  let equity = fullRequest.initialCash;
-  bars.forEach((bar, idx) => {
-    // Deterministic tiny drift to prove iteration without changing metrics.
-    const direction = idx % 2 === 0 ? 1 : -1;
-    const delta = direction * 0.0001 * rng() * fullRequest.initialCash;
-    equity += delta;
-    equityCurve.push({
-      timestamp: bar.timestamp,
-      equity,
-    });
-
-    if (idx % Math.max(1, Math.floor(bars.length / 3)) === 0) {
-      trades.push({
-        id: `${request.symbol}-${idx}`,
-        symbol: request.symbol,
-        side: idx % 2 === 0 ? "buy" : "sell",
-        quantity: 1,
-        price: bar.close,
-        timestamp: bar.timestamp,
-        pnl: 0,
-      });
-    }
-  });
-
-  return trades;
+  const params = module.schema.parse(request.strategy.params);
+  const strategy = module.factory(params as never);
+  return strategy;
 };
 
 const buildSummary = (
   metrics: ReadonlyArray<MetricKey>,
   equityCurve: ReadonlyArray<EquityPoint>,
+  trades: ReadonlyArray<TradeFill>,
 ): Record<string, number> => {
   const results = calculateMetricsSummary(equityCurve);
+  const winRate = computeWinRate(trades);
+  const profitFactor = computeProfitFactor(trades);
   const summary: Record<string, number> = {};
 
   const metricSet = metrics.length > 0 ? metrics : FALLBACK_METRICS;
@@ -215,7 +265,19 @@ const buildSummary = (
         summary.cagr = results.cagr;
         break;
       case "winrate":
-        summary.winrate = 0;
+        summary.winrate = winRate;
+        break;
+      case "total_pnl":
+        summary.total_pnl = results.totalPnl;
+        break;
+      case "total_return":
+        summary.total_return = results.totalReturn;
+        break;
+      case "num_trades":
+        summary.num_trades = trades.length;
+        break;
+      case "profit_factor":
+        summary.profit_factor = profitFactor;
         break;
       default:
         summary[metric] = 0;
@@ -231,8 +293,33 @@ const buildSummary = (
   if (!("cagr" in summary)) {
     summary.cagr = results.cagr;
   }
+  if (metrics.includes("winrate") && !("winrate" in summary)) {
+    summary.winrate = winRate;
+  }
 
   return summary;
+};
+
+const computeWinRate = (trades: ReadonlyArray<TradeFill>): number => {
+  if (trades.length === 0) {
+    return 0;
+  }
+  const winners = trades.filter((trade) => trade.pnl > 0).length;
+  return winners / trades.length;
+};
+
+const computeProfitFactor = (trades: ReadonlyArray<TradeFill>): number => {
+  if (trades.length === 0) {
+    return 0;
+  }
+  const grossProfit = trades.filter((t) => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+  const grossLoss = Math.abs(trades.filter((t) => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
+
+  if (grossLoss === 0) {
+    return grossProfit > 0 ? Infinity : 0;
+  }
+
+  return grossProfit / grossLoss;
 };
 
 const dedupeBars = (bars: ReadonlyArray<Bar>): Bar[] => {
@@ -277,4 +364,209 @@ const extractFallbackBars = (req: BacktestRequest): BarsBySymbol => {
   }
 
   return {};
+};
+
+interface SimulationArgs {
+  readonly bars: ReadonlyArray<Bar>;
+  readonly strategy: ReturnType<StrategyModule["factory"]>;
+  readonly request: BacktestRequest;
+  readonly riskLimits: EngineRiskLimits;
+}
+
+interface SimulationResult {
+  readonly equityCurve: EquityPoint[];
+  readonly trades: TradeFill[];
+  readonly processedBars: number;
+}
+
+const simulateStrategy = ({
+  bars,
+  strategy,
+  request,
+  riskLimits,
+}: SimulationArgs): SimulationResult => {
+  const equityCurve: EquityPoint[] = [];
+  const trades: TradeFill[] = [];
+  const position: PositionState = {
+    quantity: 0,
+    averagePrice: 0,
+    realizedPnl: 0,
+  };
+  const cashRef = { value: request.initialCash };
+  let peakEquity = request.initialCash;
+  const symbol = request.data[0]?.symbol ?? "primary";
+  const context = { symbol };
+  strategy.onInit(context);
+  const feeRate = (request.costs.feeBps + request.costs.slippageBps) / 10_000;
+
+  for (const bar of bars) {
+    const signal = strategy.onBar(context, bar);
+    const equityBefore = cashRef.value + position.quantity * bar.close;
+
+    if (signal) {
+      executeSignal({
+        symbol,
+        signalReason: signal.reason,
+        side: signal.side,
+        timestamp: bar.timestamp,
+        price: bar.close,
+        position,
+        cashRef,
+        trades,
+        equity: equityBefore,
+        feeRate,
+        riskLimits,
+      });
+    }
+
+    const equity = cashRef.value + position.quantity * bar.close;
+    peakEquity = Math.max(peakEquity, equity);
+    equityCurve.push({ timestamp: bar.timestamp, equity });
+
+    const drawdown = peakEquity > 0 ? (equity - peakEquity) / peakEquity : 0;
+    if (Math.abs(drawdown) >= riskLimits.killSwitchDrawdownPct) {
+      break;
+    }
+
+    if (equity <= request.initialCash * (1 - riskLimits.maxDailyLossPct)) {
+      break;
+    }
+  }
+
+  const closingSignal = strategy.onStop(context);
+  if (closingSignal && closingSignal.side === "sell" && position.quantity > 0) {
+    executeSignal({
+      symbol,
+      signalReason: closingSignal.reason ?? "strategy_stop",
+      side: closingSignal.side,
+      timestamp: bars[bars.length - 1]?.timestamp ?? new Date().toISOString(),
+      price: bars[bars.length - 1]?.close ?? 0,
+      position,
+      cashRef,
+      trades,
+      equity: cashRef.value + position.quantity * (bars[bars.length - 1]?.close ?? 0),
+      feeRate,
+      riskLimits,
+    });
+  }
+
+  const processedBars = equityCurve.length;
+
+  return {
+    equityCurve,
+    trades,
+    processedBars,
+  };
+};
+
+interface ExecuteSignalArgs {
+  readonly symbol: string;
+  readonly signalReason: string;
+  readonly side: "buy" | "sell";
+  readonly timestamp: string;
+  readonly price: number;
+  readonly position: PositionState;
+  readonly cashRef: { value: number };
+  readonly trades: TradeFill[];
+  readonly equity: number;
+  readonly feeRate: number;
+  readonly riskLimits: EngineRiskLimits;
+}
+
+const executeSignal = ({
+  symbol,
+  signalReason,
+  side,
+  timestamp,
+  price,
+  position,
+  cashRef,
+  trades,
+  equity,
+  feeRate,
+  riskLimits,
+}: ExecuteSignalArgs): void => {
+  if (price <= 0) {
+    return;
+  }
+
+  const maxPositionValue = equity * riskLimits.maxPositionPct;
+  const orderCapValue = equity * riskLimits.perOrderCapPct;
+  const maxPositionQty = Math.max(0, Math.floor(maxPositionValue / price));
+  const maxOrderQty = Math.max(1, Math.floor(orderCapValue / price));
+
+  const desiredQty = side === "buy" ? maxPositionQty : 0;
+  let delta = desiredQty - position.quantity;
+
+  if (delta === 0) {
+    return;
+  }
+
+  if (delta > maxOrderQty) {
+    delta = maxOrderQty;
+  }
+  if (delta < -maxOrderQty) {
+    delta = -maxOrderQty;
+  }
+  if (side === "sell") {
+    delta = Math.max(-position.quantity, delta);
+  }
+
+  if (delta > 0) {
+    const affordableQty = Math.floor(cashRef.value / price);
+    if (affordableQty <= 0) {
+      return;
+    }
+    if (delta > affordableQty) {
+      delta = affordableQty;
+    }
+  }
+
+  if (delta === 0) {
+    return;
+  }
+
+  const tradeId = `${symbol}-${side}-${timestamp}-${trades.length + 1}`;
+  if (delta > 0) {
+    const cost = delta * price;
+    const fees = cost * feeRate;
+    cashRef.value -= cost + fees;
+    const newTotalCost = position.averagePrice * position.quantity + cost;
+    position.quantity += delta;
+    position.averagePrice = position.quantity > 0 ? newTotalCost / position.quantity : 0;
+    trades.push({
+      id: tradeId,
+      symbol,
+      side,
+      quantity: delta,
+      price,
+      timestamp,
+      pnl: 0,
+      fees,
+      reason: signalReason,
+    });
+    return;
+  }
+
+  const qtyToClose = Math.min(-delta, position.quantity);
+  const proceeds = qtyToClose * price;
+  const fees = proceeds * feeRate;
+  cashRef.value += proceeds - fees;
+  const realized = qtyToClose * (price - position.averagePrice);
+  position.quantity -= qtyToClose;
+  if (position.quantity === 0) {
+    position.averagePrice = 0;
+  }
+  position.realizedPnl += realized;
+  trades.push({
+    id: tradeId,
+    symbol,
+    side,
+    quantity: qtyToClose,
+    price,
+    timestamp,
+    pnl: realized,
+    fees,
+    reason: signalReason,
+  });
 };

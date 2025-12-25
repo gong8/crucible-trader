@@ -33,13 +33,14 @@ OptionGreeks black_scholes(const OptionInput& option) {
   const double sqrtT = std::sqrt(T);
   const double sigmaSqT = sigma * sqrtT;
 
-  const double forward = S * std::exp(-q * T);
+  const double discounted_spot = S * std::exp(-q * T);
   const double discount = std::exp(-r * T);
   const double logTerm = std::log(S / K);
   const double d1 = (logTerm + (r - q + 0.5 * sigma * sigma) * T) / sigmaSqT;
   const double d2 = d1 - sigmaSqT;
 
   const double pdfD1 = normal_pdf(d1);
+  const double theta_time_decay = -(discounted_spot * pdfD1 * sigma) / (2.0 * sqrtT);
 
   double price = 0.0;
   double delta = 0.0;
@@ -47,18 +48,18 @@ OptionGreeks black_scholes(const OptionInput& option) {
   double rho = 0.0;
 
   if (option.is_call) {
-    price = forward * normal_cdf(d1) - K * discount * normal_cdf(d2);
+    price = discounted_spot * normal_cdf(d1) - K * discount * normal_cdf(d2);
     delta = std::exp(-q * T) * normal_cdf(d1);
-    theta = - (S * std::exp(-q * T) * pdfD1 * sigma) / (2.0 * sqrtT)
+    theta = theta_time_decay
             - r * K * discount * normal_cdf(d2)
-            + q * S * std::exp(-q * T) * normal_cdf(d1);
+            + q * discounted_spot * normal_cdf(d1);
     rho = K * T * discount * normal_cdf(d2);
   } else {
-    price = K * discount * normal_cdf(-d2) - forward * normal_cdf(-d1);
+    price = K * discount * normal_cdf(-d2) - discounted_spot * normal_cdf(-d1);
     delta = std::exp(-q * T) * (normal_cdf(d1) - 1.0);
-    theta = - (S * std::exp(-q * T) * pdfD1 * sigma) / (2.0 * sqrtT)
+    theta = theta_time_decay
             + r * K * discount * normal_cdf(-d2)
-            - q * S * std::exp(-q * T) * normal_cdf(-d1);
+            - q * discounted_spot * normal_cdf(-d1);
     rho = -K * T * discount * normal_cdf(-d2);
   }
 

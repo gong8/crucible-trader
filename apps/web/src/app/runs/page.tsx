@@ -9,6 +9,8 @@ interface RunListItem {
   runId: string;
   createdAt?: string;
   status?: string;
+  name?: string;
+  summary?: Record<string, number>;
 }
 
 export default function RunsPage(): JSX.Element {
@@ -139,12 +141,35 @@ export default function RunsPage(): JSX.Element {
               <div
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
               >
-                <strong>{run.runId}</strong>
+                <div style={{ display: "grid" }}>
+                  <strong>{run.name ?? run.runId}</strong>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>{run.runId}</span>
+                </div>
                 {run.status ? <span style={{ color: "#38bdf8" }}>{run.status}</span> : null}
               </div>
               <p style={{ marginTop: "0.5rem", color: "#94a3b8", fontSize: "0.85rem" }}>
                 {run.createdAt ? `created ${run.createdAt}` : "timestamp pending"}
               </p>
+              {run.summary ? (
+                <dl
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                    gap: "0.5rem",
+                    marginTop: "0.75rem",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  {Object.entries(run.summary)
+                    .slice(0, 4)
+                    .map(([metric, value]) => (
+                      <div key={`${run.runId}-${metric}`} style={{ display: "grid" }}>
+                        <dt style={{ color: "#64748b" }}>{metric}</dt>
+                        <dd style={{ margin: 0 }}>{Number(value).toFixed(3)}</dd>
+                      </div>
+                    ))}
+                </dl>
+              ) : null}
               <div className="chart-placeholder" style={{ marginTop: "1rem" }}>
                 chart placeholder
               </div>

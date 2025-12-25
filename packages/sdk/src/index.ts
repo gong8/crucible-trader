@@ -14,7 +14,16 @@ export type DataSource = "csv" | "tiingo" | "polygon";
 export type Timeframe = "1d" | "1h" | "15m" | "1m";
 
 /** Metric identifiers aligned with Phase 0 reporting. */
-export type MetricKey = "sharpe" | "sortino" | "max_dd" | "cagr" | "winrate";
+export type MetricKey =
+  | "sharpe"
+  | "sortino"
+  | "max_dd"
+  | "cagr"
+  | "winrate"
+  | "total_pnl"
+  | "total_return"
+  | "num_trades"
+  | "profit_factor";
 
 /** ISO-8601 date string (UTC recommended). */
 export type ISODate = string;

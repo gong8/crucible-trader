@@ -130,14 +130,48 @@ export interface MetricSummary {
   readonly sortino: number;
   readonly maxDrawdown: number;
   readonly cagr: number;
+  readonly totalPnl: number;
+  readonly totalReturn: number;
 }
 
-export const calculateMetricsSummary = (points: ReadonlyArray<EquityPoint>): MetricSummary => ({
-  sharpe: calculateSharpe(points),
-  sortino: calculateSortino(points),
-  maxDrawdown: calculateMaxDrawdown(points),
-  cagr: calculateCagr(points),
-});
+export const calculateMetricsSummary = (points: ReadonlyArray<EquityPoint>): MetricSummary => {
+  if (points.length === 0) {
+    return {
+      sharpe: 0,
+      sortino: 0,
+      maxDrawdown: 0,
+      cagr: 0,
+      totalPnl: 0,
+      totalReturn: 0,
+    };
+  }
+
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  if (!first || !last) {
+    return {
+      sharpe: 0,
+      sortino: 0,
+      maxDrawdown: 0,
+      cagr: 0,
+      totalPnl: 0,
+      totalReturn: 0,
+    };
+  }
+
+  const totalPnl = last.equity - first.equity;
+  const totalReturn = first.equity > 0 ? (last.equity - first.equity) / first.equity : 0;
+
+  return {
+    sharpe: calculateSharpe(points),
+    sortino: calculateSortino(points),
+    maxDrawdown: calculateMaxDrawdown(points),
+    cagr: calculateCagr(points),
+    totalPnl,
+    totalReturn,
+  };
+};
 
 export const DEFAULT_METRICS: (keyof MetricSummary)[] = [
   "sharpe",

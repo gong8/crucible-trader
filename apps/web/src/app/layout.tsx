@@ -8,11 +8,7 @@ export const metadata: Metadata = {
   description: "phase 0 run console",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}): JSX.Element {
+export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <html lang="en">
       <body>
@@ -21,6 +17,9 @@ export default function RootLayout({
           <div className="nav-links">
             <Link href="/runs">runs</Link>
             <Link href="/new-run">new run</Link>
+            <Link href="/datasets">datasets</Link>
+            <Link href="/risk">risk</Link>
+            <Link href="/reports">reports</Link>
           </div>
         </nav>
         <main>{children}</main>

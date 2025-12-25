@@ -6,7 +6,17 @@ import type { ChangeEvent, FormEvent } from "react";
 import type { BacktestRequest, DataSource, MetricKey, Timeframe } from "@crucible-trader/sdk";
 import { apiRoute } from "../../lib/api";
 
-const metricOptions: MetricKey[] = ["sharpe", "sortino", "max_dd", "cagr", "winrate"];
+const metricOptions: MetricKey[] = [
+  "sharpe",
+  "sortino",
+  "max_dd",
+  "cagr",
+  "winrate",
+  "total_pnl",
+  "total_return",
+  "num_trades",
+  "profit_factor",
+];
 const timeframeOptions: Timeframe[] = ["1d", "1h", "15m", "1m"];
 const dataSources: DataSource[] = ["csv", "tiingo", "polygon"];
 
@@ -31,7 +41,12 @@ export default function NewRunPage(): JSX.Element {
   const [initialCash, setInitialCash] = useState("100000");
   const [seed, setSeed] = useState("42");
   const [riskProfileId, setRiskProfileId] = useState("default");
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(["sharpe", "max_dd", "cagr"]);
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>([
+    "sharpe",
+    "max_dd",
+    "cagr",
+    "total_pnl",
+  ]);
   const [submission, setSubmission] = useState<SubmissionState>({ status: "idle", message: null });
 
   const requestPreview = useMemo(() => {
@@ -78,7 +93,7 @@ export default function NewRunPage(): JSX.Element {
 
   const handleMetricToggle = (metric: MetricKey): void => {
     setSelectedMetrics((prev) =>
-      prev.includes(metric) ? prev.filter((item) => item !== metric) : [...prev, metric]
+      prev.includes(metric) ? prev.filter((item) => item !== metric) : [...prev, metric],
     );
   };
 
@@ -308,7 +323,9 @@ export default function NewRunPage(): JSX.Element {
               type="number"
               value={seed}
               min="0"
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setSeed(event.currentTarget.value)}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setSeed(event.currentTarget.value)
+              }
             />
           </label>
         </fieldset>

@@ -4,13 +4,22 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { BacktestResult } from "@crucible-trader/sdk";
+import type { BacktestResult, RiskProfile } from "@crucible-trader/sdk";
 
 const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = join(MODULE_DIR, "..", "..", "..", "..");
 const STORAGE_DIR = join(REPO_ROOT, "storage");
 const DEFAULT_DB_PATH = join(STORAGE_DIR, "api.sqlite");
 const SCHEMA_PATH = join(REPO_ROOT, "services", "api", "src", "db", "schema.sql");
+const DEFAULT_RISK_PROFILE: RiskProfile = {
+  id: "default",
+  name: "default guardrails",
+  maxDailyLossPct: 0.03,
+  maxPositionPct: 0.2,
+  perOrderCapPct: 0.1,
+  globalDDKillPct: 0.05,
+  cooldownMinutes: 15,
+};
 
 type SqliteInstance = SQLiteDatabase<sqlite3.Database, sqlite3.Statement>;
 
@@ -40,6 +49,27 @@ export interface RunSummaryRow {
   readonly name: string | null;
   readonly createdAt: string;
   readonly status: string;
+  readonly summaryJson: string | null;
+}
+
+export interface DatasetRecord {
+  readonly id: number;
+  readonly source: string;
+  readonly symbol: string;
+  readonly timeframe: string;
+  readonly start: string | null;
+  readonly end: string | null;
+  readonly adjusted: number | null;
+  readonly path: string;
+  readonly checksum: string | null;
+  readonly rows: number | null;
+  readonly createdAt: string;
+}
+
+export interface RiskProfileRow {
+  readonly id: number;
+  readonly name: string;
+  readonly json: string;
 }
 
 export class ApiDatabase {
@@ -131,7 +161,8 @@ export class ApiDatabase {
       `select run_id as runId,
               name,
               created_at as createdAt,
-              status
+              status,
+              summary_json as summaryJson
          from runs
      order by created_at desc`,
     );
@@ -164,6 +195,148 @@ export class ApiDatabase {
      order by id asc`,
       { ":runId": runId },
     );
+  }
+
+  public async listDatasets(): Promise<DatasetRecord[]> {
+    return this.db.all<DatasetRecord[]>(
+      `select id,
+              source,
+              symbol,
+              timeframe,
+              start,
+              end,
+              adjusted,
+              path,
+              checksum,
+              rows,
+              created_at as createdAt
+         from datasets
+     order by created_at desc`,
+    );
+  }
+
+  public async upsertDataset(args: {
+    source: string;
+    symbol: string;
+    timeframe: string;
+    start?: string | null;
+    end?: string | null;
+    adjusted?: boolean;
+    path: string;
+    checksum?: string | null;
+    rows: number;
+    createdAt: string;
+  }): Promise<void> {
+    const existing = await this.db.get<{ id: number }>(
+      `select id
+         from datasets
+        where source = :source
+          and symbol = :symbol
+          and timeframe = :timeframe
+     limit 1`,
+      {
+        ":source": args.source,
+        ":symbol": args.symbol,
+        ":timeframe": args.timeframe,
+      },
+    );
+
+    const payload = {
+      ":source": args.source,
+      ":symbol": args.symbol,
+      ":timeframe": args.timeframe,
+      ":start": args.start ?? null,
+      ":end": args.end ?? null,
+      ":adjusted": args.adjusted ? 1 : 0,
+      ":path": normalize(args.path),
+      ":checksum": args.checksum ?? null,
+      ":rows": args.rows,
+      ":createdAt": args.createdAt,
+    };
+
+    if (existing?.id) {
+      await this.db.run(
+        `update datasets
+            set start = :start,
+                end = :end,
+                adjusted = :adjusted,
+                path = :path,
+                checksum = :checksum,
+                rows = :rows,
+                created_at = :createdAt
+          where id = :id`,
+        { ...payload, ":id": existing.id },
+      );
+      return;
+    }
+
+    await this.db.run(
+      `insert into datasets (source, symbol, timeframe, start, end, adjusted, path, checksum, rows, created_at)
+       values (:source, :symbol, :timeframe, :start, :end, :adjusted, :path, :checksum, :rows, :createdAt)`,
+      payload,
+    );
+  }
+
+  public async listRiskProfiles(): Promise<RiskProfile[]> {
+    const rows = await this.db.all<RiskProfileRow[]>(
+      `select id, name, json
+         from risk_profiles
+     order by name asc`,
+    );
+    return rows
+      .map((row) => parseRiskProfile(row.json))
+      .filter((profile): profile is RiskProfile => profile !== null);
+  }
+
+  public async getRiskProfileById(profileId: string): Promise<RiskProfile | undefined> {
+    const row = await this.db.get<{ json: string }>(
+      `select json
+         from risk_profiles
+        where json_extract(json, '$.id') = :profileId
+     limit 1`,
+      { ":profileId": profileId },
+    );
+    if (!row?.json) {
+      return undefined;
+    }
+    const parsed = parseRiskProfile(row.json);
+    return parsed ?? undefined;
+  }
+
+  public async upsertRiskProfile(profile: RiskProfile): Promise<void> {
+    const existing = await this.db.get<{ id: number }>(
+      `select id
+         from risk_profiles
+        where json_extract(json, '$.id') = :profileId
+     limit 1`,
+      { ":profileId": profile.id },
+    );
+    const payload = {
+      ":name": profile.name,
+      ":json": JSON.stringify(profile),
+    };
+    if (existing?.id) {
+      await this.db.run(
+        `update risk_profiles
+            set name = :name,
+                json = :json
+          where id = :id`,
+        { ...payload, ":id": existing.id },
+      );
+      return;
+    }
+    await this.db.run(
+      `insert into risk_profiles (name, json)
+       values (:name, :json)`,
+      payload,
+    );
+  }
+
+  public async ensureRiskProfile(profile: RiskProfile): Promise<void> {
+    const existing = await this.getRiskProfileById(profile.id);
+    if (!existing) {
+      await this.upsertRiskProfile(profile);
+    }
   }
 
   public async reset(): Promise<void> {
@@ -200,5 +373,29 @@ export const createApiDatabase = async (options: ApiDatabaseOptions = {}): Promi
   const schema = readFileSync(SCHEMA_PATH, "utf-8");
   await db.exec(schema);
 
-  return new ApiDatabase(db);
+  const database = new ApiDatabase(db);
+  await database.ensureRiskProfile(DEFAULT_RISK_PROFILE);
+  return database;
+};
+
+const parseRiskProfile = (payload: unknown): RiskProfile | null => {
+  try {
+    const parsed =
+      typeof payload === "string" ? (JSON.parse(payload) as RiskProfile) : (payload as RiskProfile);
+    if (
+      parsed &&
+      typeof parsed.id === "string" &&
+      typeof parsed.name === "string" &&
+      typeof parsed.maxDailyLossPct === "number" &&
+      typeof parsed.maxPositionPct === "number" &&
+      typeof parsed.perOrderCapPct === "number" &&
+      typeof parsed.globalDDKillPct === "number" &&
+      typeof parsed.cooldownMinutes === "number"
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 };

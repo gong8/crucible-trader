@@ -1,7 +1,10 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import parquetjs from "parquetjs";
+
+import type { ReportPayload } from "./report.js";
+import { buildReportMarkdown } from "./report.js";
 
 const { ParquetSchema, ParquetWriter } = parquetjs;
 
@@ -16,6 +19,8 @@ export interface TradeRow extends Record<string, unknown> {
   readonly qty: number;
   readonly price: number;
   readonly pnl: number;
+  readonly fees: number;
+  readonly reason: string;
 }
 
 export interface BarRow extends Record<string, unknown> {
@@ -38,6 +43,8 @@ const tradesSchema = new ParquetSchema({
   qty: { type: "DOUBLE" },
   price: { type: "DOUBLE" },
   pnl: { type: "DOUBLE" },
+  fees: { type: "DOUBLE" },
+  reason: { type: "UTF8" },
 });
 
 const barsSchema = new ParquetSchema({
@@ -61,10 +68,40 @@ export const writeParquetArtifacts = async (
 ): Promise<void> => {
   await mkdir(runDir, { recursive: true });
 
+  const safeEquity =
+    rows.equity.length > 0 ? rows.equity : [{ time: new Date(0).toISOString(), equity: 0 }];
+  const safeTrades =
+    rows.trades.length > 0
+      ? rows.trades
+      : [
+          {
+            time: new Date(0).toISOString(),
+            side: "buy",
+            qty: 0,
+            price: 0,
+            pnl: 0,
+            fees: 0,
+            reason: "no_trades",
+          },
+        ];
+  const safeBars =
+    rows.bars.length > 0
+      ? rows.bars
+      : [
+          {
+            time: new Date(0).toISOString(),
+            open: 0,
+            high: 0,
+            low: 0,
+            close: 0,
+            volume: 0,
+          },
+        ];
+
   await Promise.all([
-    writeParquet(join(runDir, "equity.parquet"), equitySchema, rows.equity),
-    writeParquet(join(runDir, "trades.parquet"), tradesSchema, rows.trades),
-    writeParquet(join(runDir, "bars.parquet"), barsSchema, rows.bars),
+    writeParquet(join(runDir, "equity.parquet"), equitySchema, safeEquity),
+    writeParquet(join(runDir, "trades.parquet"), tradesSchema, safeTrades),
+    writeParquet(join(runDir, "bars.parquet"), barsSchema, safeBars),
   ]);
 };
 
@@ -81,4 +118,14 @@ const writeParquet = async <T extends Record<string, unknown>>(
   } finally {
     await writer.close();
   }
+};
+
+export const writeReportArtifact = async (
+  runDir: string,
+  payload: ReportPayload,
+): Promise<void> => {
+  await mkdir(runDir, { recursive: true });
+  const reportPath = join(runDir, "report.md");
+  const markdown = buildReportMarkdown(payload);
+  await writeFile(reportPath, markdown, { encoding: "utf-8" });
 };

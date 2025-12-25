@@ -204,6 +204,18 @@ export default function RunDetailPage(): JSX.Element {
       ) : result && !chartData && !loading ? (
         <div className="alert">chart data unavailable for this run</div>
       ) : null}
+      {result?.artifacts.reportMd ? (
+        <div>
+          <a
+            href={apiRoute(`/api/runs/${result.runId}/artifacts/report`)}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "#38bdf8" }}
+          >
+            download markdown report →
+          </a>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,8 +1,11 @@
 import Fastify, { type FastifyInstance } from "fastify";
 
-import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
+import type { BacktestRequest, BacktestResult, RiskProfile } from "@crucible-trader/sdk";
 
 import { createApiDatabase } from "./db/index.js";
+import { initializeQueue } from "./queue.js";
+import { registerDatasetRoutes } from "./routes/datasets.js";
+import { registerRiskProfileRoutes } from "./routes/risk-profiles.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 
 type ResultCache = Map<string, BacktestResult>;
@@ -37,6 +40,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
   });
 
   const database = await createApiDatabase();
+  const queue = initializeQueue(database);
   const resultCache: ResultCache = new Map();
 
   const saveResult = async (result: BacktestResult): Promise<void> => {
@@ -50,12 +54,23 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
 
   const listRuns = async (): Promise<RunSummary[]> => {
     const rows = await database.listRuns();
-    return rows.map((row) => ({
-      runId: row.runId,
-      name: row.name ?? undefined,
-      status: row.status,
-      createdAt: row.createdAt,
-    }));
+    return rows.map((row) => {
+      let summary: Record<string, number> | undefined;
+      if (row.summaryJson) {
+        try {
+          summary = JSON.parse(row.summaryJson) as Record<string, number>;
+        } catch {
+          summary = undefined;
+        }
+      }
+      return {
+        runId: row.runId,
+        name: row.name ?? undefined,
+        status: row.status,
+        createdAt: row.createdAt,
+        summary,
+      };
+    });
   };
 
   const markRunQueued = async (summary: RunSummary, request: BacktestRequest): Promise<void> => {
@@ -87,6 +102,10 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     return slug.length > 0 ? `${slug}-${suffix}` : `run-${suffix}`;
   };
 
+  const getRiskProfile = async (profileId: string): Promise<RiskProfile | undefined> => {
+    return database.getRiskProfileById(profileId);
+  };
+
   registerRunsRoutes(app, {
     saveResult,
     getResult,
@@ -95,6 +114,18 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     markRunQueued,
     markRunCompleted,
     resetRuns,
+    getRiskProfile,
+    queue,
+  });
+
+  registerDatasetRoutes(app, {
+    listDatasets: () => database.listDatasets(),
+    saveDataset: (record) => database.upsertDataset(record),
+  });
+
+  registerRiskProfileRoutes(app, {
+    listRiskProfiles: () => database.listRiskProfiles(),
+    saveRiskProfile: (profile) => database.upsertRiskProfile(profile),
   });
 
   app.addHook("onClose", async () => {

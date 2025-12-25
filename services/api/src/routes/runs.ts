@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,10 +9,11 @@ import {
   assertValid,
   type BacktestRequest,
   type BacktestResult,
+  type RiskProfile,
 } from "@crucible-trader/sdk";
-import { runBacktest } from "@crucible-trader/engine";
 import { createLogger } from "@crucible-trader/logger";
 import { createRequire } from "node:module";
+import type { JobQueue } from "../queue.js";
 
 const require = createRequire(import.meta.url);
 const { ParquetReader } = require("parquetjs/parquet.js");
@@ -25,6 +26,8 @@ interface RunsRouteDeps {
   readonly markRunQueued: (summary: RunSummary, request: BacktestRequest) => Promise<void>;
   readonly markRunCompleted: (runId: string) => Promise<void>;
   readonly resetRuns: () => Promise<void>;
+  readonly getRiskProfile: (profileId: string) => Promise<RiskProfile | undefined>;
+  readonly queue: JobQueue;
 }
 
 interface RunParams {
@@ -40,11 +43,12 @@ export interface RunSummary {
   readonly status: string;
   readonly createdAt: string;
   readonly name?: string;
+  readonly summary?: Record<string, number>;
 }
 
 interface ArtifactParams {
   readonly id: string;
-  readonly artifact: "equity" | "trades" | "bars";
+  readonly artifact: "equity" | "trades" | "bars" | "report";
 }
 
 const ROUTES_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -100,21 +104,24 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       };
       await deps.markRunQueued(queuedSummary, payload);
 
+      let riskProfile: RiskProfile | undefined;
+      if (payload.riskProfileId) {
+        riskProfile = await deps.getRiskProfile(payload.riskProfileId);
+        if (!riskProfile) {
+          return reply.code(400).send({ message: `Unknown risk profile ${payload.riskProfileId}` });
+        }
+      }
+
       try {
-        const result = await runBacktest(payload);
-        const finalResult = await normalizeResultRunId(result, runId);
-        await writeManifest(finalResult, {
-          name: queuedSummary.name,
-          createdAt: queuedSummary.createdAt,
-          status: "completed",
+        await deps.queue.enqueue({
+          runId,
+          request: payload,
         });
-        await deps.saveResult(finalResult);
-        await deps.markRunCompleted(runId);
         const response: RunCreatedResponse = { runId };
         return reply.code(201).send(response);
       } catch (error) {
-        request.log.error({ err: error, runId }, "run backtest failed");
-        return reply.code(500).send({ message: "run failed" });
+        request.log.error({ err: error, runId }, "failed to enqueue run");
+        return reply.code(500).send({ message: "failed to enqueue run" });
       }
     },
   );
@@ -163,7 +170,11 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       try {
         const absolutePath = normalize(join(REPO_ROOT, relativePath));
         const buffer = await readFile(absolutePath);
-        reply.header("content-type", "application/octet-stream");
+        if (artifact === "report") {
+          reply.header("content-type", "text/markdown; charset=utf-8");
+        } else {
+          reply.header("content-type", "application/octet-stream");
+        }
         return reply.send(buffer);
       } catch (error) {
         request.log.error({ err: error, runId: id, artifact }, "failed to read artifact");
@@ -249,6 +260,8 @@ const resolveArtifactPath = (
       return result.artifacts.tradesParquet;
     case "bars":
       return result.artifacts.barsParquet;
+    case "report":
+      return result.artifacts.reportMd ?? null;
     default:
       return null;
   }
@@ -305,6 +318,7 @@ const listManifestSummaries = async (): Promise<RunSummary[]> => {
         status: manifest.metadata?.status ?? "completed",
         createdAt,
         name: manifest.metadata?.name ?? undefined,
+        summary: manifest.summary,
       });
     }
     return summaries;
@@ -344,6 +358,7 @@ const mergeRunSummaries = (dbRuns: RunSummary[], manifestRuns: RunSummary[]): Ru
         status: manifest.status ?? existing.status,
         createdAt: manifest.createdAt ?? existing.createdAt,
         name: manifest.name ?? existing.name,
+        summary: manifest.summary ?? existing.summary,
       });
     } else {
       merged.set(manifest.runId, manifest);
@@ -372,68 +387,6 @@ interface ManifestShape {
   };
   readonly metadata?: ManifestMetadata;
 }
-
-const writeManifest = async (
-  result: BacktestResult,
-  metadata: ManifestMetadata = {},
-): Promise<void> => {
-  const runDir = join(RUNS_ROOT, result.runId);
-  await mkdir(runDir, { recursive: true });
-  const manifest: ManifestShape = {
-    runId: result.runId,
-    summary: result.summary,
-    artifacts: result.artifacts,
-    engine: {
-      version: "0.0.1",
-      seed: (result.diagnostics?.seed as number) ?? 42,
-    },
-    metadata: {
-      name: metadata.name,
-      createdAt: metadata.createdAt ?? new Date().toISOString(),
-      status: metadata.status ?? "completed",
-    },
-  };
-  const manifestPath = join(runDir, "manifest.json");
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf-8" });
-};
-
-const normalizeResultRunId = async (
-  result: BacktestResult,
-  desiredRunId: string,
-): Promise<BacktestResult> => {
-  if (result.runId === desiredRunId) {
-    return result;
-  }
-
-  const oldDir = join(RUNS_ROOT, result.runId);
-  const newDir = join(RUNS_ROOT, desiredRunId);
-
-  try {
-    await rename(oldDir, newDir);
-  } catch (error) {
-    // If rename fails (e.g., oldDir missing), log and continue with newDir
-    logger.error("Failed to rename run directory", {
-      oldDir,
-      newDir,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  const remapPath = (path: string): string => {
-    return path.replace(result.runId, desiredRunId);
-  };
-
-  return {
-    ...result,
-    runId: desiredRunId,
-    artifacts: {
-      ...result.artifacts,
-      equityParquet: remapPath(result.artifacts.equityParquet),
-      tradesParquet: remapPath(result.artifacts.tradesParquet),
-      barsParquet: remapPath(result.artifacts.barsParquet),
-    },
-  };
-};
 
 async function getResultWithFallback(
   runId: string,

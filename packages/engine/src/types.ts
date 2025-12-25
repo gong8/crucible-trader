@@ -31,6 +31,8 @@ export interface TradeFill {
   readonly price: number;
   readonly timestamp: ISODate;
   readonly pnl: number;
+  readonly fees: number;
+  readonly reason: string;
 }
 
 /**
@@ -47,4 +49,6 @@ export interface EngineDiagnostics {
   readonly equityCurve: ReadonlyArray<EquityPoint>;
   readonly trades: ReadonlyArray<TradeFill>;
   readonly requestedMetrics: ReadonlyArray<MetricKey>;
+  readonly runName: string;
+  readonly riskProfileId?: string;
 }
