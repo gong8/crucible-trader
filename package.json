@@ -6,6 +6,10 @@
     "prepare": "husky",
     "dev": "concurrently \"pnpm --filter @crucible-trader/api dev\" \"pnpm --filter @crucible-trader/backtest-worker dev\" \"pnpm --filter @crucible-trader/web dev\"",
     "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:packages": "pnpm --filter './packages/**' test",
+    "test:services": "pnpm --filter './services/**' test",
+    "test:verbose": "pnpm -r test 2>&1 | tee test-output.log",
     "lint": "pnpm run lint:ensure-no-ts-ignore && eslint \"./apps/**/*.{ts,tsx}\" \"./services/**/*.{ts,tsx}\" \"./packages/**/*.{ts,tsx}\"",
     "lint:ensure-no-ts-ignore": "node ops/scripts/check-no-ts-ignore.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""

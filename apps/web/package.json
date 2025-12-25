@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "echo 'No tests yet for web app' && exit 0"
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",

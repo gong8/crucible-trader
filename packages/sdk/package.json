@@ -15,7 +15,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "test": "node --loader ts-node/esm --test test/strategies.test.ts test/strategy-config.test.ts"
+    "test": "node --loader ts-node/esm --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "zod": "^3.23.8"
