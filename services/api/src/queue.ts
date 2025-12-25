@@ -92,8 +92,7 @@ export class JobQueue {
    * Updates status to "processing" to prevent other workers from picking it up.
    */
   private async dequeue(): Promise<QueueJob | null> {
-    const rows = await this.database.listRuns();
-    const queued = rows.find((row) => row.status === "queued");
+    const queued = await this.database.getOldestQueuedRun();
 
     if (!queued) {
       return null;

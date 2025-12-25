@@ -179,6 +179,24 @@ export class ApiDatabase {
     return rows;
   }
 
+  /**
+   * Get the oldest queued job for processing (FIFO order).
+   */
+  public async getOldestQueuedRun(): Promise<RunSummaryRow | undefined> {
+    return this.db.get<RunSummaryRow>(
+      `select run_id as runId,
+              name,
+              created_at as createdAt,
+              status,
+              summary_json as summaryJson,
+              error_message as errorMessage
+         from runs
+        where status = 'queued'
+     order by created_at asc
+        limit 1`,
+    );
+  }
+
   public async getRun(runId: string): Promise<RunRecord | undefined> {
     return this.db.get<RunRecord>(
       `select run_id as runId,

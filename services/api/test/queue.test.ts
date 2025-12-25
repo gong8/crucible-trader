@@ -49,13 +49,11 @@ test("JobQueue accepts custom poll interval", async (t) => {
 
 test("JobQueue.onJob registers handler and starts polling", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 100 });
-  t.after(() => {
+
+  t.after(async () => {
     queue.stop();
+    await db.close();
   });
 
   let handlerCalled = false;
@@ -265,13 +263,11 @@ test("JobQueue handles invalid JSON in requestJson", async (t) => {
 
 test("JobQueue supports multiple handlers", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 50 });
-  t.after(() => {
+
+  t.after(async () => {
     queue.stop();
+    await db.close();
   });
 
   let handler1Called = false;
@@ -344,13 +340,11 @@ test("JobQueue.enqueue triggers immediate poll", async (t) => {
 
 test("JobQueue does not process same job twice", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 25 });
-  t.after(() => {
+
+  t.after(async () => {
     queue.stop();
+    await db.close();
   });
 
   const processedRunIds: string[] = [];
@@ -376,13 +370,11 @@ test("JobQueue does not process same job twice", async (t) => {
 
 test("JobQueue ignores jobs with status other than queued", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 50 });
-  t.after(() => {
+
+  t.after(async () => {
     queue.stop();
+    await db.close();
   });
 
   const processedRunIds: string[] = [];
@@ -421,13 +413,11 @@ test("JobQueue ignores jobs with status other than queued", async (t) => {
 
 test("JobQueue processes jobs in order", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 25 });
-  t.after(() => {
+
+  t.after(async () => {
     queue.stop();
+    await db.close();
   });
 
   const processedOrder: string[] = [];
