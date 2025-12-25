@@ -39,6 +39,7 @@ interface RunDetailState {
 interface ChartData {
   readonly equity: Array<{ time: number; value: number }>;
   readonly markers: TradeMarker[];
+  readonly price?: Array<{ time: number; value: number }>;
 }
 
 const initialState: RunDetailState = {
@@ -105,7 +106,7 @@ const useChartData = (result: RunDetailResponse | null): ChartData | null => {
 
     const load = async (): Promise<void> => {
       try {
-        const [equityRes, tradesRes] = await Promise.all([
+        const [equityRes, tradesRes, barsRes] = await Promise.all([
           fetch(apiRoute(`/api/runs/${result.runId}/equity`), {
             cache: "no-store",
             credentials: "include",
@@ -114,6 +115,10 @@ const useChartData = (result: RunDetailResponse | null): ChartData | null => {
             cache: "no-store",
             credentials: "include",
           }),
+          fetch(apiRoute(`/api/runs/${result.runId}/bars`), {
+            cache: "no-store",
+            credentials: "include",
+          }).catch(() => undefined),
         ]);
 
         if (!equityRes.ok) {
@@ -123,6 +128,9 @@ const useChartData = (result: RunDetailResponse | null): ChartData | null => {
         const equityJson = (await equityRes.json()) as Array<{ time: string; equity: number }>;
         const tradesJson = tradesRes?.ok
           ? ((await tradesRes.json()) as Array<{ time: string; side: string; price: number }>)
+          : [];
+        const priceJson = barsRes?.ok
+          ? ((await barsRes.json()) as Array<{ time: string; close: number }>)
           : [];
 
         const equitySeries = equityJson.map((row) => ({
@@ -138,8 +146,17 @@ const useChartData = (result: RunDetailResponse | null): ChartData | null => {
             }))
           : createMockMarkers(equitySeries);
 
+        const priceSeries = priceJson.map((row) => ({
+          time: toUnix(row.time),
+          value: Number(row.close ?? 0),
+        }));
+
         if (!cancelled) {
-          setData({ equity: equitySeries, markers });
+          setData({
+            equity: equitySeries,
+            markers,
+            price: priceSeries.length ? priceSeries : undefined,
+          });
         }
       } catch (error) {
         console.error("Failed to load chart data", error);
@@ -246,11 +263,15 @@ const toUnix = (value: unknown): number => {
   return Math.floor(Date.now() / 1000);
 };
 
+const tabs = ["overview", "metrics", "datasets", "chart", "trades"] as const;
+type Tab = (typeof tabs)[number];
+
 export default function RunDetailPage(): JSX.Element {
   const params = useParams<{ runId: string }>();
   const { result, loading, error } = useRunDetail(params?.runId);
   const chartData = useChartData(result);
   const trades = useTrades(params?.runId);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   return (
     <section className="grid" aria-label="run detail" style={{ gap: "1.5rem" }}>
@@ -269,15 +290,74 @@ export default function RunDetailPage(): JSX.Element {
       {loading ? <div className="alert">loading run…</div> : null}
       {error ? <div className="alert">{error}</div> : null}
 
-      {result && chartData ? (
-        <div className="card">
-          <LightweightChart equity={chartData.equity} markers={chartData.markers} />
+      <nav
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          flexWrap: "wrap",
+        }}
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "0.4rem 0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid",
+              borderColor: activeTab === tab ? "#38bdf8" : "#1e293b",
+              background: activeTab === tab ? "#1e293b" : "transparent",
+              color: activeTab === tab ? "#38bdf8" : "#94a3b8",
+              textTransform: "uppercase",
+              fontSize: "0.75rem",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "overview" && result ? (
+        <div className="card" style={{ display: "grid", gap: "1.25rem" }}>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <Stat label="Strategy" value={result.request?.strategy.name ?? "unknown"} />
+            <Stat label="Symbol" value={result.request?.data[0]?.symbol ?? "unknown"} />
+            <Stat label="Timeframe" value={result.request?.data[0]?.timeframe ?? "unknown"} />
+          </div>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <Stat label="Total PnL" value={formatCurrency(result.summary.total_pnl)} />
+            <Stat label="Total Return" value={formatPercent(result.summary.total_return)} />
+            <Stat label="Sharpe" value={formatNumber(result.summary.sharpe)} />
+            <Stat label="Trades" value={formatInteger(result.summary.num_trades)} />
+          </div>
+          {chartData ? (
+            <LightweightChart equity={chartData.equity} markers={chartData.markers} />
+          ) : (
+            <div className="alert">chart data unavailable for this run</div>
+          )}
         </div>
-      ) : result && !chartData && !loading ? (
+      ) : null}
+
+      {activeTab === "chart" && result && chartData ? (
+        <div className="card" style={{ display: "grid", gap: "1rem" }}>
+          <section>
+            <h2 className="section-title">equity curve</h2>
+            <LightweightChart equity={chartData.equity} markers={chartData.markers} />
+          </section>
+          {chartData.price ? (
+            <section>
+              <h2 className="section-title">underlying price</h2>
+              <LightweightChart equity={chartData.price} markers={[]} />
+            </section>
+          ) : null}
+        </div>
+      ) : activeTab === "chart" && result && !chartData && !loading ? (
         <div className="alert">chart data unavailable for this run</div>
       ) : null}
 
-      {result?.request ? (
+      {activeTab === "datasets" && result?.request ? (
         <div className="card" style={{ display: "grid", gap: "1rem" }}>
           <section>
             <h2 className="section-title">strategy</h2>
@@ -318,7 +398,7 @@ export default function RunDetailPage(): JSX.Element {
         </div>
       ) : null}
 
-      {trades && trades.length > 0 ? (
+      {activeTab === "trades" && trades && trades.length > 0 ? (
         <div className="card">
           <h2 className="section-title" style={{ marginBottom: "1rem" }}>
             trade history
@@ -386,11 +466,38 @@ export default function RunDetailPage(): JSX.Element {
             </table>
           </div>
         </div>
-      ) : trades && trades.length === 0 ? (
+      ) : activeTab === "trades" && trades && trades.length === 0 ? (
         <div className="alert">no trades executed in this run</div>
       ) : null}
 
-      {result?.artifacts.reportMd ? (
+      {activeTab === "metrics" && result ? (
+        <div className="card">
+          <h2 className="section-title">metrics</h2>
+          <dl
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
+              gap: "0.75rem",
+            }}
+          >
+            {Object.entries(result.summary).map(([key, value]) => (
+              <div
+                key={key}
+                style={{ background: "#0f172a", padding: "0.75rem", borderRadius: "0.5rem" }}
+              >
+                <dt style={{ textTransform: "uppercase", color: "#94a3b8", fontSize: "0.75rem" }}>
+                  {key}
+                </dt>
+                <dd style={{ fontSize: "1.1rem", fontWeight: 600 }}>
+                  {typeof value === "number" ? value.toFixed(3) : value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
+
+      {activeTab === "overview" && result?.artifacts.reportMd ? (
         <div>
           <a
             href={apiRoute(`/api/runs/${result.runId}/artifacts/report`)}
@@ -405,3 +512,42 @@ export default function RunDetailPage(): JSX.Element {
     </section>
   );
 }
+
+const Stat = ({ label, value }: { label: string; value: string }): JSX.Element => {
+  return (
+    <div style={{ background: "#0f172a", padding: "0.75rem 1rem", borderRadius: "0.75rem" }}>
+      <div style={{ color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+};
+
+const formatCurrency = (value?: number): string => {
+  if (typeof value !== "number") {
+    return "—";
+  }
+  return `${value >= 0 ? "+" : ""}$${value.toFixed(2)}`;
+};
+
+const formatPercent = (value?: number): string => {
+  if (typeof value !== "number") {
+    return "—";
+  }
+  return `${(value * 100).toFixed(2)}%`;
+};
+
+const formatNumber = (value?: number): string => {
+  if (typeof value !== "number") {
+    return "—";
+  }
+  return value.toFixed(2);
+};
+
+const formatInteger = (value?: number): string => {
+  if (typeof value !== "number") {
+    return "—";
+  }
+  return Math.round(value).toString();
+};

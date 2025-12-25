@@ -65,6 +65,9 @@ interface ArtifactParams {
   readonly id: string;
   readonly artifact: "equity" | "trades" | "bars" | "report";
 }
+interface BarsParams {
+  readonly id: string;
+}
 
 const ROUTES_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = join(ROUTES_DIR, "..", "..", "..", "..");
@@ -231,6 +234,48 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       } catch (error) {
         request.log.error({ err: error, runId: id, artifact }, "failed to read artifact");
         return reply.code(404).send({ message: "Artifact unavailable" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/runs/:id/bars",
+    async (
+      request: FastifyRequest<{ Params: BarsParams }>,
+      reply: FastifyReply,
+    ): Promise<FastifyReply> => {
+      const runId = request.params.id;
+      const result = await getResultWithFallback(runId, deps);
+      if (!result) {
+        return reply.code(404).send({ message: "Run not found" });
+      }
+      const barsPath = resolveArtifactPath(result, "bars");
+      if (!barsPath) {
+        return reply.code(404).send({ message: "Bars artifact missing" });
+      }
+      try {
+        const parquetPath = normalize(join(REPO_ROOT, barsPath));
+        const rows = await readParquetRows(parquetPath, [
+          "time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume",
+        ]);
+        return reply.send(
+          rows.map((row) => ({
+            time: String(row.time ?? ""),
+            open: Number(row.open ?? 0),
+            high: Number(row.high ?? 0),
+            low: Number(row.low ?? 0),
+            close: Number(row.close ?? 0),
+            volume: Number(row.volume ?? 0),
+          })),
+        );
+      } catch (error) {
+        request.log.error({ err: error, runId }, "failed to read bars");
+        return reply.code(500).send({ message: "Failed to load bars" });
       }
     },
   );

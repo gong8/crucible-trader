@@ -91,13 +91,14 @@ const isBar = (value: unknown): value is Bar => {
 };
 
 const normaliseMetrics = (metrics?: MetricKey[]): MetricKey[] => {
-  if (!metrics || metrics.length === 0) {
-    return REQUIRED_METRICS;
+  const requested = metrics ? Array.from(new Set(metrics)) : [];
+  const combined = [...REQUIRED_METRICS];
+  for (const metric of requested) {
+    if (!combined.includes(metric)) {
+      combined.push(metric);
+    }
   }
-
-  const deduped = Array.from(new Set(metrics));
-
-  return REQUIRED_METRICS.filter((metric) => deduped.includes(metric));
+  return combined;
 };
 
 const makeRunId = (request: BacktestRequest, seed: number): string => {
@@ -297,6 +298,15 @@ const buildSummary = (
   }
   if (!("cagr" in summary)) {
     summary.cagr = results.cagr;
+  }
+  if (!("total_pnl" in summary)) {
+    summary.total_pnl = results.totalPnl;
+  }
+  if (!("total_return" in summary)) {
+    summary.total_return = results.totalReturn;
+  }
+  if (!("num_trades" in summary)) {
+    summary.num_trades = trades.length;
   }
   if (metrics.includes("winrate") && !("winrate" in summary)) {
     summary.winrate = winRate;
