@@ -100,13 +100,14 @@ const main = async (): Promise<void> => {
 
       logger.info("Run completed successfully", { runId: job.runId });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error("Failed to process run", {
         runId: job.runId,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
       });
 
-      // Mark as failed in database
-      await database.updateRunStatus(job.runId, "failed");
+      // Mark as failed in database with error message
+      await database.updateRunStatus(job.runId, "failed", errorMessage);
       throw error;
     }
   };

@@ -4,7 +4,8 @@ create table if not exists runs (
   created_at text not null,
   status text not null,
   request_json text not null,
-  summary_json text
+  summary_json text,
+  error_message text
 );
 create table if not exists artifacts (
   id integer primary key autoincrement,

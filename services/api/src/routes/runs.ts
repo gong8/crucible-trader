@@ -14,6 +14,7 @@ import {
 import { createLogger } from "@crucible-trader/logger";
 import { createRequire } from "node:module";
 import type { JobQueue } from "../queue.js";
+import type { RunRecord } from "../db/index.js";
 
 const require = createRequire(import.meta.url);
 const { ParquetReader } = require("parquetjs/parquet.js");
@@ -21,6 +22,7 @@ const { ParquetReader } = require("parquetjs/parquet.js");
 interface RunsRouteDeps {
   readonly saveResult: (result: BacktestResult) => Promise<void>;
   readonly getResult: (runId: string) => BacktestResult | undefined;
+  readonly getRunRecord: (runId: string) => Promise<RunRecord | undefined>;
   readonly generateRunId: (request: BacktestRequest) => string;
   readonly listRuns: () => Promise<RunSummary[]>;
   readonly markRunQueued: (summary: RunSummary, request: BacktestRequest) => Promise<void>;
@@ -133,6 +135,23 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       reply: FastifyReply,
     ): Promise<FastifyReply> => {
       const runId = request.params.id;
+
+      // Check database for run status first
+      const runRecord = await deps.getRunRecord(runId);
+      if (!runRecord) {
+        return reply.code(404).send({ message: "Run not found" });
+      }
+
+      // If run failed, return error details
+      if (runRecord.status === "failed") {
+        return reply.code(400).send({
+          message: runRecord.errorMessage || "Backtest execution failed",
+          status: "failed",
+          runId: runRecord.runId,
+        });
+      }
+
+      // Otherwise, try to get the result
       let result = deps.getResult(runId);
       const manifestResult = await loadManifestResult(runId);
 

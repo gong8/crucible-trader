@@ -153,7 +153,10 @@ export async function runBacktest(
   const primaryBars = barsBySymbol[primaryRequest.symbol] ?? [];
 
   if (primaryBars.length === 0) {
-    throw new Error(`No bars loaded for ${primaryRequest.symbol} ${primaryRequest.timeframe}`);
+    throw new Error(
+      `No bars loaded for ${primaryRequest.symbol} ${primaryRequest.timeframe}. ` +
+        `Please ensure the data file exists at storage/datasets/${primaryRequest.symbol.toLowerCase()}_${primaryRequest.timeframe}.csv`,
+    );
   }
 
   const strategy = instantiateStrategy(request);

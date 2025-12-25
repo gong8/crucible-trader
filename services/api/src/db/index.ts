@@ -34,6 +34,7 @@ export interface RunRecord {
   readonly status: string;
   readonly requestJson: string;
   readonly summaryJson: string | null;
+  readonly errorMessage: string | null;
 }
 
 export interface ArtifactRecord {
@@ -50,6 +51,7 @@ export interface RunSummaryRow {
   readonly createdAt: string;
   readonly status: string;
   readonly summaryJson: string | null;
+  readonly errorMessage: string | null;
 }
 
 export interface DatasetRecord {
@@ -95,14 +97,20 @@ export class ApiDatabase {
     );
   }
 
-  public async updateRunStatus(runId: string, status: string): Promise<void> {
+  public async updateRunStatus(
+    runId: string,
+    status: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.db.run(
       `update runs
-          set status = :status
+          set status = :status,
+              error_message = :errorMessage
         where run_id = :runId`,
       {
         ":runId": runId,
         ":status": status,
+        ":errorMessage": errorMessage ?? null,
       },
     );
   }
@@ -162,7 +170,8 @@ export class ApiDatabase {
               name,
               created_at as createdAt,
               status,
-              summary_json as summaryJson
+              summary_json as summaryJson,
+              error_message as errorMessage
          from runs
      order by created_at desc`,
     );
@@ -176,7 +185,8 @@ export class ApiDatabase {
               created_at as createdAt,
               status,
               request_json as requestJson,
-              summary_json as summaryJson
+              summary_json as summaryJson,
+              error_message as errorMessage
          from runs
         where run_id = :runId`,
       { ":runId": runId },

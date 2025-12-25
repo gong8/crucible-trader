@@ -52,6 +52,10 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
     return resultCache.get(runId);
   };
 
+  const getRunRecord = async (runId: string) => {
+    return database.getRun(runId);
+  };
+
   const listRuns = async (): Promise<RunSummary[]> => {
     const rows = await database.listRuns();
     return rows.map((row) => {
@@ -109,6 +113,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
   registerRunsRoutes(app, {
     saveResult,
     getResult,
+    getRunRecord,
     generateRunId,
     listRuns,
     markRunQueued,
