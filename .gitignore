@@ -9,7 +9,10 @@ coverage/
 .env.*
 !.env.example
 storage/runs/
-storage/datasets/
+storage/datasets/**
+!storage/datasets/
+!storage/datasets/aapl_1d.csv
+!storage/datasets/msft_1h.csv
 storage/db/
 storage/**/*.parquet
 storage/**/*.json

@@ -116,7 +116,7 @@ export class ApiDatabase {
   }
 
   public async saveRunResult(result: BacktestResult): Promise<void> {
-    await this.db.exec("begin immediate transaction");
+    await this.db.exec("savepoint save_run_result");
     try {
       await this.db.run(
         `update runs
@@ -157,9 +157,10 @@ export class ApiDatabase {
         );
       }
 
-      await this.db.exec("commit");
+      await this.db.exec("release save_run_result");
     } catch (error) {
-      await this.db.exec("rollback");
+      await this.db.exec("rollback to save_run_result");
+      await this.db.exec("release save_run_result");
       throw error;
     }
   }
@@ -284,6 +285,13 @@ export class ApiDatabase {
        values (:source, :symbol, :timeframe, :start, :end, :adjusted, :path, :checksum, :rows, :createdAt)`,
       payload,
     );
+  }
+
+  public async deleteDatasetRecord(args: { symbol: string; timeframe: string }): Promise<void> {
+    await this.db.run(`delete from datasets where symbol = :symbol and timeframe = :timeframe`, {
+      ":symbol": args.symbol,
+      ":timeframe": args.timeframe,
+    });
   }
 
   public async listRiskProfiles(): Promise<RiskProfile[]> {

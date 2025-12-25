@@ -248,3 +248,10 @@ export const Schemas = {
 
 export * from "./strategies/types.js";
 export * as strategies from "./strategies/index.js";
+export {
+  strategyConfigs,
+  strategyList,
+  type StrategyConfig,
+  type StrategyField,
+  type StrategyKey,
+} from "./strategies/config.js";

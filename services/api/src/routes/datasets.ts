@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { join, normalize } from "node:path";
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -28,6 +28,7 @@ interface DatasetRouteDeps {
     rows: number;
     createdAt: string;
   }) => Promise<void>;
+  readonly deleteDatasetRecord: (args: { symbol: string; timeframe: string }) => Promise<void>;
 }
 
 interface DatasetFetchBody {
@@ -82,6 +83,7 @@ export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDe
           payload,
           deps,
           reply,
+          request,
         });
       }
 
@@ -96,6 +98,7 @@ export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDe
           deps,
           reply,
           recordedSource,
+          request,
         });
       }
 
@@ -111,6 +114,27 @@ export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDe
         request,
         preferredSources,
       });
+    },
+  );
+
+  app.delete(
+    "/api/datasets/:symbol/:timeframe",
+    async (
+      request: FastifyRequest<{ Params: { symbol: string; timeframe: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const { symbol, timeframe } = request.params;
+      const filename = buildDatasetFilename(symbol, timeframe);
+      const datasetPath = join(DATASETS_DIR, filename);
+      try {
+        await deps.deleteDatasetRecord({ symbol, timeframe });
+        await rm(datasetPath, { force: true });
+        await removeDatasetCaches(symbol, timeframe);
+        return reply.code(204).send();
+      } catch (error) {
+        request.log.error({ err: error, symbol, timeframe }, "failed to delete dataset");
+        return reply.code(500).send({ message: "Failed to delete dataset" });
+      }
     },
   );
 };
@@ -155,12 +179,14 @@ const handleCsvDatasetRequest = async ({
   payload,
   deps,
   reply,
+  request,
 }: {
   readonly datasetPath: string;
   readonly filename: string;
   readonly payload: DatasetFetchBody;
   readonly deps: DatasetRouteDeps;
   readonly reply: FastifyReply;
+  readonly request: FastifyRequest;
 }): Promise<FastifyReply> => {
   if (!(await fileExists(datasetPath))) {
     return reply.code(404).send({ message: `Dataset ${filename} not found` });
@@ -173,6 +199,7 @@ const handleCsvDatasetRequest = async ({
     deps,
     reply,
     recordedSource: "csv",
+    request,
   });
 };
 
@@ -246,6 +273,7 @@ const registerExistingDataset = async ({
   deps,
   reply,
   recordedSource,
+  request,
 }: {
   readonly datasetPath: string;
   readonly filename: string;
@@ -253,6 +281,7 @@ const registerExistingDataset = async ({
   readonly deps: DatasetRouteDeps;
   readonly reply: FastifyReply;
   readonly recordedSource: string;
+  readonly request: FastifyRequest;
 }): Promise<FastifyReply> => {
   try {
     const content = await readFile(datasetPath, { encoding: "utf-8" });
@@ -281,6 +310,21 @@ const registerExistingDataset = async ({
     });
   } catch (error) {
     reply.log.error({ err: error }, "failed to register existing dataset");
+    if (payload.source !== "csv") {
+      await rm(datasetPath, { force: true });
+      await removeDatasetCaches(payload.symbol, payload.timeframe);
+      const preferredSources: ReadonlyArray<RemoteSource> =
+        payload.source === "auto" ? ["tiingo", "polygon"] : [payload.source as RemoteSource];
+      return handleRemoteDatasetRequest({
+        datasetPath,
+        filename,
+        payload,
+        deps,
+        reply,
+        request,
+        preferredSources,
+      });
+    }
     return reply.code(500).send({ message: "Dataset registration failed" });
   }
 };
@@ -302,4 +346,14 @@ const findExistingDatasetSource = async (
   const rows = await deps.listDatasets();
   const match = rows.find((row) => row.symbol === symbol && row.timeframe === timeframe);
   return match?.source ?? null;
+};
+
+const removeDatasetCaches = async (symbol: string, timeframe: string): Promise<void> => {
+  const cacheDir = join(DATASETS_DIR, ".cache");
+  const slug = buildDatasetFilename(symbol, timeframe).replace(/\.csv$/u, "");
+  await rm(join(cacheDir, `${slug}.json`), { force: true });
+  await rm(join(cacheDir, "tiingo", `${slug}_adj.json`), { force: true });
+  await rm(join(cacheDir, "tiingo", `${slug}_raw.json`), { force: true });
+  await rm(join(cacheDir, "polygon", `${slug}_adj.json`), { force: true });
+  await rm(join(cacheDir, "polygon", `${slug}_raw.json`), { force: true });
 };

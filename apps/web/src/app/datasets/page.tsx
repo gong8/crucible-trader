@@ -74,6 +74,25 @@ export default function DatasetsPage(): JSX.Element {
     }
   };
 
+  const handleDelete = async (record: DatasetRecord): Promise<void> => {
+    setStatus(`removing ${record.symbol} ${record.timeframe}…`);
+    try {
+      const response = await fetch(apiRoute(`/api/datasets/${record.symbol}/${record.timeframe}`), {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadDatasets();
+      setStatus("dataset removed");
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "";
+      setStatus(message || "failed to delete dataset");
+    }
+  };
+
   return (
     <section className="grid" aria-label="datasets" style={{ gap: "1rem" }}>
       <header className="grid" style={{ gap: "0.5rem" }}>
@@ -188,7 +207,30 @@ export default function DatasetsPage(): JSX.Element {
                   </strong>
                   <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{dataset.source}</span>
                 </div>
-                <span style={{ color: "#38bdf8", fontSize: "0.9rem" }}>{dataset.rows} rows</span>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <span style={{ color: "#38bdf8", fontSize: "0.9rem" }}>{dataset.rows} rows</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Delete dataset ${dataset.symbol} ${dataset.timeframe}? This removes the cached CSV.`,
+                      );
+                      if (confirmed) {
+                        void handleDelete(dataset);
+                      }
+                    }}
+                    style={{
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: "0.35rem",
+                      border: "1px solid #ef4444",
+                      background: "#0f172a",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                    }}
+                  >
+                    delete
+                  </button>
+                </div>
               </header>
               <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.5rem" }}>
                 {dataset.start ?? "unknown"} → {dataset.end ?? "unknown"}

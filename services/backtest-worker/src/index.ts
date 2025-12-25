@@ -19,10 +19,20 @@ import { JobQueue, type QueueJob } from "../../api/dist/queue.js";
 
 const RUNS_DIR = join(MODULE_DIR, "..", "..", "..", "storage", "runs");
 
+interface ManifestDataset {
+  readonly symbol: string;
+  readonly timeframe: string;
+  readonly source: string;
+  readonly start?: string;
+  readonly end?: string;
+  readonly adjusted?: boolean;
+}
+
 interface Manifest {
   readonly runId: string;
   readonly summary: BacktestResult["summary"];
   readonly artifacts: BacktestResult["artifacts"];
+  readonly datasets: ManifestDataset[];
   readonly engine: {
     readonly version: string;
     readonly seed: number;
@@ -49,6 +59,7 @@ const writeManifest = async (
     readonly createdAt?: string;
     readonly status?: string;
   },
+  datasets?: ReadonlyArray<ManifestDataset>,
 ): Promise<void> => {
   const runDir = await ensureDirectory(RUNS_DIR, result.runId);
   const manifest: Manifest = {
@@ -58,6 +69,7 @@ const writeManifest = async (
       ...result.artifacts,
       reportMd: result.artifacts.reportMd ?? `${runDir}/report.md`,
     },
+    datasets: datasets ? [...datasets] : [],
     engine: {
       version: "0.0.1",
       seed: (result.diagnostics?.seed as number) ?? 42,
@@ -93,11 +105,22 @@ const main = async (): Promise<void> => {
       }
 
       const result = await runBacktest(job.request, { runId: job.runId, riskProfile });
-      await writeManifest(result, {
-        name: job.request.runName,
-        createdAt: new Date().toISOString(),
-        status: "completed",
-      });
+      await writeManifest(
+        result,
+        {
+          name: job.request.runName,
+          createdAt: new Date().toISOString(),
+          status: "completed",
+        },
+        job.request.data.map((series) => ({
+          symbol: series.symbol,
+          timeframe: series.timeframe,
+          source: series.source,
+          start: series.start,
+          end: series.end,
+          adjusted: series.adjusted,
+        })),
+      );
 
       // Save result to database
       await database.saveRunResult(result);

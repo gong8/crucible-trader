@@ -2,18 +2,26 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import type { BacktestRequest, BacktestResult, RiskProfile } from "@crucible-trader/sdk";
 
-import { createApiDatabase } from "./db/index.js";
-import { initializeQueue } from "./queue.js";
+import { createApiDatabase, type ApiDatabase } from "./db/index.js";
+import { initializeQueue, JobQueue } from "./queue.js";
 import { registerDatasetRoutes } from "./routes/datasets.js";
 import { registerRiskProfileRoutes } from "./routes/risk-profiles.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 
 type ResultCache = Map<string, BacktestResult>;
 
+export interface CreateFastifyServerOptions {
+  readonly database?: ApiDatabase;
+  readonly databaseFilename?: string;
+  readonly queue?: JobQueue;
+}
+
 /**
  * Creates the Fastify server and wires routes with SQLite-backed dependencies.
  */
-export const createFastifyServer = async (): Promise<FastifyInstance> => {
+export const createFastifyServer = async (
+  options: CreateFastifyServerOptions = {},
+): Promise<FastifyInstance> => {
   const app = Fastify({
     logger: false,
   });
@@ -29,7 +37,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
   app.options("/api/*", async (request, reply) => {
     reply
       .header("access-control-allow-origin", request.headers.origin ?? "*")
-      .header("access-control-allow-methods", "GET,POST,OPTIONS")
+      .header("access-control-allow-methods", "GET,POST,DELETE,OPTIONS")
       .header(
         "access-control-allow-headers",
         request.headers["access-control-request-headers"] ?? "content-type",
@@ -39,8 +47,13 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
       .send();
   });
 
-  const database = await createApiDatabase();
-  const queue = initializeQueue(database);
+  const databaseProvided = Boolean(options.database);
+  const database =
+    options.database ??
+    (await createApiDatabase({
+      filename: options.databaseFilename,
+    }));
+  const queue = options.queue ?? initializeQueue(database);
   const resultCache: ResultCache = new Map();
 
   const saveResult = async (result: BacktestResult): Promise<void> => {
@@ -127,6 +140,7 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
   registerDatasetRoutes(app, {
     listDatasets: () => database.listDatasets(),
     saveDataset: (record) => database.upsertDataset(record),
+    deleteDatasetRecord: (args) => database.deleteDatasetRecord(args),
   });
 
   registerRiskProfileRoutes(app, {
@@ -135,7 +149,9 @@ export const createFastifyServer = async (): Promise<FastifyInstance> => {
   });
 
   app.addHook("onClose", async () => {
-    await database.close();
+    if (!databaseProvided) {
+      await database.close();
+    }
   });
 
   return app;
