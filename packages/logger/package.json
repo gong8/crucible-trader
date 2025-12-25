@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p .",
-    "test": "node --loader ts-node/esm --test \"test/**/*.test.ts\""
+    "test": "node --loader ts-node/esm --test test/**/*.test.ts"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
