@@ -15,6 +15,19 @@ import { strategyConfigs, strategyList } from "@crucible-trader/sdk";
 import { apiRoute } from "../../lib/api";
 import { StrategyControls, mapZodIssues } from "./StrategyControls";
 
+interface DatasetRecord {
+  readonly id: number;
+  readonly source: string;
+  readonly symbol: string;
+  readonly timeframe: string;
+  readonly start?: string | null;
+  readonly end?: string | null;
+  readonly adjusted: boolean;
+  readonly path: string;
+  readonly rows: number;
+  readonly createdAt: string;
+}
+
 const metricOptions: MetricKey[] = [
   "sharpe",
   "sortino",
@@ -39,6 +52,8 @@ interface SubmissionState {
 export default function NewRunPage(): JSX.Element {
   const [autoNameEnabled, setAutoNameEnabled] = useState(true);
   const [runName, setRunName] = useState("sma_aapl_auto");
+  const [useExistingDataset, setUseExistingDataset] = useState(false);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [dataSource, setDataSource] = useState<DataSource>("auto");
   const [symbol, setSymbol] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
@@ -85,6 +100,53 @@ export default function NewRunPage(): JSX.Element {
     }
   }, [selectedStrategy, strategyValues]);
 
+  const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
+
+  const selectedDataset = useMemo(
+    () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId],
+  );
+
+  useEffect(() => {
+    const loadDatasets = async (): Promise<void> => {
+      try {
+        const response = await fetch(apiRoute("/api/datasets"), {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error("failed to load datasets");
+        }
+        const payload = (await response.json()) as DatasetRecord[];
+        setDatasets(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    void loadDatasets();
+  }, []);
+
+  useEffect(() => {
+    if (autoNameEnabled) {
+      const datasetSymbol = selectedDataset?.symbol ?? symbol;
+      const datasetTf = (selectedDataset?.timeframe as Timeframe | undefined) ?? timeframe;
+      setRunName(generateRunName(strategyName, datasetSymbol, datasetTf));
+    }
+  }, [
+    autoNameEnabled,
+    selectedDataset?.symbol,
+    selectedDataset?.timeframe,
+    strategyName,
+    symbol,
+    timeframe,
+  ]);
+
+  useEffect(() => {
+    if (useExistingDataset && !selectedDatasetId && datasets.length > 0) {
+      setSelectedDatasetId(datasets[0]?.id ?? null);
+    }
+  }, [useExistingDataset, datasets, selectedDatasetId]);
+
   const requestPreview = useMemo(() => {
     const { request, error } = buildRequestSafely({
       runName,
@@ -103,6 +165,7 @@ export default function NewRunPage(): JSX.Element {
       seed,
       riskProfileId,
       selectedMetrics,
+      datasetOverride: buildDatasetOverride(useExistingDataset, selectedDataset),
     });
 
     if (error) {
@@ -127,6 +190,8 @@ export default function NewRunPage(): JSX.Element {
     seed,
     riskProfileId,
     selectedMetrics,
+    useExistingDataset,
+    selectedDataset,
   ]);
 
   const handleMetricToggle = (metric: MetricKey): void => {
@@ -156,10 +221,15 @@ export default function NewRunPage(): JSX.Element {
       seed,
       riskProfileId,
       selectedMetrics,
+      datasetOverride: buildDatasetOverride(useExistingDataset, selectedDataset),
     });
 
     if (!request || error) {
       setSubmission({ status: "error", message: error ?? "invalid request" });
+      return;
+    }
+    if (useExistingDataset && !selectedDataset) {
+      setSubmission({ status: "error", message: "select a dataset first" });
       return;
     }
 
@@ -238,6 +308,53 @@ export default function NewRunPage(): JSX.Element {
         </fieldset>
 
         <fieldset className="grid">
+          <legend>dataset mode</legend>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={useExistingDataset}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                setUseExistingDataset(event.currentTarget.checked);
+                if (!event.currentTarget.checked) {
+                  setSelectedDatasetId(null);
+                }
+              }}
+            />
+            use existing dataset
+          </label>
+          {useExistingDataset ? (
+            datasets.length > 0 ? (
+              <label>
+                select dataset
+                <select
+                  value={selectedDatasetId ?? ""}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setSelectedDatasetId(
+                      event.currentTarget.value ? Number(event.currentTarget.value) : null,
+                    )
+                  }
+                >
+                  <option value="">choose dataset</option>
+                  {datasets.map((dataset) => (
+                    <option key={dataset.id} value={dataset.id}>
+                      {dataset.symbol} · {dataset.timeframe} · {dataset.source}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="alert">
+                no datasets available. register one under the datasets tab.
+              </div>
+            )
+          ) : (
+            <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+              provide symbol/timeframe below to fetch data lazily for this run.
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset className="grid">
           <legend>data source</legend>
           <label>
             vendor
@@ -246,6 +363,7 @@ export default function NewRunPage(): JSX.Element {
               onChange={(event: ChangeEvent<HTMLSelectElement>) =>
                 setDataSource(event.currentTarget.value as DataSource)
               }
+              disabled={useExistingDataset}
             >
               {dataSources.map((source) => (
                 <option key={source} value={source}>
@@ -261,6 +379,7 @@ export default function NewRunPage(): JSX.Element {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setSymbol(event.currentTarget.value)
               }
+              disabled={useExistingDataset}
               required
             />
           </label>
@@ -271,6 +390,7 @@ export default function NewRunPage(): JSX.Element {
               onChange={(event: ChangeEvent<HTMLSelectElement>) =>
                 setTimeframe(event.currentTarget.value as Timeframe)
               }
+              disabled={useExistingDataset}
             >
               {timeframeOptions.map((option) => (
                 <option key={option} value={option}>
@@ -288,7 +408,8 @@ export default function NewRunPage(): JSX.Element {
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setStart(event.currentTarget.value)
                 }
-                required
+                disabled={useExistingDataset}
+                required={!useExistingDataset}
               />
             </label>
             <label style={{ flex: 1 }}>
@@ -299,7 +420,8 @@ export default function NewRunPage(): JSX.Element {
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setEnd(event.currentTarget.value)
                 }
-                required
+                disabled={useExistingDataset}
+                required={!useExistingDataset}
               />
             </label>
           </div>
@@ -310,6 +432,7 @@ export default function NewRunPage(): JSX.Element {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setAdjusted(event.currentTarget.checked)
               }
+              disabled={useExistingDataset}
             />
             use adjusted prices when available
           </label>
@@ -472,6 +595,26 @@ const generateRunName = (strategy: string, symbol: string, timeframe: string): s
   return `${slug(strategy)}_${slug(symbol)}_${slug(timeframe)}`;
 };
 
+const buildDatasetOverride = (
+  useExisting: boolean,
+  dataset: DatasetRecord | null,
+): BacktestRequest["data"] | undefined => {
+  if (!useExisting || !dataset) {
+    return undefined;
+  }
+  const fallbackDate = new Date().toISOString().slice(0, 10);
+  return [
+    {
+      source: "csv",
+      symbol: dataset.symbol,
+      timeframe: dataset.timeframe as Timeframe,
+      start: dataset.start ?? fallbackDate,
+      end: dataset.end ?? dataset.start ?? fallbackDate,
+      adjusted: dataset.adjusted,
+    },
+  ];
+};
+
 interface BuildArgs {
   runName: string;
   dataSource: DataSource;
@@ -489,6 +632,7 @@ interface BuildArgs {
   seed: string;
   riskProfileId: string;
   selectedMetrics: MetricKey[];
+  datasetOverride?: BacktestRequest["data"];
 }
 
 function buildRequestSafely(args: BuildArgs): {
