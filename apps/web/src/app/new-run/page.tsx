@@ -20,6 +20,35 @@ const metricOptions: MetricKey[] = [
 const timeframeOptions: Timeframe[] = ["1d", "1h", "15m", "1m"];
 const dataSources: DataSource[] = ["csv", "tiingo", "polygon"];
 
+// Strategy presets with default parameters
+const strategyPresets = {
+  sma_crossover: {
+    name: "SMA Crossover",
+    description: "Moving average crossover (trend following)",
+    params: { fastLength: 20, slowLength: 50 },
+  },
+  momentum: {
+    name: "Momentum",
+    description: "Price momentum breakout strategy",
+    params: { lookback: 14, threshold: 0.02 },
+  },
+  mean_reversion: {
+    name: "Mean Reversion",
+    description: "Buy oversold, sell overbought",
+    params: { period: 20, stdDevs: 2 },
+  },
+  breakout: {
+    name: "Breakout",
+    description: "High/low breakout with confirmation",
+    params: { period: 20, minVolume: 1000000 },
+  },
+  chaos_trader: {
+    name: "Chaos Trader",
+    description: "Erratic high-frequency trading (for testing)",
+    params: { volatilityThreshold: 0.005, tradeFrequency: 3 },
+  },
+} as const;
+
 interface SubmissionState {
   status: "idle" | "success" | "error";
   message: string | null;
@@ -35,7 +64,7 @@ export default function NewRunPage(): JSX.Element {
   const [end, setEnd] = useState("2024-12-31");
   const [adjusted, setAdjusted] = useState(true);
   const [strategyName, setStrategyName] = useState("sma_crossover");
-  const [strategyParams, setStrategyParams] = useState('{"fast": 20, "slow": 50}');
+  const [strategyParams, setStrategyParams] = useState('{"fastLength": 20, "slowLength": 50}');
   const [feeBps, setFeeBps] = useState("1");
   const [slippageBps, setSlippageBps] = useState("2");
   const [initialCash, setInitialCash] = useState("100000");
@@ -95,6 +124,14 @@ export default function NewRunPage(): JSX.Element {
     setSelectedMetrics((prev) =>
       prev.includes(metric) ? prev.filter((item) => item !== metric) : [...prev, metric],
     );
+  };
+
+  const handleStrategyPresetChange = (presetKey: string): void => {
+    setStrategyName(presetKey);
+    const preset = strategyPresets[presetKey as keyof typeof strategyPresets];
+    if (preset) {
+      setStrategyParams(JSON.stringify(preset.params, null, 2));
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -255,14 +292,19 @@ export default function NewRunPage(): JSX.Element {
         <fieldset className="grid">
           <legend>strategy</legend>
           <label>
-            strategy name
-            <input
+            strategy preset
+            <select
               value={strategyName}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setStrategyName(event.currentTarget.value)
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                handleStrategyPresetChange(event.currentTarget.value)
               }
-              required
-            />
+            >
+              {Object.entries(strategyPresets).map(([key, preset]) => (
+                <option key={key} value={key}>
+                  {preset.name} - {preset.description}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             strategy params (json)

@@ -114,7 +114,21 @@ export const BacktestRequestSchema = z.object({
   }),
   initialCash: z.number().positive(),
   seed: z.number().int().optional(),
-  metrics: z.array(z.enum(["sharpe", "sortino", "max_dd", "cagr", "winrate"])).optional(),
+  metrics: z
+    .array(
+      z.enum([
+        "sharpe",
+        "sortino",
+        "max_dd",
+        "cagr",
+        "winrate",
+        "total_pnl",
+        "total_return",
+        "num_trades",
+        "profit_factor",
+      ]),
+    )
+    .optional(),
   riskProfileId: z.string().min(1).optional(),
 });
 
