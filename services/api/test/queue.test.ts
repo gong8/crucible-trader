@@ -78,15 +78,17 @@ test("JobQueue.onJob registers handler and starts polling", async (t) => {
   assert.ok(handlerCalled, "handler should be called");
 });
 
+const shutdown = async (queue: JobQueue, db: Awaited<ReturnType<typeof createApiDatabase>>) => {
+  queue.stop();
+  await delay(20);
+  await db.close();
+};
+
 test("JobQueue processes queued jobs", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 50 });
-  t.after(() => {
-    queue.stop();
+  t.after(async () => {
+    await shutdown(queue, db);
   });
 
   const processedJobs: QueueJob[] = [];
@@ -123,11 +125,10 @@ test("JobQueue processes queued jobs", async (t) => {
 
 test("JobQueue.stop stops polling", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 50 });
+  t.after(async () => {
+    await shutdown(queue, db);
+  });
 
   let callCount = 0;
   const handler: JobHandler = async () => {
@@ -146,9 +147,8 @@ test("JobQueue.stop stops polling", async (t) => {
   });
 
   await delay(100);
-  const countAfterFirstPeriod = callCount;
-
   queue.stop();
+  const countAfterStop = callCount;
 
   // Create another job after stopping
   await db.insertRun({
@@ -159,21 +159,17 @@ test("JobQueue.stop stops polling", async (t) => {
     requestJson: JSON.stringify(createTestRequest()),
   });
 
-  await delay(100);
+  await delay(150);
 
   // Count should not increase after stop
-  assert.equal(callCount, countAfterFirstPeriod, "polling should stop");
+  assert.equal(callCount, countAfterStop, "polling should stop");
 });
 
 test("JobQueue updates job status to processing", async (t) => {
   const db = await createApiDatabase({ filename: ":memory:" });
-  t.after(async () => {
-    await db.close();
-  });
-
   const queue = new JobQueue({ database: db, pollIntervalMs: 50 });
-  t.after(() => {
-    queue.stop();
+  t.after(async () => {
+    await shutdown(queue, db);
   });
 
   const jobProcessed = new Promise<void>((resolve) => {
