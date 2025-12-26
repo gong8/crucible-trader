@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 import { createApiDatabase } from "../src/db/index.js";
 import { createFastifyServer } from "../src/server.js";
 import { JobQueue } from "../src/queue.js";
@@ -228,6 +228,73 @@ test("POST /api/runs rejects invalid source", async (t) => {
   });
 
   assert.equal(response.statusCode, 400);
+});
+
+test("POST /api/runs rejects csv dataset lacking requested coverage", async (t) => {
+  const db = await createApiDatabase({ filename: ":memory:" });
+  const queue = new JobQueue({ database: db });
+  const app = await createFastifyServer({ database: db, queue });
+
+  const symbol = "EDGE_TEST";
+  const timeframe = "1d";
+  const filename = "edge_test_1d.csv";
+  const datasetPath = join(process.cwd(), "storage", "datasets", filename);
+
+  const csv = [
+    "timestamp,open,high,low,close,volume",
+    "2024-01-01T00:00:00.000Z,100,101,99,100,1000",
+    "2024-12-31T00:00:00.000Z,110,111,109,110,900",
+  ].join("\n");
+  await writeFile(datasetPath, `${csv}\n`, { encoding: "utf-8" });
+
+  await db.upsertDataset({
+    source: "csv",
+    symbol,
+    timeframe,
+    start: "2024-01-01T00:00:00.000Z",
+    end: "2024-12-31T00:00:00.000Z",
+    adjusted: true,
+    path: normalize(join("storage", "datasets", filename)),
+    checksum: null,
+    rows: 2,
+    createdAt: new Date().toISOString(),
+  });
+
+  t.after(async () => {
+    queue.stop();
+    await db.deleteDatasetRecord({ symbol, timeframe });
+    await db.close();
+    await rm(datasetPath, { force: true });
+  });
+
+  const payload = {
+    runName: "long-range",
+    data: [
+      {
+        source: "csv",
+        symbol,
+        timeframe,
+        start: "2022-01-01",
+        end: "2024-12-31",
+      },
+    ],
+    strategy: {
+      name: "sma_crossover",
+      params: { fastLength: 10, slowLength: 20 },
+    },
+    costs: { feeBps: 1, slippageBps: 2 },
+    initialCash: 100_000,
+  };
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/runs",
+    payload,
+  });
+
+  assert.equal(response.statusCode, 400);
+  const body = response.json();
+  assert.ok(body.message.includes("only covers"));
 });
 
 test("POST /api/runs rejects invalid timeframe", async (t) => {

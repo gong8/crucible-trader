@@ -7,7 +7,7 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
-    "test": "TS_NODE_COMPILER_OPTIONS='{\"jsx\":\"react-jsx\",\"allowImportingTsExtensions\":true}' node --loader ts-node/esm --test test/api.test.ts test/new-run-helpers.test.ts test/strategy-controls.test.tsx"
+    "test": "TS_NODE_COMPILER_OPTIONS='{\"jsx\":\"react-jsx\",\"allowImportingTsExtensions\":true}' node --loader ts-node/esm --test test/api.test.ts test/new-run-helpers.test.ts test/date-range.test.ts test/strategy-controls.test.tsx"
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",

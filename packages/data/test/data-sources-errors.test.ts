@@ -426,7 +426,8 @@ test("PolygonSource handles HTTP errors", async () => {
   );
 });
 
-test("PolygonSource handles missing results in response", async () => {
+test("PolygonSource handles missing results in response", async (t) => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "polygon-missing-results-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -437,6 +438,7 @@ test("PolygonSource handles missing results in response", async () => {
 
   const source = new PolygonSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
   });
 
@@ -451,6 +453,9 @@ test("PolygonSource handles missing results in response", async () => {
   const bars = await source.loadBars(request);
 
   assert.equal(bars.length, 0, "Response without results should return empty array");
+  t.after(async () => {
+    await rm(cacheDir, { recursive: true, force: true });
+  });
 });
 
 test("PolygonSource filters out bars with missing data", async () => {

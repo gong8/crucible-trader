@@ -26,6 +26,7 @@ const DATASET_CONTENT = `timestamp,open,high,low,close,volume
 2024-02-01T19:30:00.000Z,404.15,405,403.25,404.72,189050
 2024-02-01T20:30:00.000Z,404.8,406.2,404.5,405.95,210600
 2024-02-01T21:30:00.000Z,406,406.75,405.3,406.42,202775
+2024-02-02T14:30:00.000Z,407.1,408,406.4,407.75,198000
 `;
 
 test("POST /api/runs executes a backtest end-to-end", async (t) => {
@@ -89,8 +90,8 @@ test("POST /api/runs executes a backtest end-to-end", async (t) => {
           source: "csv",
           symbol: "MSFT",
           timeframe: "1h",
-          start: "2024-02-01",
-          end: "2024-02-02",
+          start: "2024-02-01T14:30:00.000Z",
+          end: "2024-02-02T14:30:00.000Z",
           adjusted: true,
         },
       ],

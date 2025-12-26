@@ -134,6 +134,7 @@ export const createFastifyServer = async (
     resetRuns,
     getRiskProfile,
     saveDataset: (record) => database.upsertDataset(record),
+    findDatasetRecord: (args) => database.findDataset(args),
     queue,
   });
 

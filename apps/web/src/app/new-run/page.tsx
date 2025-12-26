@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 
 import type {
@@ -15,6 +15,7 @@ import { apiRoute } from "../../lib/api";
 import { StrategyControls, mapZodIssues } from "./StrategyControls";
 import type { DatasetRecord } from "./helpers";
 import { buildDatasetOverride, buildRequestSafely, generateRunName } from "./helpers";
+import { computeAvailableRange, type CoverageRange } from "./date-range";
 
 const metricOptions: MetricKey[] = [
   "sharpe",
@@ -31,6 +32,20 @@ const timeframeOptions: Timeframe[] = ["1d", "1h", "15m", "1m"];
 const dataSources: DataSource[] = ["auto", "csv", "tiingo", "polygon"];
 const defaultStrategyKey: StrategyKey = strategyList[0]?.key ?? "sma_crossover";
 
+const isoDate = (value: Date): string => value.toISOString().slice(0, 10);
+const createInitialRange = (): { start: string; end: string } => {
+  const end = new Date();
+  // Use yesterday as the end date to avoid requesting today's data which might not be available yet
+  end.setDate(end.getDate() - 1);
+  const start = new Date(end);
+  // Use 1 year instead of 2 to be more conservative with API limits
+  start.setFullYear(start.getFullYear() - 1);
+  return {
+    start: isoDate(start),
+    end: isoDate(end),
+  };
+};
+
 interface SubmissionState {
   status: "idle" | "success" | "error";
   message: string | null;
@@ -38,6 +53,7 @@ interface SubmissionState {
 }
 
 export default function NewRunPage(): JSX.Element {
+  const initialRange = useMemo(() => createInitialRange(), []);
   const [autoNameEnabled, setAutoNameEnabled] = useState(true);
   const [runName, setRunName] = useState("sma_aapl_auto");
   const [useExistingDataset, setUseExistingDataset] = useState(false);
@@ -45,8 +61,8 @@ export default function NewRunPage(): JSX.Element {
   const [dataSource, setDataSource] = useState<DataSource>("auto");
   const [symbol, setSymbol] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
-  const [start, setStart] = useState("2022-01-01");
-  const [end, setEnd] = useState("2024-12-31");
+  const [start, setStart] = useState(initialRange.start);
+  const [end, setEnd] = useState(initialRange.end);
   const [adjusted, setAdjusted] = useState(true);
   const [strategyName, setStrategyName] = useState<StrategyKey>(defaultStrategyKey);
   const [strategyValues, setStrategyValues] = useState<Record<string, number>>({
@@ -65,6 +81,8 @@ export default function NewRunPage(): JSX.Element {
     "total_pnl",
   ]);
   const [submission, setSubmission] = useState<SubmissionState>({ status: "idle", message: null });
+  const [datesLocked, setDatesLocked] = useState(false);
+  const dateInputsDisabled = useExistingDataset || datesLocked;
 
   const selectedStrategy: StrategyConfig = strategyConfigs[strategyName];
 
@@ -89,11 +107,24 @@ export default function NewRunPage(): JSX.Element {
   }, [selectedStrategy, strategyValues]);
 
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
+  const [coverage, setCoverage] = useState<CoverageRange | null>(null);
+  const previousCoverage = useRef<string | null>(null);
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId],
   );
+
+  useEffect(() => {
+    setCoverage(
+      computeAvailableRange({
+        datasets,
+        symbol,
+        timeframe,
+        source: dataSource,
+      }),
+    );
+  }, [datasets, symbol, timeframe, dataSource]);
 
   useEffect(() => {
     const loadDatasets = async (): Promise<void> => {
@@ -260,6 +291,27 @@ export default function NewRunPage(): JSX.Element {
     }
   };
 
+  useEffect(() => {
+    if (useExistingDataset) {
+      setDatesLocked(false);
+      previousCoverage.current = null;
+      return;
+    }
+    if (coverage) {
+      setDatesLocked(true);
+      previousCoverage.current = `${coverage.start}:${coverage.end}`;
+      setStart((prev) => (prev === coverage.start ? prev : coverage.start));
+      setEnd((prev) => (prev === coverage.end ? prev : coverage.end));
+      return;
+    }
+    if (previousCoverage.current) {
+      previousCoverage.current = null;
+      setStart(initialRange.start);
+      setEnd(initialRange.end);
+    }
+    setDatesLocked(false);
+  }, [coverage, useExistingDataset, initialRange.start, initialRange.end]);
+
   return (
     <section className="grid" aria-label="new run">
       <header className="grid" style={{ gap: "0.5rem" }}>
@@ -396,7 +448,7 @@ export default function NewRunPage(): JSX.Element {
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setStart(event.currentTarget.value)
                 }
-                disabled={useExistingDataset}
+                disabled={dateInputsDisabled}
                 required={!useExistingDataset}
               />
             </label>
@@ -408,11 +460,20 @@ export default function NewRunPage(): JSX.Element {
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setEnd(event.currentTarget.value)
                 }
-                disabled={useExistingDataset}
+                disabled={dateInputsDisabled}
                 required={!useExistingDataset}
               />
             </label>
           </div>
+          {!useExistingDataset && datesLocked && coverage ? (
+            <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>
+              date range locked to {coverage.start} → {coverage.end} (
+              {coverage.source === "auto"
+                ? `auto via ${coverage.contributingSources.join(", ")}`
+                : coverage.source}
+              )
+            </p>
+          ) : null}
           <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input
               type="checkbox"

@@ -244,6 +244,61 @@ export class ApiDatabase {
     );
   }
 
+  public async findDataset(args: { symbol: string; timeframe: string }): Promise<
+    | {
+        source: string;
+        symbol: string;
+        timeframe: string;
+        start?: string | null;
+        end?: string | null;
+        adjusted?: boolean;
+        path: string;
+        checksum?: string | null;
+        rows: number;
+        createdAt: string;
+      }
+    | undefined
+  > {
+    const row = await this.db.get<DatasetRecord>(
+      `select id,
+              source,
+              symbol,
+              timeframe,
+              start,
+              end,
+              adjusted,
+              path,
+              checksum,
+              rows,
+              created_at as createdAt
+         from datasets
+        where symbol = :symbol
+          and timeframe = :timeframe
+     limit 1`,
+      {
+        ":symbol": args.symbol,
+        ":timeframe": args.timeframe,
+      },
+    );
+
+    if (!row) {
+      return undefined;
+    }
+
+    return {
+      source: row.source,
+      symbol: row.symbol,
+      timeframe: row.timeframe,
+      start: row.start,
+      end: row.end,
+      adjusted: row.adjusted === null ? undefined : row.adjusted === 1,
+      path: row.path,
+      checksum: row.checksum ?? undefined,
+      rows: row.rows ?? 0,
+      createdAt: row.createdAt,
+    };
+  }
+
   public async upsertDataset(args: {
     source: string;
     symbol: string;

@@ -42,6 +42,21 @@ interface RunsRouteDeps {
     rows: number;
     createdAt: string;
   }) => Promise<void>;
+  readonly findDatasetRecord?: (args: { symbol: string; timeframe: string }) => Promise<
+    | {
+        source: string;
+        symbol: string;
+        timeframe: string;
+        start?: string | null;
+        end?: string | null;
+        adjusted?: boolean;
+        path: string;
+        checksum?: string | null;
+        rows: number;
+        createdAt: string;
+      }
+    | undefined
+  >;
   readonly queue: JobQueue;
 }
 
@@ -132,6 +147,7 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       try {
         await ensureDatasetsForRequest(payload, {
           saveDataset: deps.saveDataset,
+          findDatasetRecord: deps.findDatasetRecord,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "failed to prepare datasets";

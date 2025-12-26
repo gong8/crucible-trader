@@ -10,6 +10,28 @@ import { runBacktest } from "../src/engine.js";
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(TEST_DIR, "..", "..", "..", "..");
 const DATASETS_DIR = join(REPO_ROOT, "storage", "datasets");
+const SAMPLE_SYMBOL = "AAPL";
+const SAMPLE_DATA = `timestamp,open,high,low,close,volume
+2024-01-01T00:00:00.000Z,100,105,95,102,1000
+2024-01-02T00:00:00.000Z,102,107,98,104,1200
+2024-01-03T00:00:00.000Z,104,109,100,106,1100
+2024-01-04T00:00:00.000Z,106,111,102,108,1300
+2024-01-05T00:00:00.000Z,108,113,104,110,1400
+2024-01-06T00:00:00.000Z,110,115,106,112,1450
+2024-01-07T00:00:00.000Z,112,117,108,114,1500
+2024-01-08T00:00:00.000Z,114,119,110,116,1550
+2024-01-09T00:00:00.000Z,116,121,112,118,1600
+2024-01-10T00:00:00.000Z,118,123,114,120,1650`;
+
+const ensureSampleDataset = async (t: test.TestContext, symbol = SAMPLE_SYMBOL): Promise<void> => {
+  await mkdir(DATASETS_DIR, { recursive: true });
+  const filename = `${symbol.toLowerCase()}_1d.csv`;
+  const path = join(DATASETS_DIR, filename);
+  await writeFile(path, SAMPLE_DATA, { encoding: "utf-8" });
+  t.after(async () => {
+    await rm(path, { force: true });
+  });
+};
 
 // ============================================================================
 // Integration tests for engine with various data scenarios
@@ -67,7 +89,8 @@ test("runBacktest fails with empty data array", async () => {
   );
 });
 
-test("runBacktest fails with unknown strategy", async () => {
+test("runBacktest fails with unknown strategy", async (t) => {
+  await ensureSampleDataset(t);
   const request: BacktestRequest = {
     runName: "unknown-strategy-test",
     data: [
@@ -97,7 +120,8 @@ test("runBacktest fails with unknown strategy", async () => {
   );
 });
 
-test("runBacktest validates strategy parameters", async () => {
+test("runBacktest validates strategy parameters", async (t) => {
+  await ensureSampleDataset(t);
   const request: BacktestRequest = {
     runName: "invalid-params-test",
     data: [
@@ -185,7 +209,8 @@ test("runBacktest generates deterministic results with same seed", async (t) => 
   await rm(join(tempDir, "../../storage/runs/test-2"), { recursive: true, force: true });
 });
 
-test("runBacktest handles zero initial cash", async () => {
+test("runBacktest handles zero initial cash", async (t) => {
+  await ensureSampleDataset(t);
   const request: BacktestRequest = {
     runName: "zero-cash-test",
     data: [
@@ -219,7 +244,8 @@ test("runBacktest handles zero initial cash", async () => {
   );
 });
 
-test("runBacktest handles negative costs", async () => {
+test("runBacktest handles negative costs", async (t) => {
+  await ensureSampleDataset(t);
   const request: BacktestRequest = {
     runName: "negative-costs-test",
     data: [
