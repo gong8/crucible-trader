@@ -348,7 +348,17 @@ export class ApiDatabase {
                 rows = :rows,
                 created_at = :createdAt
           where id = :id`,
-        { ...payload, ":id": existing.id },
+        {
+          ":id": existing.id,
+          ":source": payload[":source"],
+          ":start": payload[":start"],
+          ":end": payload[":end"],
+          ":adjusted": payload[":adjusted"],
+          ":path": payload[":path"],
+          ":checksum": payload[":checksum"],
+          ":rows": payload[":rows"],
+          ":createdAt": payload[":createdAt"],
+        },
       );
       return;
     }
