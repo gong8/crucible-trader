@@ -282,7 +282,8 @@ pre {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  text-align: center;
   font-size: 1rem;
   font-weight: 800;
   padding: 0.5rem 1.2rem;
@@ -295,12 +296,18 @@ pre {
   border: 2px solid var(--ember-glow);
   position: relative;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .badge::before {
   content: '';
-  font-size: 1.2rem;
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
   animation: flicker 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
 }
 
 @keyframes flicker {
@@ -322,6 +329,8 @@ pre {
     transparent 70%
   );
   animation: shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
 }
 
 @keyframes shimmer {

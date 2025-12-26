@@ -1460,7 +1460,8 @@ const formatCurrency = (value?: number): string => {
   if (typeof value !== "number") {
     return "—";
   }
-  return `${value >= 0 ? "+" : ""}$${value.toFixed(2)}`;
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}$${Math.abs(value).toFixed(2)}`;
 };
 
 const formatPercent = (value?: number): string => {
