@@ -313,13 +313,9 @@ test("TiingoSource handles empty response array", async (t) => {
     end: "2024-01-10",
   };
 
-  await assert.rejects(
-    () => source.loadBars(request),
-    (error: Error) => {
-      assert.match(error.message, /returned empty data/i);
-      return true;
-    },
-  );
+  // Empty responses are now allowed (weekends/holidays may have no trading data)
+  const bars = await source.loadBars(request);
+  assert.equal(bars.length, 0, "Empty response should return empty array, not throw");
 });
 
 test("TiingoSource handles non-array response", async (t) => {

@@ -18,7 +18,8 @@ const PACKAGE_ROOT = join(MODULE_DIR, "..");
 const REPO_ROOT = join(PACKAGE_ROOT, "..", "..");
 const DEFAULT_CACHE_DIR = join(REPO_ROOT, "storage", "datasets", ".cache", "tiingo");
 const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
-const DEFAULT_BASE_URL = "https://api.tiingo.com/tiingo/daily";
+const DEFAULT_DAILY_BASE_URL = "https://api.tiingo.com/tiingo/daily";
+const DEFAULT_IEX_BASE_URL = "https://api.tiingo.com/iex";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_CHUNK_DAYS = 180;
 const DEFAULT_REQUEST_DELAY_MS = 1200;
@@ -31,6 +32,9 @@ interface TiingoCachePayload {
 
 export interface TiingoSourceOptions {
   readonly apiKey?: string;
+  readonly dailyBaseUrl?: string;
+  readonly iexBaseUrl?: string;
+  /** @deprecated Use dailyBaseUrl instead */
   readonly baseUrl?: string;
   readonly cacheDir?: string;
   readonly cacheTtlMs?: number;
@@ -62,7 +66,8 @@ export class TiingoSource implements IDataSource {
   public readonly id = "tiingo";
 
   private readonly apiKeyOverride?: string;
-  private readonly baseUrl: string;
+  private readonly dailyBaseUrl: string;
+  private readonly iexBaseUrl: string;
   private readonly cacheDir: string;
   private readonly cacheTtlMs: number;
   private readonly httpClient: HttpClient;
@@ -73,7 +78,12 @@ export class TiingoSource implements IDataSource {
 
   public constructor(options: TiingoSourceOptions = {}) {
     this.apiKeyOverride = options.apiKey;
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/u, "");
+    // Support legacy baseUrl option for backwards compatibility
+    this.dailyBaseUrl = (options.dailyBaseUrl ?? options.baseUrl ?? DEFAULT_DAILY_BASE_URL).replace(
+      /\/+$/u,
+      "",
+    );
+    this.iexBaseUrl = (options.iexBaseUrl ?? DEFAULT_IEX_BASE_URL).replace(/\/+$/u, "");
     this.cacheDir = options.cacheDir ?? DEFAULT_CACHE_DIR;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.httpClient = options.httpClient ?? createHttpClient();
@@ -181,14 +191,26 @@ export class TiingoSource implements IDataSource {
   }
 
   private async fetchBars(request: DataRequest, apiKey: string): Promise<Bar[]> {
-    const url = new URL(`${this.baseUrl}/${encodeURIComponent(request.symbol)}/prices`);
+    const isIntraday = this.isIntradayTimeframe(request.timeframe);
+    const baseUrl = isIntraday ? this.iexBaseUrl : this.dailyBaseUrl;
+    const url = new URL(`${baseUrl}/${encodeURIComponent(request.symbol)}/prices`);
+
     url.searchParams.set("startDate", request.start);
     url.searchParams.set("endDate", request.end);
-    url.searchParams.set("format", "json");
-    const resampleFrequency = this.getResampleFrequency(request.timeframe);
-    if (resampleFrequency) {
-      url.searchParams.set("resampleFreq", resampleFrequency);
+
+    if (!isIntraday) {
+      url.searchParams.set("format", "json");
+      const frequency = this.getDailyFrequency(request.timeframe);
+      if (frequency) {
+        url.searchParams.set("frequency", frequency);
+      }
+    } else {
+      const resampleFreq = this.getIntradayResampleFreq(request.timeframe);
+      if (resampleFreq) {
+        url.searchParams.set("resampleFreq", resampleFreq);
+      }
     }
+
     if (request.adjusted === false) {
       url.searchParams.set("adjusted", "false");
     } else {
@@ -238,10 +260,10 @@ export class TiingoSource implements IDataSource {
       );
     }
 
+    // Allow empty responses - weekends/holidays may have no trading data
+    // The chunking logic and filtering will handle this appropriately
     if (payload.length === 0) {
-      throw new Error(
-        `Tiingo returned empty data for ${request.symbol} (${request.timeframe}) from ${request.start} to ${request.end}. The ticker may not exist, the date range may be invalid, or there may be no trading data for this period.`,
-      );
+      return [];
     }
 
     const useAdjusted = request.adjusted !== false;
@@ -367,16 +389,36 @@ export class TiingoSource implements IDataSource {
     };
   }
 
-  private getResampleFrequency(timeframe: DataRequest["timeframe"]): string | null {
+  /**
+   * Determines if a timeframe requires intraday data (IEX endpoint).
+   */
+  private isIntradayTimeframe(timeframe: DataRequest["timeframe"]): boolean {
+    return timeframe === "1h" || timeframe === "15m" || timeframe === "1m";
+  }
+
+  /**
+   * Gets the resampleFreq parameter for IEX endpoint (intraday data).
+   */
+  private getIntradayResampleFreq(timeframe: DataRequest["timeframe"]): string | null {
     switch (timeframe) {
-      case "1d":
-        return "1day";
       case "1h":
         return "1hour";
       case "15m":
         return "15min";
       case "1m":
         return "1min";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Gets the frequency parameter for daily endpoint (end-of-day data).
+   */
+  private getDailyFrequency(timeframe: DataRequest["timeframe"]): string | null {
+    switch (timeframe) {
+      case "1d":
+        return "daily";
       default:
         return null;
     }
