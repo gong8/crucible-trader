@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
     <html lang="en">
       <body>
         <nav className="navbar">
-          <div className="badge">crucible</div>
+          <div className="badge">crucible trader</div>
           <div className="nav-links">
             <Link href="/runs">runs</Link>
             <Link href="/new-run">new run</Link>

@@ -346,7 +346,7 @@ export default function NewRunPage(): JSX.Element {
                 letterSpacing: "0.05em",
               }}
             >
-              ⚙️ Run Identity
+              Run Identity
             </h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
@@ -386,7 +386,7 @@ export default function NewRunPage(): JSX.Element {
                 letterSpacing: "0.05em",
               }}
             >
-              📊 Data Configuration
+              Data Configuration
             </h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
@@ -510,7 +510,7 @@ export default function NewRunPage(): JSX.Element {
                         color: "var(--steel-200)",
                       }}
                     >
-                      📊 Available Range: {coverage.start} → {coverage.end} (
+                      Available Range: {coverage.start} → {coverage.end} (
                       {coverage.source === "auto"
                         ? `auto via ${coverage.contributingSources.join(", ")}`
                         : coverage.source}
@@ -544,7 +544,7 @@ export default function NewRunPage(): JSX.Element {
                 letterSpacing: "0.05em",
               }}
             >
-              🎯 Strategy
+              Strategy
             </h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label>
@@ -586,7 +586,7 @@ export default function NewRunPage(): JSX.Element {
                 letterSpacing: "0.05em",
               }}
             >
-              💰 Execution Parameters
+              Execution Parameters
             </h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -668,7 +668,7 @@ export default function NewRunPage(): JSX.Element {
                 letterSpacing: "0.05em",
               }}
             >
-              📈 Metrics to Compute
+              Metrics to Compute
             </h3>
             <div
               style={{
@@ -708,7 +708,7 @@ export default function NewRunPage(): JSX.Element {
 
           {/* Submit Button */}
           <button type="submit" className="btn-primary" style={{ width: "100%" }}>
-            🔥 Ignite Backtest
+            Run Backtest
           </button>
 
           {/* Submission Status */}
@@ -721,7 +721,7 @@ export default function NewRunPage(): JSX.Element {
                 color: "var(--success-green)",
               }}
             >
-              ✅ Run queued: <strong>{submission.runId}</strong>
+              Run queued: <strong>{submission.runId}</strong>
             </div>
           ) : null}
           {submission.status === "error" && submission.message ? (
@@ -733,7 +733,7 @@ export default function NewRunPage(): JSX.Element {
                 color: "var(--danger-red)",
               }}
             >
-              ❌ {submission.message}
+              Error: {submission.message}
             </div>
           ) : null}
         </form>

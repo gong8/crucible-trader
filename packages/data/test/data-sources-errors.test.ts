@@ -28,8 +28,10 @@ test("CsvSource throws descriptive error when file doesn't exist", async () => {
     async () => {
       await source.loadBars(request);
     },
-    {
-      code: "ENOENT",
+    (error: Error) => {
+      assert.match(error.message, /CSV file not found/);
+      assert.match(error.message, /NONEXISTENT/);
+      return true;
     },
   );
 
@@ -283,7 +285,8 @@ test("TiingoSource handles malformed JSON response", async () => {
   );
 });
 
-test("TiingoSource handles empty response array", async () => {
+test("TiingoSource handles empty response array", async (t) => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "tiingo-empty-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -294,7 +297,12 @@ test("TiingoSource handles empty response array", async () => {
 
   const source = new TiingoSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
+  });
+
+  t.after(async () => {
+    await rm(cacheDir, { recursive: true, force: true });
   });
 
   const request: DataRequest = {
@@ -305,12 +313,17 @@ test("TiingoSource handles empty response array", async () => {
     end: "2024-01-10",
   };
 
-  const bars = await source.loadBars(request);
-
-  assert.equal(bars.length, 0, "Empty response should return empty array");
+  await assert.rejects(
+    () => source.loadBars(request),
+    (error: Error) => {
+      assert.match(error.message, /returned empty data/i);
+      return true;
+    },
+  );
 });
 
-test("TiingoSource handles non-array response", async () => {
+test("TiingoSource handles non-array response", async (t) => {
+  const cacheDir = await mkdtemp(join(tmpdir(), "tiingo-nonarray-"));
   const mockHttpClient = {
     get: async () => ({
       statusCode: 200,
@@ -321,7 +334,12 @@ test("TiingoSource handles non-array response", async () => {
 
   const source = new TiingoSource({
     apiKey: "test-key",
+    cacheDir,
     httpClient: mockHttpClient,
+  });
+
+  t.after(async () => {
+    await rm(cacheDir, { recursive: true, force: true });
   });
 
   const request: DataRequest = {
@@ -332,9 +350,13 @@ test("TiingoSource handles non-array response", async () => {
     end: "2024-01-10",
   };
 
-  const bars = await source.loadBars(request);
-
-  assert.equal(bars.length, 0, "Non-array response should return empty array");
+  await assert.rejects(
+    () => source.loadBars(request),
+    (error: Error) => {
+      assert.match(error.message, /non-array response/i);
+      return true;
+    },
+  );
 });
 
 // ============================================================================
@@ -421,7 +443,7 @@ test("PolygonSource handles HTTP errors", async () => {
       await source.loadBars(request);
     },
     {
-      message: /failed with status 401/,
+      message: /authentication failed.*POLYGON_API_KEY/i,
     },
   );
 });
@@ -450,9 +472,14 @@ test("PolygonSource handles missing results in response", async (t) => {
     end: "2024-01-10",
   };
 
-  const bars = await source.loadBars(request);
+  await assert.rejects(
+    () => source.loadBars(request),
+    (error: Error) => {
+      assert.match(error.message, /returned no results/i);
+      return true;
+    },
+  );
 
-  assert.equal(bars.length, 0, "Response without results should return empty array");
   t.after(async () => {
     await rm(cacheDir, { recursive: true, force: true });
   });

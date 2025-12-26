@@ -40,7 +40,12 @@ export const fetchRemoteDataset = async ({
   const loader = source === "tiingo" ? tiingoSource : polygonSource;
   const bars = await loader.loadBars(request);
   if (!bars || bars.length === 0) {
-    throw new Error(`No data returned for ${request.symbol} (${request.timeframe}) via ${source}`);
+    throw new Error(
+      `No data returned for ${request.symbol} (${request.timeframe}) via ${source}. ` +
+        `Requested range: ${request.start} to ${request.end}. ` +
+        `This could mean: (1) The date range is in the future, (2) There's no trading data for this period, ` +
+        `(3) The data was filtered out due to date mismatch, or (4) The ticker doesn't exist on ${source}.`,
+    );
   }
 
   const sorted = [...bars].sort((a, b) => a.timestamp.localeCompare(b.timestamp));

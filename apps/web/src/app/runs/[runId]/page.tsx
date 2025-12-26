@@ -431,7 +431,7 @@ export default function RunDetailPage(): JSX.Element {
       {loading ? (
         <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
           <div className="loading" style={{ fontSize: "1.5rem" }}>
-            🔥 Loading run details...
+            Loading run details...
           </div>
         </div>
       ) : null}
@@ -444,7 +444,7 @@ export default function RunDetailPage(): JSX.Element {
             color: "var(--danger-red)",
           }}
         >
-          ❌ {error}
+          Error: {error}
         </div>
       ) : null}
 
@@ -1013,7 +1013,7 @@ export default function RunDetailPage(): JSX.Element {
                     textTransform: "uppercase",
                   }}
                 >
-                  🔥 Run Statistical Tests
+                  Run Statistical Tests
                 </h3>
                 <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                   <button
@@ -1048,7 +1048,7 @@ export default function RunDetailPage(): JSX.Element {
                     }}
                     style={{ opacity: runningTest === "permutation" ? 0.6 : 1 }}
                   >
-                    {runningTest === "permutation" ? "⏳ Running..." : "📊 Permutation Test"}
+                    {runningTest === "permutation" ? "Running..." : "Permutation Test"}
                   </button>
                   <button
                     className="btn-primary"
@@ -1082,7 +1082,7 @@ export default function RunDetailPage(): JSX.Element {
                     }}
                     style={{ opacity: runningTest === "bootstrap" ? 0.6 : 1 }}
                   >
-                    {runningTest === "bootstrap" ? "⏳ Running..." : "🔄 Bootstrap Analysis"}
+                    {runningTest === "bootstrap" ? "Running..." : "Bootstrap Analysis"}
                   </button>
                 </div>
                 <p
@@ -1111,7 +1111,7 @@ export default function RunDetailPage(): JSX.Element {
                     borderLeft: "4px solid var(--spark-yellow)",
                   }}
                 >
-                  💡 No statistical tests run yet. Click a button above to run your first test!
+                  No statistical tests run yet. Click a button above to run your first test.
                 </div>
               ) : (
                 <div style={{ display: "grid", gap: "1.5rem" }}>
@@ -1151,7 +1151,7 @@ export default function RunDetailPage(): JSX.Element {
                             }}
                           >
                             {test.testType === "permutation"
-                              ? "📊 Permutation Test"
+                              ? "Permutation Test"
                               : "🔄 Bootstrap Analysis"}
                           </h3>
                           <p style={{ fontSize: "0.75rem", color: "var(--steel-400)" }}>

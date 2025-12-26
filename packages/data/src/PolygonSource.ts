@@ -95,6 +95,24 @@ export class PolygonSource implements IDataSource {
     const response = await this.httpClient.get(url.toString());
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode === 404) {
+        throw new Error(
+          `Ticker symbol "${request.symbol}" not found. Please verify the ticker is valid and available on Polygon.`,
+        );
+      }
+      if (response.statusCode === 401 || response.statusCode === 403) {
+        throw new Error(
+          `Polygon authentication failed. Please verify your POLYGON_API_KEY is valid.`,
+        );
+      }
+      if (response.statusCode === 400) {
+        throw new Error(
+          `Invalid request parameters for ${request.symbol}. Check that start date (${request.start}) and end date (${request.end}) are valid YYYY-MM-DD format and that the timeframe "${request.timeframe}" is supported.`,
+        );
+      }
+      if (response.statusCode === 429) {
+        throw new Error(`Polygon rate limit exceeded. Please wait before making more requests.`);
+      }
       throw new Error(`Polygon request failed with status ${response.statusCode}`);
     }
 
@@ -108,6 +126,13 @@ export class PolygonSource implements IDataSource {
     const results = Array.isArray((payload as { results?: unknown })?.results)
       ? ((payload as { results: unknown[] }).results as PolygonRecord[])
       : [];
+
+    if (results.length === 0) {
+      const payloadStr = typeof payload === "object" ? JSON.stringify(payload) : String(payload);
+      throw new Error(
+        `Polygon returned no results for ${request.symbol} (${request.timeframe}) from ${request.start} to ${request.end}. Response: ${payloadStr.slice(0, 200)}`,
+      );
+    }
 
     return results.map((record) => this.toBar(record)).filter((bar): bar is Bar => bar !== null);
   }

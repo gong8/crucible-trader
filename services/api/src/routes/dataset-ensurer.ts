@@ -59,6 +59,9 @@ const ensureDataset = async (dataRequest: DataRequest, deps: DatasetEnsurerDeps)
     throw new Error("data requests must include start and end dates.");
   }
 
+  const effectiveRequest =
+    dataRequest.source === "csv" ? dataRequest : clampDataRequestRange(dataRequest);
+
   const filePresent = await fileExists(datasetPath);
   if (filePresent && (!record || !record.start || !record.end) && dataRequest.source === "csv") {
     const metadata = await deriveCsvMetadata(datasetPath);
@@ -79,12 +82,12 @@ const ensureDataset = async (dataRequest: DataRequest, deps: DatasetEnsurerDeps)
     }
   }
 
-  if (filePresent && coverageIncludes(record, dataRequest)) {
+  if (filePresent && coverageIncludes(record, effectiveRequest)) {
     return;
   }
 
   if (filePresent && dataRequest.source === "csv") {
-    throw new Error(buildCoverageError(record, dataRequest, filename));
+    throw new Error(buildCoverageError(record, effectiveRequest, filename));
   }
 
   if (!filePresent && dataRequest.source === "csv") {
@@ -95,7 +98,7 @@ const ensureDataset = async (dataRequest: DataRequest, deps: DatasetEnsurerDeps)
   }
 
   await fetchAndRecordDataset({
-    dataRequest,
+    dataRequest: effectiveRequest,
     datasetPath,
     preferredSources: derivePreferredSources(dataRequest.source),
     deps,
@@ -133,10 +136,7 @@ const fetchAndRecordDataset = async ({
   filename: string;
 }): Promise<void> => {
   try {
-    // Clamp the request to a reasonable range to avoid API errors
-    // Most APIs have limited historical data availability
-    const clampedRequest = { ...dataRequest };
-
+    const clampedRequest = clampDataRequestRange(dataRequest);
     const result = await fetchDatasetWithFallback({
       preferredSources,
       request: clampedRequest,
@@ -224,4 +224,44 @@ const deriveCsvMetadata = async (
   } catch {
     return null;
   }
+};
+
+/**
+ * Clamps remote data requests so Tiingo/Polygon are never asked for future bars.
+ */
+export const clampDataRequestRange = (request: DataRequest): DataRequest => {
+  if (!request.start || !request.end) {
+    return request;
+  }
+
+  const startMs = Date.parse(request.start);
+  const endMs = Date.parse(request.end);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+    return request;
+  }
+
+  const today = new Date(Date.now());
+  today.setUTCHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  const clampedEndMs = Math.min(endMs, todayMs);
+  let clampedStartMs = Math.min(startMs, clampedEndMs);
+
+  if (clampedStartMs > clampedEndMs) {
+    clampedStartMs = clampedEndMs;
+  }
+
+  if (clampedStartMs === startMs && clampedEndMs === endMs) {
+    return request;
+  }
+
+  return {
+    ...request,
+    start: toDateOnly(clampedStartMs),
+    end: toDateOnly(clampedEndMs),
+  };
+};
+
+const toDateOnly = (epochMs: number): string => {
+  return new Date(epochMs).toISOString().slice(0, 10);
 };

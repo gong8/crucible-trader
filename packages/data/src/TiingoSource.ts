@@ -19,6 +19,10 @@ const REPO_ROOT = join(PACKAGE_ROOT, "..", "..");
 const DEFAULT_CACHE_DIR = join(REPO_ROOT, "storage", "datasets", ".cache", "tiingo");
 const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 const DEFAULT_BASE_URL = "https://api.tiingo.com/tiingo/daily";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_MAX_CHUNK_DAYS = 180;
+const DEFAULT_REQUEST_DELAY_MS = 1200;
+const MAX_RANGE_BACKOFF_STEPS = 60;
 
 interface TiingoCachePayload {
   readonly fetchedAt: number;
@@ -31,9 +35,25 @@ export interface TiingoSourceOptions {
   readonly cacheDir?: string;
   readonly cacheTtlMs?: number;
   readonly httpClient?: HttpClient;
+  readonly now?: () => number;
+  readonly maxChunkDays?: number;
+  readonly requestDelayMs?: number;
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 type TiingoRecord = Record<string, unknown>;
+
+interface FetchRange {
+  readonly startDate: string;
+  readonly endDate: string;
+}
+
+class TiingoBadRequestError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "TiingoBadRequestError";
+  }
+}
 
 /**
  * Loads OHLCV data from Tiingo's REST API with local caching for determinism.
@@ -46,6 +66,10 @@ export class TiingoSource implements IDataSource {
   private readonly cacheDir: string;
   private readonly cacheTtlMs: number;
   private readonly httpClient: HttpClient;
+  private readonly now: () => number;
+  private readonly maxChunkDays: number;
+  private readonly requestDelayMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
 
   public constructor(options: TiingoSourceOptions = {}) {
     this.apiKeyOverride = options.apiKey;
@@ -53,6 +77,10 @@ export class TiingoSource implements IDataSource {
     this.cacheDir = options.cacheDir ?? DEFAULT_CACHE_DIR;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.httpClient = options.httpClient ?? createHttpClient();
+    this.now = options.now ?? Date.now;
+    this.maxChunkDays = Math.max(1, options.maxChunkDays ?? DEFAULT_MAX_CHUNK_DAYS);
+    this.requestDelayMs = options.requestDelayMs ?? DEFAULT_REQUEST_DELAY_MS;
+    this.sleep = options.sleep ?? defaultSleep;
   }
 
   public async loadBars(request: DataRequest): Promise<ReadonlyArray<Bar>> {
@@ -64,16 +92,92 @@ export class TiingoSource implements IDataSource {
       throw new Error("Tiingo API key missing. Set TIINGO_API_KEY environment variable.");
     }
 
+    const fetchRange = this.resolveFetchRange(request);
+    if (!fetchRange) {
+      // Requested window entirely in the future; Tiingo has nothing to return.
+      return [];
+    }
+
     const cachePath = this.resolveCachePath(request);
     const cached = await this.readFreshCache(cachePath);
     if (cached) {
       return filterBarsForRequest(cached, request);
     }
 
-    const fetched = await this.fetchBars(request, apiKey);
+    const fetched = await this.fetchChunkedRange(request, fetchRange, apiKey);
     const sorted = sortBarsChronologically(fetched);
     await this.writeCache(cachePath, sorted);
     return filterBarsForRequest(sorted, request);
+  }
+
+  private async fetchChunkedRange(
+    originalRequest: DataRequest,
+    fetchRange: FetchRange,
+    apiKey: string,
+  ): Promise<Bar[]> {
+    const startEpoch = parseRequestDate(fetchRange.startDate);
+    const endEpoch = parseRequestDate(fetchRange.endDate);
+    if (startEpoch === null || endEpoch === null || startEpoch > endEpoch) {
+      return [];
+    }
+
+    const bars: Bar[] = [];
+    let cursorEnd = endEpoch;
+    const chunkSpanMs = (this.maxChunkDays - 1) * DAY_MS;
+
+    while (cursorEnd >= startEpoch) {
+      const chunkStartEpoch = Math.max(startEpoch, cursorEnd - chunkSpanMs);
+      const range: FetchRange = {
+        startDate: formatDate(chunkStartEpoch),
+        endDate: formatDate(cursorEnd),
+      };
+      const chunkBars = await this.fetchWithBackoff(originalRequest, range, apiKey);
+      bars.push(...chunkBars);
+      cursorEnd = chunkStartEpoch - DAY_MS;
+      if (cursorEnd >= startEpoch) {
+        await this.sleep(this.requestDelayMs);
+      }
+    }
+
+    return bars;
+  }
+
+  private async fetchWithBackoff(
+    originalRequest: DataRequest,
+    initialRange: FetchRange,
+    apiKey: string,
+  ): Promise<Bar[]> {
+    let attempts = 0;
+    let range = initialRange;
+
+    for (;;) {
+      const request: DataRequest = {
+        ...originalRequest,
+        start: range.startDate,
+        end: range.endDate,
+      };
+      try {
+        return await this.fetchBars(request, apiKey);
+      } catch (error) {
+        if (error instanceof TiingoRateLimitError) {
+          await this.sleep(this.requestDelayMs);
+          continue;
+        }
+        if (error instanceof TiingoBadRequestError) {
+          if (attempts >= MAX_RANGE_BACKOFF_STEPS) {
+            throw error;
+          }
+          const nextRange = this.backoffRange(range);
+          if (!nextRange) {
+            throw error;
+          }
+          range = nextRange;
+          attempts += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   private async fetchBars(request: DataRequest, apiKey: string): Promise<Bar[]> {
@@ -96,6 +200,26 @@ export class TiingoSource implements IDataSource {
     });
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode === 404) {
+        throw new Error(
+          `Ticker symbol "${request.symbol}" not found. Please verify the ticker is valid and available on Tiingo.`,
+        );
+      }
+      if (response.statusCode === 401 || response.statusCode === 403) {
+        throw new Error(
+          `Tiingo authentication failed. Please verify your TIINGO_API_KEY is valid.`,
+        );
+      }
+      if (response.statusCode === 400) {
+        throw new TiingoBadRequestError(
+          `Invalid request parameters for ${request.symbol}. Check that start date (${request.start}) and end date (${request.end}) are valid YYYY-MM-DD format.`,
+        );
+      }
+      if (response.statusCode === 429) {
+        throw new TiingoRateLimitError(
+          "Tiingo rate limit exceeded. Please wait before making more requests.",
+        );
+      }
       throw new Error(`Tiingo request failed with status ${response.statusCode}`);
     }
 
@@ -107,7 +231,17 @@ export class TiingoSource implements IDataSource {
     }
 
     if (!Array.isArray(payload)) {
-      return [];
+      // Log the actual response to help debug
+      const payloadStr = typeof payload === "object" ? JSON.stringify(payload) : String(payload);
+      throw new Error(
+        `Tiingo returned non-array response for ${request.symbol}: ${payloadStr.slice(0, 200)}`,
+      );
+    }
+
+    if (payload.length === 0) {
+      throw new Error(
+        `Tiingo returned empty data for ${request.symbol} (${request.timeframe}) from ${request.start} to ${request.end}. The ticker may not exist, the date range may be invalid, or there may be no trading data for this period.`,
+      );
     }
 
     const useAdjusted = request.adjusted !== false;
@@ -192,6 +326,47 @@ export class TiingoSource implements IDataSource {
     return join(this.cacheDir, `${slug}.json`);
   }
 
+  private resolveFetchRange(request: DataRequest): FetchRange | null {
+    const startEpoch = parseRequestDate(request.start);
+    const endEpoch = parseRequestDate(request.end);
+    if (startEpoch === null || endEpoch === null) {
+      throw new Error(
+        `Tiingo requires valid ISO dates. Received start="${request.start}" end="${request.end}".`,
+      );
+    }
+
+    const today = new Date(this.now());
+    today.setUTCHours(0, 0, 0, 0);
+    const todayEpoch = today.getTime();
+
+    const clampedEnd = Math.min(endEpoch, todayEpoch);
+    if (clampedEnd < startEpoch) {
+      return null;
+    }
+
+    const clampedStart = Math.min(startEpoch, clampedEnd);
+    return {
+      startDate: formatDate(clampedStart),
+      endDate: formatDate(clampedEnd),
+    };
+  }
+
+  private backoffRange(range: FetchRange): FetchRange | null {
+    const startEpoch = parseRequestDate(range.startDate);
+    const endEpoch = parseRequestDate(range.endDate);
+    if (startEpoch === null || endEpoch === null) {
+      return null;
+    }
+    const nextEnd = endEpoch - DAY_MS;
+    if (nextEnd < startEpoch) {
+      return null;
+    }
+    return {
+      startDate: range.startDate,
+      endDate: formatDate(nextEnd),
+    };
+  }
+
   private getResampleFrequency(timeframe: DataRequest["timeframe"]): string | null {
     switch (timeframe) {
       case "1d":
@@ -231,3 +406,26 @@ const toNumber = (value: unknown): number | null => {
 export const createTiingoSource = (options?: TiingoSourceOptions): TiingoSource => {
   return new TiingoSource(options);
 };
+
+const parseRequestDate = (value: string | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+  const epoch = Date.parse(value);
+  return Number.isNaN(epoch) ? null : epoch;
+};
+
+const formatDate = (epochMs: number): string => {
+  return new Date(epochMs).toISOString().slice(0, 10);
+};
+
+const defaultSleep = (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+class TiingoRateLimitError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "TiingoRateLimitError";
+  }
+}

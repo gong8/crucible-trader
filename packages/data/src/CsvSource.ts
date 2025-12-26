@@ -45,7 +45,18 @@ export class CsvSource implements IDataSource {
   public async loadBars(request: DataRequest): Promise<ReadonlyArray<Bar>> {
     const datasetPath = this.resolveDatasetPath(request);
 
-    const datasetStat = await stat(datasetPath);
+    let datasetStat;
+    try {
+      datasetStat = await stat(datasetPath);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        throw new Error(
+          `CSV file not found for ticker "${request.symbol}" with timeframe "${request.timeframe}". Expected path: ${datasetPath}`,
+        );
+      }
+      throw error;
+    }
 
     const cachePath = this.resolveCachePath(request);
     const cached = await this.readCache(cachePath, datasetStat.mtimeMs);

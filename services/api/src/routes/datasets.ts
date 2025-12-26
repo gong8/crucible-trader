@@ -1,4 +1,4 @@
-import { readFile, rm, stat } from "node:fs/promises";
+import { access, readFile, rm, stat } from "node:fs/promises";
 import { join, normalize } from "node:path";
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -88,9 +88,22 @@ export const registerDatasetRoutes = (app: FastifyInstance, deps: DatasetRouteDe
       }
 
       if (exists) {
-        const recordedSource =
-          (await findExistingDatasetSource(deps, payload.symbol, payload.timeframe)) ??
-          (payload.source === "auto" ? "csv" : payload.source);
+        let recordedSource = await findExistingDatasetSource(
+          deps,
+          payload.symbol,
+          payload.timeframe,
+        );
+
+        // If not in database, detect actual source from cache files
+        if (!recordedSource) {
+          recordedSource = await detectSourceFromCache(payload.symbol, payload.timeframe);
+        }
+
+        // Fallback to requested source
+        if (!recordedSource) {
+          recordedSource = payload.source === "auto" ? "csv" : payload.source;
+        }
+
         return registerExistingDataset({
           datasetPath,
           filename,
@@ -346,6 +359,55 @@ const findExistingDatasetSource = async (
   const rows = await deps.listDatasets();
   const match = rows.find((row) => row.symbol === symbol && row.timeframe === timeframe);
   return match?.source ?? null;
+};
+
+/**
+ * Detect the actual source of a dataset by checking which cache files exist
+ */
+const detectSourceFromCache = async (
+  symbol: string,
+  timeframe: string,
+): Promise<"tiingo" | "polygon" | null> => {
+  const cacheDir = join(DATASETS_DIR, ".cache");
+  const slug = buildDatasetFilename(symbol, timeframe).replace(/\.csv$/u, "");
+
+  // Check for Tiingo cache files
+  const tiingoAdjusted = join(cacheDir, "tiingo", `${slug}_adj.json`);
+  const tiingoRaw = join(cacheDir, "tiingo", `${slug}_raw.json`);
+
+  try {
+    await access(tiingoAdjusted);
+    return "tiingo";
+  } catch {
+    // File doesn't exist, continue
+  }
+
+  try {
+    await access(tiingoRaw);
+    return "tiingo";
+  } catch {
+    // File doesn't exist, continue
+  }
+
+  // Check for Polygon cache files
+  const polygonAdjusted = join(cacheDir, "polygon", `${slug}_adj.json`);
+  const polygonRaw = join(cacheDir, "polygon", `${slug}_raw.json`);
+
+  try {
+    await access(polygonAdjusted);
+    return "polygon";
+  } catch {
+    // File doesn't exist, continue
+  }
+
+  try {
+    await access(polygonRaw);
+    return "polygon";
+  } catch {
+    // File doesn't exist, continue
+  }
+
+  return null;
 };
 
 const removeDatasetCaches = async (symbol: string, timeframe: string): Promise<void> => {

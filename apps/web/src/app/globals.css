@@ -298,7 +298,7 @@ pre {
 }
 
 .badge::before {
-  content: '🔥';
+  content: '';
   font-size: 1.2rem;
   animation: flicker 2s ease-in-out infinite;
 }

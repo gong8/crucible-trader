@@ -7,7 +7,7 @@
     "build": "tsc -p .",
     "dev": "pnpm run build && node dist/index.js",
     "start": "node dist/index.js",
-    "test": "pnpm run build && node --loader ts-node/esm --test src/db/index.test.ts test/queue.test.ts && node test/runs.e2e.test.js"
+    "test": "pnpm run build && node --loader ts-node/esm --test src/db/index.test.ts test/queue.test.ts test/dataset-ensurer.test.ts && node test/runs.e2e.test.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -89,7 +89,7 @@ const createInitialRange = (): { start: string; end: string } => {
   const start = new Date(end);
   start.setFullYear(start.getFullYear() - 1);
   return {
-    start: end.toISOString().slice(0, 10),
+    start: start.toISOString().slice(0, 10),
     end: end.toISOString().slice(0, 10),
   };
 };
@@ -279,7 +279,7 @@ export default function DatasetsPage(): JSX.Element {
                   color: "#cbd5e1",
                 }}
               >
-                📊 Available Range: {availableRange.start} → {availableRange.end} (
+                Available Range: {availableRange.start} → {availableRange.end} (
                 {availableRange.source === "auto"
                   ? `auto via ${availableRange.contributingSources.join(", ")}`
                   : availableRange.source}

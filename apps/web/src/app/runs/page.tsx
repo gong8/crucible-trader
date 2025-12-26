@@ -116,7 +116,7 @@ export default function RunsPage(): JSX.Element {
               opacity: resetting ? 0.5 : 1,
             }}
           >
-            {resetting ? "⏳ Resetting..." : "🗑️ Reset Runs"}
+            {resetting ? "Resetting..." : "Reset Runs"}
           </button>
         </div>
       </header>
@@ -125,7 +125,7 @@ export default function RunsPage(): JSX.Element {
       {loading ? (
         <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
           <div className="loading" style={{ fontSize: "1.5rem" }}>
-            🔥 Loading runs...
+            Loading runs...
           </div>
         </div>
       ) : error ? (
@@ -137,7 +137,7 @@ export default function RunsPage(): JSX.Element {
             color: "var(--danger-red)",
           }}
         >
-          ❌ {error}
+          Error: {error}
         </div>
       ) : runs.length === 0 ? (
         <div
@@ -148,7 +148,6 @@ export default function RunsPage(): JSX.Element {
             background: "linear-gradient(135deg, var(--graphite-400) 0%, var(--graphite-300) 100%)",
           }}
         >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔥</div>
           <h3
             style={{
               fontSize: "1.2rem",
@@ -163,7 +162,7 @@ export default function RunsPage(): JSX.Element {
             Ready to test your strategy under fire?
           </p>
           <Link href="/new-run">
-            <button className="btn-primary">🔥 Create Your First Run</button>
+            <button className="btn-primary">Create Your First Run</button>
           </Link>
         </div>
       ) : (
