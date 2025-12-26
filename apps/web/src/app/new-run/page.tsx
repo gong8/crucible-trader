@@ -313,324 +313,463 @@ export default function NewRunPage(): JSX.Element {
   }, [coverage, useExistingDataset, initialRange.start, initialRange.end]);
 
   return (
-    <section className="grid" aria-label="new run">
-      <header className="grid" style={{ gap: "0.5rem" }}>
-        <h1 className="section-title">new run</h1>
-        <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-          configure a backtest request and dispatch it to the crucible worker.
+    <div style={{ display: "grid", gap: "2rem" }}>
+      {/* HEADER */}
+      <header>
+        <h1 className="section-title">configure backtest</h1>
+        <p style={{ color: "var(--steel-200)", fontSize: "0.9rem", marginTop: "0.5rem" }}>
+          set parameters and ignite your trading strategy through the crucible
         </p>
       </header>
 
-      <form onSubmit={handleSubmit}>
-        <fieldset className="grid">
-          <legend>run id</legend>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <input
-              type="checkbox"
-              checked={autoNameEnabled}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setAutoNameEnabled(event.currentTarget.checked)
-              }
-            />
-            auto-generate name
-          </label>
-          <label>
-            run name
-            <input
-              value={runName}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setRunName(event.currentTarget.value)
-              }
-              disabled={autoNameEnabled}
-              required
-            />
-          </label>
-        </fieldset>
-
-        <fieldset className="grid">
-          <legend>dataset mode</legend>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <input
-              type="checkbox"
-              checked={useExistingDataset}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                setUseExistingDataset(event.currentTarget.checked);
-                if (!event.currentTarget.checked) {
-                  setSelectedDatasetId(null);
-                }
+      {/* MAIN LAYOUT: Side-by-side configuration and preview */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+          gap: "2rem",
+          alignItems: "start",
+        }}
+      >
+        {/* LEFT: Configuration Form */}
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.5rem" }}>
+          {/* Run Identity */}
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
               }}
-            />
-            use existing dataset
-          </label>
-          {useExistingDataset ? (
-            datasets.length > 0 ? (
-              <label>
-                select dataset
-                <select
-                  value={selectedDatasetId ?? ""}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                    setSelectedDatasetId(
-                      event.currentTarget.value ? Number(event.currentTarget.value) : null,
-                    )
+            >
+              ⚙️ Run Identity
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
+                <input
+                  type="checkbox"
+                  checked={autoNameEnabled}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setAutoNameEnabled(event.currentTarget.checked)
                   }
+                />
+                <span style={{ textTransform: "none" }}>Auto-generate run name</span>
+              </label>
+              <label>
+                Run Name
+                <input
+                  value={runName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setRunName(event.currentTarget.value)
+                  }
+                  disabled={autoNameEnabled}
+                  required
+                  style={{ fontWeight: "600" }}
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Data Configuration */}
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              📊 Data Configuration
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
+                <input
+                  type="checkbox"
+                  checked={useExistingDataset}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    setUseExistingDataset(event.currentTarget.checked);
+                    if (!event.currentTarget.checked) {
+                      setSelectedDatasetId(null);
+                    }
+                  }}
+                />
+                <span style={{ textTransform: "none" }}>Use existing dataset</span>
+              </label>
+
+              {useExistingDataset ? (
+                datasets.length > 0 ? (
+                  <label>
+                    Dataset
+                    <select
+                      value={selectedDatasetId ?? ""}
+                      onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                        setSelectedDatasetId(
+                          event.currentTarget.value ? Number(event.currentTarget.value) : null,
+                        )
+                      }
+                    >
+                      <option value="">Choose dataset</option>
+                      {datasets.map((dataset) => (
+                        <option key={dataset.id} value={dataset.id}>
+                          {dataset.symbol} · {dataset.timeframe} · {dataset.source}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className="alert">
+                    No datasets available. Register one under the datasets tab.
+                  </div>
+                )
+              ) : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label>
+                      Data Vendor
+                      <select
+                        value={dataSource}
+                        onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                          setDataSource(event.currentTarget.value as DataSource)
+                        }
+                      >
+                        {dataSources.map((source) => (
+                          <option key={source} value={source}>
+                            {source.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Timeframe
+                      <select
+                        value={timeframe}
+                        onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                          setTimeframe(event.currentTarget.value as Timeframe)
+                        }
+                      >
+                        {timeframeOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Symbol
+                    <input
+                      value={symbol}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setSymbol(event.currentTarget.value.toUpperCase())
+                      }
+                      required
+                      placeholder="e.g. AAPL"
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label>
+                      Start Date
+                      <input
+                        type="date"
+                        value={start}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          setStart(event.currentTarget.value)
+                        }
+                        disabled={dateInputsDisabled}
+                        required
+                      />
+                    </label>
+                    <label>
+                      End Date
+                      <input
+                        type="date"
+                        value={end}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          setEnd(event.currentTarget.value)
+                        }
+                        disabled={dateInputsDisabled}
+                        required
+                      />
+                    </label>
+                  </div>
+                  {datesLocked && coverage ? (
+                    <div
+                      style={{
+                        padding: "0.75rem",
+                        background: "var(--graphite-400)",
+                        borderLeft: "3px solid var(--spark-yellow)",
+                        fontSize: "0.75rem",
+                        color: "var(--steel-200)",
+                      }}
+                    >
+                      🔒 Locked to {coverage.start} → {coverage.end} (
+                      {coverage.source === "auto"
+                        ? `auto via ${coverage.contributingSources.join(", ")}`
+                        : coverage.source}
+                      )
+                    </div>
+                  ) : null}
+                  <label style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={adjusted}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setAdjusted(event.currentTarget.checked)
+                      }
+                    />
+                    <span style={{ textTransform: "none" }}>Use adjusted prices</span>
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Strategy Configuration */}
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              🎯 Strategy
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <label>
+                Strategy Preset
+                <select
+                  value={strategyName}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setStrategyName(event.currentTarget.value as StrategyKey)
+                  }
+                  style={{ fontWeight: "600" }}
                 >
-                  <option value="">choose dataset</option>
-                  {datasets.map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.symbol} · {dataset.timeframe} · {dataset.source}
+                  {strategyList.map((strategy) => (
+                    <option key={strategy.key} value={strategy.key}>
+                      {strategy.title} — {strategy.description}
                     </option>
                   ))}
                 </select>
               </label>
-            ) : (
-              <div className="alert">
-                no datasets available. register one under the datasets tab.
-              </div>
-            )
-          ) : (
-            <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-              provide symbol/timeframe below to fetch data lazily for this run.
-            </p>
-          )}
-        </fieldset>
-
-        <fieldset className="grid">
-          <legend>data source</legend>
-          <label>
-            vendor
-            <select
-              value={dataSource}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setDataSource(event.currentTarget.value as DataSource)
-              }
-              disabled={useExistingDataset}
-            >
-              {dataSources.map((source) => (
-                <option key={source} value={source}>
-                  {source}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            symbol
-            <input
-              value={symbol}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setSymbol(event.currentTarget.value)
-              }
-              disabled={useExistingDataset}
-              required
-            />
-          </label>
-          <label>
-            timeframe
-            <select
-              value={timeframe}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setTimeframe(event.currentTarget.value as Timeframe)
-              }
-              disabled={useExistingDataset}
-            >
-              {timeframeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <label style={{ flex: 1 }}>
-              start date
-              <input
-                type="date"
-                value={start}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setStart(event.currentTarget.value)
-                }
-                disabled={dateInputsDisabled}
-                required={!useExistingDataset}
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              end date
-              <input
-                type="date"
-                value={end}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setEnd(event.currentTarget.value)
-                }
-                disabled={dateInputsDisabled}
-                required={!useExistingDataset}
-              />
-            </label>
-          </div>
-          {!useExistingDataset && datesLocked && coverage ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>
-              date range locked to {coverage.start} → {coverage.end} (
-              {coverage.source === "auto"
-                ? `auto via ${coverage.contributingSources.join(", ")}`
-                : coverage.source}
-              )
-            </p>
-          ) : null}
-          <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-            <input
-              type="checkbox"
-              checked={adjusted}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setAdjusted(event.currentTarget.checked)
-              }
-              disabled={useExistingDataset}
-            />
-            use adjusted prices when available
-          </label>
-        </fieldset>
-
-        <fieldset className="grid">
-          <legend>strategy</legend>
-          <label>
-            strategy preset
-            <select
-              value={strategyName}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setStrategyName(event.currentTarget.value as StrategyKey)
-              }
-            >
-              {strategyList.map((strategy) => (
-                <option key={strategy.key} value={strategy.key}>
-                  {strategy.title} - {strategy.description}
-                </option>
-              ))}
-            </select>
-          </label>
-          <StrategyControls
-            config={selectedStrategy}
-            values={strategyValues}
-            errors={strategyErrors}
-            onChange={(field, value) => {
-              setStrategyValues((prev) => ({ ...prev, [field]: value }));
-            }}
-          />
-        </fieldset>
-
-        <fieldset className="grid">
-          <legend>costs & capital</legend>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <label style={{ flex: 1 }}>
-              fee bps
-              <input
-                type="number"
-                value={feeBps}
-                min={0}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setFeeBps(event.currentTarget.value)
-                }
-                required
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              slippage bps
-              <input
-                type="number"
-                value={slippageBps}
-                min={0}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setSlippageBps(event.currentTarget.value)
-                }
-                required
-              />
-            </label>
-          </div>
-          <label>
-            initial cash
-            <input
-              type="number"
-              value={initialCash}
-              min="0"
-              step="1000"
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setInitialCash(event.currentTarget.value)
-              }
-              required
-            />
-          </label>
-          <label>
-            deterministic seed
-            <input
-              type="number"
-              value={seed}
-              min="0"
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setSeed(event.currentTarget.value)
-              }
-            />
-          </label>
-        </fieldset>
-
-        <fieldset className="grid">
-          <legend>metrics & risk</legend>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-            {metricOptions.map((metric) => (
-              <label
-                key={metric}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  fontSize: "0.8rem",
+              <StrategyControls
+                config={selectedStrategy}
+                values={strategyValues}
+                errors={strategyErrors}
+                onChange={(field, value) => {
+                  setStrategyValues((prev) => ({ ...prev, [field]: value }));
                 }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedMetrics.includes(metric)}
-                  onChange={() => handleMetricToggle(metric)}
-                />
-                {metric}
-              </label>
-            ))}
+              />
+            </div>
           </div>
-          <label>
-            risk profile id
-            <input
-              value={riskProfileId}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setRiskProfileId(event.currentTarget.value)
-              }
-              placeholder="default"
-            />
-          </label>
-        </fieldset>
 
-        <button
-          type="submit"
+          {/* Execution Parameters */}
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              💰 Execution Parameters
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <label>
+                  Fee (bps)
+                  <input
+                    type="number"
+                    value={feeBps}
+                    min={0}
+                    step="0.1"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setFeeBps(event.currentTarget.value)
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Slippage (bps)
+                  <input
+                    type="number"
+                    value={slippageBps}
+                    min={0}
+                    step="0.1"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setSlippageBps(event.currentTarget.value)
+                    }
+                    required
+                  />
+                </label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <label>
+                  Initial Cash ($)
+                  <input
+                    type="number"
+                    value={initialCash}
+                    min="0"
+                    step="1000"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setInitialCash(event.currentTarget.value)
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Random Seed
+                  <input
+                    type="number"
+                    value={seed}
+                    min="0"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setSeed(event.currentTarget.value)
+                    }
+                  />
+                </label>
+              </div>
+              <label>
+                Risk Profile ID
+                <input
+                  value={riskProfileId}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setRiskProfileId(event.currentTarget.value)
+                  }
+                  placeholder="default"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Metrics Selection */}
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              📈 Metrics to Compute
+            </h3>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              {metricOptions.map((metric) => (
+                <label
+                  key={metric}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    padding: "0.5rem",
+                    background: selectedMetrics.includes(metric)
+                      ? "rgba(255, 107, 53, 0.1)"
+                      : "transparent",
+                    border: `1px solid ${selectedMetrics.includes(metric) ? "var(--ember-orange)" : "var(--graphite-100)"}`,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedMetrics.includes(metric)}
+                    onChange={() => handleMetricToggle(metric)}
+                  />
+                  {metric.replace(/_/g, " ")}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button type="submit" className="btn-primary" style={{ width: "100%" }}>
+            🔥 Ignite Backtest
+          </button>
+
+          {/* Submission Status */}
+          {submission.status === "success" ? (
+            <div
+              className="alert"
+              style={{
+                borderLeft: "4px solid var(--success-green)",
+                background: "linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)",
+                color: "var(--success-green)",
+              }}
+            >
+              ✅ Run queued: <strong>{submission.runId}</strong>
+            </div>
+          ) : null}
+          {submission.status === "error" && submission.message ? (
+            <div
+              className="alert"
+              style={{
+                borderLeft: "4px solid var(--danger-red)",
+                background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
+                color: "var(--danger-red)",
+              }}
+            >
+              ❌ {submission.message}
+            </div>
+          ) : null}
+        </form>
+
+        {/* RIGHT: Request Preview (Sticky) */}
+        <div
           style={{
-            padding: "0.75rem 1rem",
-            borderRadius: "8px",
-            border: "1px solid #f97316",
-            background: "#f97316",
-            color: "#0b0d12",
-            fontWeight: 600,
-            cursor: "pointer",
+            position: "sticky",
+            top: "2rem",
           }}
         >
-          launch run
-        </button>
-
-        {submission.status === "success" ? (
-          <div className="alert" style={{ borderColor: "#22c55e", color: "#22c55e" }}>
-            run queued: <strong>{submission.runId}</strong>
+          <div className="card">
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: "700",
+                color: "var(--ember-orange)",
+                marginBottom: "1.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              🔍 Request Payload
+            </h3>
+            <pre
+              style={{
+                fontSize: "0.7rem",
+                lineHeight: "1.4",
+                maxHeight: "600px",
+                overflow: "auto",
+              }}
+            >
+              {requestPreview}
+            </pre>
           </div>
-        ) : null}
-        {submission.status === "error" && submission.message ? (
-          <div className="alert">{submission.message}</div>
-        ) : null}
-      </form>
-
-      <section className="grid" aria-label="request preview">
-        <h2 className="section-title">request preview</h2>
-        <pre>{requestPreview}</pre>
-      </section>
-    </section>
+        </div>
+      </div>
+    </div>
   );
 }

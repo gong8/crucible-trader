@@ -89,97 +89,228 @@ export default function RunsPage(): JSX.Element {
   }, [fetchRuns]);
 
   return (
-    <section className="grid" aria-label="run catalog">
-      <header className="grid" style={{ gap: "0.75rem" }}>
+    <div style={{ display: "grid", gap: "2rem" }}>
+      {/* HEADER */}
+      <header>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center",
-            gap: "1rem",
+            alignItems: "flex-start",
+            gap: "2rem",
             flexWrap: "wrap",
           }}
         >
-          <h1 className="section-title" style={{ margin: 0 }}>
-            recent runs
-          </h1>
+          <div>
+            <h1 className="section-title">Run Catalog</h1>
+            <p style={{ color: "var(--steel-200)", fontSize: "0.9rem", marginTop: "0.5rem" }}>
+              All backtests forged through the crucible
+            </p>
+          </div>
           <button
             type="button"
             onClick={handleReset}
             disabled={resetting}
+            className="btn-secondary"
             style={{
-              padding: "0.35rem 0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid #334155",
-              backgroundColor: "transparent",
-              color: "#38bdf8",
-              cursor: resetting ? "not-allowed" : "pointer",
-              opacity: resetting ? 0.6 : 1,
-              transition: "opacity 0.2s ease",
+              opacity: resetting ? 0.5 : 1,
             }}
           >
-            {resetting ? "resetting…" : "reset runs"}
+            {resetting ? "⏳ Resetting..." : "🗑️ Reset Runs"}
           </button>
         </div>
-        <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-          listing locally tracked runs from the crucible api.
-        </p>
       </header>
 
+      {/* CONTENT */}
       {loading ? (
-        <div className="alert">loading run catalog…</div>
+        <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
+          <div className="loading" style={{ fontSize: "1.5rem" }}>
+            🔥 Loading runs...
+          </div>
+        </div>
       ) : error ? (
-        <div className="alert">{error}</div>
+        <div
+          className="alert"
+          style={{
+            borderLeft: "4px solid var(--danger-red)",
+            background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
+            color: "var(--danger-red)",
+          }}
+        >
+          ❌ {error}
+        </div>
       ) : runs.length === 0 ? (
-        <div className="card">
-          no runs recorded yet. <Link href="/new-run">launch one</Link> to see the manifest trail.
+        <div
+          className="card"
+          style={{
+            textAlign: "center",
+            padding: "4rem 2rem",
+            background: "linear-gradient(135deg, var(--graphite-400) 0%, var(--graphite-300) 100%)",
+          }}
+        >
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔥</div>
+          <h3
+            style={{
+              fontSize: "1.2rem",
+              fontWeight: "700",
+              color: "var(--steel-100)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            No runs in the forge yet
+          </h3>
+          <p style={{ color: "var(--steel-300)", marginBottom: "1.5rem" }}>
+            Ready to test your strategy under fire?
+          </p>
+          <Link href="/new-run">
+            <button className="btn-primary">🔥 Create Your First Run</button>
+          </Link>
         </div>
       ) : (
-        <div className="grid">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
+            gap: "1.5rem",
+          }}
+        >
           {runs.map((run) => (
-            <article key={run.runId} className="card" aria-label={`run ${run.runId}`}>
-              <div
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <div style={{ display: "grid" }}>
-                  <strong>{run.name ?? run.runId}</strong>
-                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>{run.runId}</span>
+            <article
+              key={run.runId}
+              className="card"
+              style={{
+                display: "grid",
+                gap: "1.25rem",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              {/* Status Badge */}
+              {run.status ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "1rem",
+                    right: "1rem",
+                    padding: "0.35rem 0.85rem",
+                    background:
+                      run.status === "completed"
+                        ? "linear-gradient(135deg, #059669 0%, #10b981 100%)"
+                        : run.status === "running"
+                          ? "linear-gradient(135deg, var(--ember-dim) 0%, var(--ember-orange) 100%)"
+                          : "linear-gradient(135deg, var(--steel-400) 0%, var(--steel-300) 100%)",
+                    color: "white",
+                    fontSize: "0.7rem",
+                    fontWeight: "700",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    borderRadius: "2px",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+                  }}
+                >
+                  {run.status}
                 </div>
-                {run.status ? <span style={{ color: "#38bdf8" }}>{run.status}</span> : null}
+              ) : null}
+
+              {/* Run Info */}
+              <div>
+                <h3
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: "700",
+                    color: "var(--steel-100)",
+                    marginBottom: "0.35rem",
+                    textTransform: "none",
+                  }}
+                >
+                  {run.name ?? run.runId}
+                </h3>
+                <p
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--steel-400)",
+                    fontFamily: "JetBrains Mono, monospace",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {run.runId}
+                </p>
+                {run.createdAt ? (
+                  <p
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--steel-300)",
+                      marginTop: "0.5rem",
+                    }}
+                  >
+                    🕐 {new Date(run.createdAt).toLocaleString()}
+                  </p>
+                ) : null}
               </div>
-              <p style={{ marginTop: "0.5rem", color: "#94a3b8", fontSize: "0.85rem" }}>
-                {run.createdAt ? `created ${run.createdAt}` : "timestamp pending"}
-              </p>
-              {run.summary ? (
-                <dl
+
+              {/* Metrics Grid */}
+              {run.summary && Object.keys(run.summary).length > 0 ? (
+                <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                    gap: "0.5rem",
-                    marginTop: "0.75rem",
-                    fontSize: "0.85rem",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "0.75rem",
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderRadius: "4px",
+                    border: "1px solid var(--graphite-100)",
                   }}
                 >
                   {Object.entries(run.summary)
                     .slice(0, 4)
                     .map(([metric, value]) => (
-                      <div key={`${run.runId}-${metric}`} style={{ display: "grid" }}>
-                        <dt style={{ color: "#64748b" }}>{metric}</dt>
-                        <dd style={{ margin: 0 }}>{Number(value).toFixed(3)}</dd>
+                      <div key={`${run.runId}-${metric}`}>
+                        <div
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "var(--steel-400)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          {metric.replace(/_/g, " ")}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "1.1rem",
+                            fontWeight: "700",
+                            color:
+                              metric.includes("pnl") || metric.includes("return")
+                                ? Number(value) >= 0
+                                  ? "var(--success-green)"
+                                  : "var(--danger-red)"
+                                : "var(--steel-100)",
+                          }}
+                        >
+                          {Number(value).toFixed(3)}
+                        </div>
                       </div>
                     ))}
-                </dl>
+                </div>
               ) : null}
-              <div className="chart-placeholder" style={{ marginTop: "1rem" }}>
-                chart placeholder
-              </div>
-              <div style={{ marginTop: "1rem", fontSize: "0.85rem" }}>
-                <Link href={`/runs/${encodeURIComponent(run.runId)}`}>view manifest →</Link>
-              </div>
+
+              {/* Actions */}
+              <Link href={`/runs/${encodeURIComponent(run.runId)}`} style={{ marginTop: "auto" }}>
+                <button
+                  className="btn-secondary"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                  }}
+                >
+                  View Details →
+                </button>
+              </Link>
             </article>
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

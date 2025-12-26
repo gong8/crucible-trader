@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -274,255 +275,652 @@ export default function RunDetailPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   return (
-    <section className="grid" aria-label="run detail" style={{ gap: "1.5rem" }}>
-      <header className="grid" style={{ gap: "0.5rem" }}>
-        <h1 className="section-title">run {params?.runId ?? ""}</h1>
+    <div style={{ display: "grid", gap: "2rem" }}>
+      {/* HEADER */}
+      <header>
+        <div style={{ marginBottom: "1rem" }}>
+          <Link
+            href="/runs"
+            style={{
+              fontSize: "0.8rem",
+              color: "var(--steel-300)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+            }}
+          >
+            ← Back to runs
+          </Link>
+        </div>
+        <h1 className="section-title" style={{ marginBottom: "0.75rem" }}>
+          Run: {params?.runId ?? ""}
+        </h1>
         {result ? (
-          <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-            metrics:{" "}
-            {Object.entries(result.summary)
-              .map(([key, value]) => `${key}: ${value.toFixed?.(3) ?? value}`)
-              .join(", ")}
-          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: "1.5rem",
+              flexWrap: "wrap",
+              marginTop: "1rem",
+            }}
+          >
+            {[
+              {
+                label: "Total PnL",
+                value: formatCurrency(result.summary.total_pnl),
+                highlight: true,
+              },
+              { label: "Sharpe", value: formatNumber(result.summary.sharpe) },
+              { label: "Max DD", value: formatPercent(result.summary.max_dd) },
+              { label: "Trades", value: formatInteger(result.summary.num_trades) },
+            ].map((stat, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: "0.75rem 1.5rem",
+                  background: stat.highlight
+                    ? "linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(255, 107, 53, 0.05) 100%)"
+                    : "var(--graphite-400)",
+                  border: `2px solid ${stat.highlight ? "var(--ember-orange)" : "var(--graphite-100)"}`,
+                  borderRadius: "4px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--steel-400)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  {stat.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: "1.4rem",
+                    fontWeight: "700",
+                    color: stat.highlight ? "var(--ember-orange)" : "var(--steel-100)",
+                  }}
+                >
+                  {stat.value}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : null}
       </header>
 
-      {loading ? <div className="alert">loading run…</div> : null}
-      {error ? <div className="alert">{error}</div> : null}
+      {/* LOADING & ERROR STATES */}
+      {loading ? (
+        <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
+          <div className="loading" style={{ fontSize: "1.5rem" }}>
+            🔥 Loading run details...
+          </div>
+        </div>
+      ) : null}
+      {error ? (
+        <div
+          className="alert"
+          style={{
+            borderLeft: "4px solid var(--danger-red)",
+            background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
+            color: "var(--danger-red)",
+          }}
+        >
+          ❌ {error}
+        </div>
+      ) : null}
 
-      <nav
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          flexWrap: "wrap",
-        }}
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
+      {/* TAB NAVIGATION */}
+      {result ? (
+        <>
+          <nav
             style={{
-              padding: "0.4rem 0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid",
-              borderColor: activeTab === tab ? "#38bdf8" : "#1e293b",
-              background: activeTab === tab ? "#1e293b" : "transparent",
-              color: activeTab === tab ? "#38bdf8" : "#94a3b8",
-              textTransform: "uppercase",
-              fontSize: "0.75rem",
-              letterSpacing: "0.05em",
+              display: "flex",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              borderBottom: "2px solid var(--graphite-100)",
+              paddingBottom: "0.5rem",
             }}
           >
-            {tab}
-          </button>
-        ))}
-      </nav>
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: "0.65rem 1.25rem",
+                  background:
+                    activeTab === tab
+                      ? "linear-gradient(135deg, var(--ember-dim) 0%, var(--ember-orange) 100%)"
+                      : "transparent",
+                  border: `2px solid ${activeTab === tab ? "var(--ember-orange)" : "var(--graphite-100)"}`,
+                  borderRadius: "0",
+                  color: activeTab === tab ? "white" : "var(--steel-300)",
+                  textTransform: "uppercase",
+                  fontSize: "0.75rem",
+                  fontWeight: "700",
+                  letterSpacing: "0.05em",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: activeTab === tab ? "0 4px 12px rgba(255, 107, 53, 0.3)" : "none",
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </nav>
 
-      {activeTab === "overview" && result ? (
-        <div className="card" style={{ display: "grid", gap: "1.25rem" }}>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <Stat label="Strategy" value={result.request?.strategy.name ?? "unknown"} />
-            <Stat label="Symbol" value={result.request?.data[0]?.symbol ?? "unknown"} />
-            <Stat label="Timeframe" value={result.request?.data[0]?.timeframe ?? "unknown"} />
-          </div>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <Stat label="Total PnL" value={formatCurrency(result.summary.total_pnl)} />
-            <Stat label="Total Return" value={formatPercent(result.summary.total_return)} />
-            <Stat label="Sharpe" value={formatNumber(result.summary.sharpe)} />
-            <Stat label="Trades" value={formatInteger(result.summary.num_trades)} />
-          </div>
-          {chartData ? (
-            <LightweightChart equity={chartData.equity} markers={chartData.markers} />
-          ) : (
-            <div className="alert">chart data unavailable for this run</div>
-          )}
-        </div>
-      ) : null}
+          {/* TAB CONTENT */}
+          {activeTab === "overview" ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                Overview
+              </h2>
 
-      {activeTab === "chart" && result && chartData ? (
-        <div className="card" style={{ display: "grid", gap: "1rem" }}>
-          <section>
-            <h2 className="section-title">equity curve</h2>
-            <LightweightChart equity={chartData.equity} markers={chartData.markers} />
-          </section>
-          {chartData.price ? (
-            <section>
-              <h2 className="section-title">underlying price</h2>
-              <LightweightChart equity={chartData.price} markers={[]} />
-            </section>
-          ) : null}
-        </div>
-      ) : activeTab === "chart" && result && !chartData && !loading ? (
-        <div className="alert">chart data unavailable for this run</div>
-      ) : null}
-
-      {activeTab === "datasets" && result?.request ? (
-        <div className="card" style={{ display: "grid", gap: "1rem" }}>
-          <section>
-            <h2 className="section-title">strategy</h2>
-            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{result.request.strategy.name}</p>
-            <pre style={{ background: "#0f172a", padding: "0.5rem", borderRadius: "0.5rem" }}>
-              {JSON.stringify(result.request.strategy.params, null, 2)}
-            </pre>
-          </section>
-
-          <section>
-            <h2 className="section-title">datasets</h2>
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              {result.request.data.map((series) => (
-                <article key={`${series.symbol}-${series.timeframe}`}>
-                  <strong>
-                    {series.symbol} · {series.timeframe}
-                  </strong>
-                  <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                    source: {series.source} · {series.start ?? "?"} → {series.end ?? "?"}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="section-title">costs & risk</h2>
-            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-              fees: {result.request.costs.feeBps} bps · slippage: {result.request.costs.slippageBps}{" "}
-              bps · initial cash: ${result.request.initialCash.toLocaleString()}
-            </p>
-            {result.request.riskProfileId ? (
-              <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                risk profile: {result.request.riskProfileId}
-              </p>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
-
-      {activeTab === "trades" && trades && trades.length > 0 ? (
-        <div className="card">
-          <h2 className="section-title" style={{ marginBottom: "1rem" }}>
-            trade history
-          </h2>
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "0.875rem",
-              }}
-            >
-              <thead>
-                <tr style={{ borderBottom: "1px solid #334155" }}>
-                  <th style={{ padding: "0.75rem", textAlign: "left", color: "#94a3b8" }}>Time</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", color: "#94a3b8" }}>Side</th>
-                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>
-                    Price
-                  </th>
-                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>Qty</th>
-                  <th style={{ padding: "0.75rem", textAlign: "right", color: "#94a3b8" }}>PnL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trades.map((trade, idx) => (
-                  <tr
-                    key={idx}
+              {/* Strategy Info */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "1rem",
+                  marginBottom: "2rem",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "3px solid var(--ember-orange)",
+                  }}
+                >
+                  <div
                     style={{
-                      borderBottom: "1px solid #1e293b",
+                      fontSize: "0.7rem",
+                      color: "var(--steel-400)",
+                      marginBottom: "0.5rem",
                     }}
                   >
-                    <td style={{ padding: "0.75rem" }}>{new Date(trade.time).toLocaleString()}</td>
-                    <td style={{ padding: "0.75rem" }}>
-                      <span
-                        style={{
-                          padding: "0.25rem 0.5rem",
-                          borderRadius: "4px",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          backgroundColor: trade.side === "buy" ? "#166534" : "#991b1b",
-                          color: trade.side === "buy" ? "#86efac" : "#fca5a5",
-                        }}
-                      >
-                        {trade.side.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
-                      ${trade.price.toFixed(2)}
-                    </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>{trade.qty}</td>
-                    <td
+                    STRATEGY
+                  </div>
+                  <div style={{ fontSize: "1rem", fontWeight: "600" }}>
+                    {result.request?.strategy.name ?? "unknown"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "3px solid var(--steel-300)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "var(--steel-400)",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    SYMBOL
+                  </div>
+                  <div style={{ fontSize: "1rem", fontWeight: "600" }}>
+                    {result.request?.data[0]?.symbol ?? "unknown"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "3px solid var(--spark-yellow)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "var(--steel-400)",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    TIMEFRAME
+                  </div>
+                  <div style={{ fontSize: "1rem", fontWeight: "600" }}>
+                    {result.request?.data[0]?.timeframe ?? "unknown"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart */}
+              {chartData ? (
+                <div style={{ marginTop: "2rem" }}>
+                  <h3
+                    style={{
+                      fontSize: "0.9rem",
+                      fontWeight: "700",
+                      color: "var(--steel-200)",
+                      marginBottom: "1rem",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Equity Curve
+                  </h3>
+                  <LightweightChart equity={chartData.equity} markers={chartData.markers} />
+                </div>
+              ) : (
+                <div className="alert">Chart data unavailable</div>
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === "chart" ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                Charts
+              </h2>
+              {chartData ? (
+                <div style={{ display: "grid", gap: "2rem" }}>
+                  <div>
+                    <h3
                       style={{
-                        padding: "0.75rem",
-                        textAlign: "right",
-                        color: trade.pnl >= 0 ? "#86efac" : "#fca5a5",
-                        fontWeight: 600,
+                        fontSize: "0.9rem",
+                        fontWeight: "700",
+                        color: "var(--steel-200)",
+                        marginBottom: "1rem",
+                        textTransform: "uppercase",
                       }}
                     >
-                      ${trade.pnl >= 0 ? "+" : ""}
-                      {trade.pnl.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : activeTab === "trades" && trades && trades.length === 0 ? (
-        <div className="alert">no trades executed in this run</div>
-      ) : null}
+                      Equity Curve
+                    </h3>
+                    <LightweightChart equity={chartData.equity} markers={chartData.markers} />
+                  </div>
+                  {chartData.price ? (
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: "0.9rem",
+                          fontWeight: "700",
+                          color: "var(--steel-200)",
+                          marginBottom: "1rem",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Underlying Price
+                      </h3>
+                      <LightweightChart equity={chartData.price} markers={[]} />
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="alert">Chart data unavailable</div>
+              )}
+            </div>
+          ) : null}
 
-      {activeTab === "metrics" && result ? (
-        <div className="card">
-          <h2 className="section-title">metrics</h2>
-          <dl
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
-              gap: "0.75rem",
-            }}
-          >
-            {Object.entries(result.summary).map(([key, value]) => (
-              <div
-                key={key}
-                style={{ background: "#0f172a", padding: "0.75rem", borderRadius: "0.5rem" }}
+          {activeTab === "metrics" ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
               >
-                <dt style={{ textTransform: "uppercase", color: "#94a3b8", fontSize: "0.75rem" }}>
-                  {key}
-                </dt>
-                <dd style={{ fontSize: "1.1rem", fontWeight: 600 }}>
-                  {typeof value === "number" ? value.toFixed(3) : value}
-                </dd>
+                Performance Metrics
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                  gap: "1rem",
+                }}
+              >
+                {Object.entries(result.summary).map(([key, value]) => (
+                  <div
+                    key={key}
+                    style={{
+                      padding: "1.25rem",
+                      background: "var(--graphite-500)",
+                      border: "2px solid var(--graphite-100)",
+                      borderRadius: "4px",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--ember-orange)";
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--graphite-100)";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "var(--steel-400)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      {key.replace(/_/g, " ")}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "1.5rem",
+                        fontWeight: "700",
+                        color: "var(--steel-100)",
+                      }}
+                    >
+                      {typeof value === "number" ? value.toFixed(3) : value}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
+            </div>
+          ) : null}
 
-      {activeTab === "overview" && result?.artifacts.reportMd ? (
-        <div>
-          <a
-            href={apiRoute(`/api/runs/${result.runId}/artifacts/report`)}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "#38bdf8" }}
-          >
-            download markdown report →
-          </a>
-        </div>
-      ) : null}
-    </section>
-  );
-}
+          {activeTab === "datasets" && result.request ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                Configuration
+              </h2>
 
-const Stat = ({ label, value }: { label: string; value: string }): JSX.Element => {
-  return (
-    <div style={{ background: "#0f172a", padding: "0.75rem 1rem", borderRadius: "0.75rem" }}>
-      <div style={{ color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
-        {label}
-      </div>
-      <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{value}</div>
+              {/* Strategy */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h3
+                  style={{
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    color: "var(--steel-200)",
+                    marginBottom: "1rem",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Strategy
+                </h3>
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "4px solid var(--ember-orange)",
+                  }}
+                >
+                  <div style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.75rem" }}>
+                    {result.request.strategy.name}
+                  </div>
+                  <pre
+                    style={{
+                      fontSize: "0.75rem",
+                      padding: "0.75rem",
+                      background: "var(--graphite-400)",
+                      border: "none",
+                    }}
+                  >
+                    {JSON.stringify(result.request.strategy.params, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Datasets */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h3
+                  style={{
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    color: "var(--steel-200)",
+                    marginBottom: "1rem",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Data Sources
+                </h3>
+                <div style={{ display: "grid", gap: "0.75rem" }}>
+                  {result.request.data.map((series, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: "1rem",
+                        background: "var(--graphite-500)",
+                        borderLeft: "4px solid var(--spark-yellow)",
+                      }}
+                    >
+                      <div style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+                        {series.symbol} · {series.timeframe}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--steel-300)" }}>
+                        Source: {series.source} · {series.start ?? "?"} → {series.end ?? "?"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Costs & Risk */}
+              <div>
+                <h3
+                  style={{
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    color: "var(--steel-200)",
+                    marginBottom: "1rem",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Execution Parameters
+                </h3>
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "4px solid var(--steel-300)",
+                  }}
+                >
+                  <div style={{ fontSize: "0.9rem", color: "var(--steel-200)", lineHeight: "1.8" }}>
+                    <div>
+                      Fees: <strong>{result.request.costs.feeBps} bps</strong>
+                    </div>
+                    <div>
+                      Slippage: <strong>{result.request.costs.slippageBps} bps</strong>
+                    </div>
+                    <div>
+                      Initial Cash: <strong>${result.request.initialCash.toLocaleString()}</strong>
+                    </div>
+                    {result.request.riskProfileId ? (
+                      <div>
+                        Risk Profile: <strong>{result.request.riskProfileId}</strong>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "trades" && trades && trades.length > 0 ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                Trade History
+              </h2>
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "separate",
+                    borderSpacing: "0 0.5rem",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid var(--graphite-100)" }}>
+                      <th
+                        style={{
+                          padding: "0.75rem",
+                          textAlign: "left",
+                          color: "var(--steel-300)",
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Time
+                      </th>
+                      <th
+                        style={{
+                          padding: "0.75rem",
+                          textAlign: "left",
+                          color: "var(--steel-300)",
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Side
+                      </th>
+                      <th
+                        style={{
+                          padding: "0.75rem",
+                          textAlign: "right",
+                          color: "var(--steel-300)",
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Price
+                      </th>
+                      <th
+                        style={{
+                          padding: "0.75rem",
+                          textAlign: "right",
+                          color: "var(--steel-300)",
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Qty
+                      </th>
+                      <th
+                        style={{
+                          padding: "0.75rem",
+                          textAlign: "right",
+                          color: "var(--steel-300)",
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        PnL
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trades.map((trade, idx) => (
+                      <tr
+                        key={idx}
+                        style={{
+                          background: "var(--graphite-500)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "0.85rem",
+                            borderLeft: "3px solid var(--graphite-100)",
+                          }}
+                        >
+                          {new Date(trade.time).toLocaleString()}
+                        </td>
+                        <td style={{ padding: "0.85rem" }}>
+                          <span
+                            style={{
+                              padding: "0.35rem 0.75rem",
+                              borderRadius: "2px",
+                              fontSize: "0.7rem",
+                              fontWeight: "700",
+                              background:
+                                trade.side === "buy"
+                                  ? "linear-gradient(135deg, #047857 0%, #10b981 100%)"
+                                  : "linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)",
+                              color: "white",
+                            }}
+                          >
+                            {trade.side.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ padding: "0.85rem", textAlign: "right", fontWeight: "600" }}>
+                          ${trade.price.toFixed(2)}
+                        </td>
+                        <td style={{ padding: "0.85rem", textAlign: "right", fontWeight: "600" }}>
+                          {trade.qty}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.85rem",
+                            textAlign: "right",
+                            fontWeight: "700",
+                            color: trade.pnl >= 0 ? "var(--success-green)" : "var(--danger-red)",
+                            borderRight: "3px solid var(--graphite-100)",
+                          }}
+                        >
+                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : activeTab === "trades" && trades && trades.length === 0 ? (
+            <div className="alert">No trades executed in this run</div>
+          ) : null}
+
+          {/* Download Report */}
+          {result.artifacts.reportMd ? (
+            <div style={{ textAlign: "center", marginTop: "2rem" }}>
+              <a
+                href={apiRoute(`/api/runs/${result.runId}/artifacts/report`)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <button className="btn-secondary">📄 Download Markdown Report</button>
+              </a>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
-};
+}
 
 const formatCurrency = (value?: number): string => {
   if (typeof value !== "number") {
