@@ -1,0 +1,866 @@
+CRUCIBLE TRADER
+Phase 1 Specification — Statistical Validation and Live Data Integration (v1.0)
+
+────────────────────────────────────────────
+	1.	PHASE 1 MISSION
+────────────────────────────────────────────
+Phase 1 transforms Crucible Trader from a research backtester into a rigorous statistical validation platform with live market data integration.
+
+Core Goals:
+	1.	Statistical Robustness – Detect overfitting through permutation tests, walk-forward analysis, and bootstrap validation.
+	2.	Live Data Integration – Replace CSV reliance with Tiingo API as the default data source.
+	3.	Advanced Analytics – Monte Carlo simulation, parameter optimization, and regime detection.
+	4.	Production Metrics – Integrate C++ quant service for high-performance calculations.
+	5.	Enhanced Reporting – Statistical p-values, out-of-sample performance, and confidence intervals.
+
+Mantra:
+"Backtest results mean nothing without statistical validation. Phase 1 separates signal from noise."
+
+────────────────────────────────────────────
+	2.	PHASE 1 vs PHASE 0
+────────────────────────────────────────────
+Phase 0 Foundation:
+✓ Deterministic backtesting engine
+✓ CSV data source
+✓ Basic metrics (Sharpe, Sortino, Max DD, CAGR)
+✓ Four seed strategies
+✓ Simple risk management
+✓ Parquet persistence
+✓ Web UI for configuration
+
+Phase 1 Extensions:
++ Statistical validation suite
++ Live data feeds (Tiingo primary, Polygon secondary)
++ Walk-forward optimization
++ Permutation testing framework
++ Monte Carlo simulation engine
++ Parameter grid search
++ Out-of-sample performance tracking
++ Advanced reporting with p-values
++ Regime detection and analysis
++ Enhanced risk metrics (VaR, CVaR, Omega)
++ Multi-timeframe analysis
++ Correlation analysis across strategies
+
+────────────────────────────────────────────
+	3.	ARCHITECTURE ADDITIONS
+────────────────────────────────────────────
+New Components:
+
+Stats Engine (TypeScript)
+packages/stats/
+├── src/
+│   ├── permutation.ts       # Permutation testing
+│   ├── walkforward.ts       # Walk-forward analysis
+│   ├── bootstrap.ts         # Bootstrap resampling
+│   ├── monte-carlo.ts       # MC wrapper calling C++
+│   ├── optimization.ts      # Grid search, genetic algos
+│   └── regime.ts            # Market regime detection
+└── test/
+    └── stats.test.ts
+
+Quant Service Integration
+services/quant-cpp/
+├── src/
+│   ├── monte_carlo.cpp      # ✓ Already exists
+│   ├── black_scholes.cpp    # ✓ Already exists
+│   ├── var_calculator.cpp   # NEW: VaR/CVaR
+│   ├── correlation.cpp      # NEW: Cross-strategy correlation
+│   └── optimization.cpp     # NEW: Parameter optimization
+└── tests/
+    ├── test_var.cpp
+    ├── test_correlation.cpp
+    └── test_optimization.cpp
+
+Live Data Service
+packages/data/src/sources/
+├── tiingo.ts                # ✓ Already exists
+├── polygon.ts               # ✓ Already exists
+├── cache-manager.ts         # NEW: Smart caching with TTL
+├── data-validator.ts        # NEW: Data quality checks
+└── realtime-stream.ts       # NEW: WebSocket for Phase 2 prep
+
+Enhanced Metrics
+packages/metrics/src/
+├── advanced.ts              # NEW: VaR, CVaR, Omega, Calmar
+├── drawdown.ts              # NEW: Underwater curves, recovery
+├── attribution.ts           # NEW: Return attribution
+└── correlation.ts           # NEW: Strategy correlation matrix
+
+Reporting Engine
+packages/report/src/
+├── statistical-report.ts    # NEW: p-values, confidence intervals
+├── walkforward-report.ts    # NEW: IS vs OOS performance
+├── monte-carlo-report.ts    # NEW: MC simulation results
+└── pdf-exporter.ts          # NEW: HTML → PDF conversion
+
+API Extensions
+services/api/src/routes/
+├── stats.ts                 # NEW: /api/stats/* endpoints
+├── optimization.ts          # NEW: /api/optimize/* endpoints
+└── live-data.ts             # NEW: /api/data/live/* endpoints
+
+UI Enhancements
+apps/web/src/app/
+├── optimize/                # NEW: Parameter optimization UI
+├── stats/                   # NEW: Statistical validation results
+└── regime/                  # NEW: Market regime visualization
+
+────────────────────────────────────────────
+	4.	DATA MODEL EXTENSIONS
+────────────────────────────────────────────
+New SQLite Tables:
+
+-- Statistical test results
+CREATE TABLE stat_tests (
+  id INTEGER PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  test_type TEXT NOT NULL, -- 'permutation', 'walkforward', 'bootstrap'
+  p_value REAL,
+  confidence_level REAL,
+  in_sample_metric REAL,
+  out_sample_metric REAL,
+  metadata_json TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (run_id) REFERENCES runs(run_id)
+);
+
+-- Optimization jobs
+CREATE TABLE optimizations (
+  id INTEGER PRIMARY KEY,
+  opt_id TEXT UNIQUE NOT NULL,
+  strategy_name TEXT NOT NULL,
+  param_grid_json TEXT NOT NULL,
+  objective TEXT NOT NULL, -- 'sharpe', 'sortino', 'total_return'
+  status TEXT DEFAULT 'queued', -- 'queued', 'running', 'completed', 'failed'
+  best_params_json TEXT,
+  best_score REAL,
+  results_json TEXT, -- Array of all param combinations
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT
+);
+
+-- Market regimes
+CREATE TABLE regimes (
+  id INTEGER PRIMARY KEY,
+  dataset_id INTEGER NOT NULL,
+  regime_type TEXT NOT NULL, -- 'bull', 'bear', 'sideways', 'high_vol'
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  confidence REAL,
+  metadata_json TEXT,
+  FOREIGN KEY (dataset_id) REFERENCES datasets(id)
+);
+
+-- Live data subscriptions (prep for Phase 2)
+CREATE TABLE subscriptions (
+  id INTEGER PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  source TEXT NOT NULL,
+  active INTEGER DEFAULT 1,
+  last_update TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+────────────────────────────────────────────
+	5.	STATISTICAL VALIDATION METHODS
+────────────────────────────────────────────
+
+5.1 Permutation Testing
+Purpose: Detect if backtest results are due to chance.
+Method:
+	1.	Run original backtest → get metric M (e.g., Sharpe = 1.5)
+	2.	Shuffle trade entry/exit signals 1,000 times
+	3.	Re-run backtest with shuffled signals
+	4.	Calculate p-value = (# shuffled results ≥ M) / 1,000
+	5.	If p < 0.05, results are statistically significant
+
+Implementation:
+POST /api/stats/permutation
+{
+  "runId": "original-run-id",
+  "metric": "sharpe",
+  "iterations": 1000,
+  "seed": 42
+}
+
+Response:
+{
+  "testId": "perm-123",
+  "originalMetric": 1.5,
+  "pValue": 0.023,
+  "nullDistribution": [...],
+  "conclusion": "significant"
+}
+
+5.2 Walk-Forward Analysis
+Purpose: Validate strategy on unseen data to detect overfitting.
+Method:
+	1.	Split data into windows (e.g., 12 months IS, 3 months OOS)
+	2.	Optimize parameters on IS window
+	3.	Test on OOS window
+	4.	Roll forward and repeat
+	5.	Aggregate OOS performance
+
+Implementation:
+POST /api/stats/walkforward
+{
+  "strategyName": "sma_crossover",
+  "symbol": "AAPL",
+  "timeframe": "1d",
+  "start": "2020-01-01",
+  "end": "2024-12-31",
+  "inSampleMonths": 12,
+  "outSampleMonths": 3,
+  "paramGrid": {
+    "fastLength": [5, 10, 15],
+    "slowLength": [20, 30, 40]
+  },
+  "objective": "sharpe"
+}
+
+Response:
+{
+  "walkforwardId": "wf-456",
+  "windows": [
+    {
+      "window": 1,
+      "inSample": { "start": "2020-01-01", "end": "2020-12-31" },
+      "outSample": { "start": "2021-01-01", "end": "2021-03-31" },
+      "bestParams": { "fastLength": 10, "slowLength": 30 },
+      "inSampleSharpe": 1.8,
+      "outSampleSharpe": 0.9
+    },
+    ...
+  ],
+  "aggregateOOS": {
+    "sharpe": 1.1,
+    "maxDD": -0.15,
+    "winrate": 0.58
+  }
+}
+
+5.3 Bootstrap Resampling
+Purpose: Estimate confidence intervals for metrics.
+Method:
+	1.	Resample returns with replacement 1,000 times
+	2.	Calculate metric on each bootstrap sample
+	3.	Build distribution → 95% confidence interval
+
+Implementation:
+POST /api/stats/bootstrap
+{
+  "runId": "original-run-id",
+  "metric": "sharpe",
+  "iterations": 1000,
+  "confidenceLevel": 0.95
+}
+
+Response:
+{
+  "metric": "sharpe",
+  "point": 1.5,
+  "ci95Lower": 1.2,
+  "ci95Upper": 1.8,
+  "standardError": 0.15
+}
+
+5.4 Monte Carlo Simulation
+Purpose: Stress-test strategy under different market scenarios.
+Method:
+	1.	Use C++ quant service for performance
+	2.	Generate synthetic price paths (GBM, Heston, etc.)
+	3.	Run strategy on each path
+	4.	Aggregate results → probability distribution
+
+Implementation:
+POST /api/stats/montecarlo
+{
+  "runId": "original-run-id",
+  "model": "gbm", // 'gbm', 'heston', 'jump_diffusion'
+  "paths": 10000,
+  "horizonDays": 252,
+  "seed": 42
+}
+
+Response:
+{
+  "mcId": "mc-789",
+  "expectedReturn": 0.12,
+  "stdDev": 0.18,
+  "var95": -0.22,
+  "cvar95": -0.31,
+  "percentiles": {
+    "p5": -0.15,
+    "p50": 0.11,
+    "p95": 0.42
+  }
+}
+
+────────────────────────────────────────────
+	6.	LIVE DATA INTEGRATION
+────────────────────────────────────────────
+
+6.1 Tiingo as Primary Source
+Default for all new backtests unless explicitly overridden.
+
+Configuration (.env):
+TIINGO_API_KEY=your_key
+TIINGO_CACHE_TTL_HOURS=24
+TIINGO_MAX_RETRIES=3
+TIINGO_RATE_LIMIT_PER_MIN=60
+
+Features:
+✓ Adjusted/unadjusted pricing
+✓ Intraday (1m, 5m, 15m, 1h) + Daily/Weekly
+✓ Split/dividend adjustment
+✓ Smart caching with TTL
+✓ Rate limiting
+✓ Retry logic with exponential backoff
+
+6.2 Data Quality Validation
+All fetched data goes through validation:
+	•	No missing dates (within market hours)
+	•	No negative prices
+	•	No extreme outliers (> 10 std dev moves)
+	•	Volume > 0 for traded bars
+	•	OHLC consistency (O/H/L/C relationships)
+
+Validation Report:
+{
+  "datasetId": 123,
+  "symbol": "AAPL",
+  "quality": "high", // 'high', 'medium', 'low'
+  "issues": [
+    {
+      "type": "missing_bar",
+      "date": "2024-07-04", // July 4th holiday
+      "severity": "info"
+    }
+  ],
+  "stats": {
+    "totalBars": 252,
+    "missingBars": 1,
+    "outliers": 0
+  }
+}
+
+6.3 Multi-Source Fallback
+If Tiingo fails or data is unavailable:
+	1.	Attempt Polygon.io
+	2.	Fall back to cached data
+	3.	Fail with clear error if all sources exhausted
+
+────────────────────────────────────────────
+	7.	PARAMETER OPTIMIZATION
+────────────────────────────────────────────
+
+7.1 Grid Search
+Exhaustive search over parameter combinations.
+
+POST /api/optimize/grid
+{
+  "strategyName": "sma_crossover",
+  "symbol": "AAPL",
+  "timeframe": "1d",
+  "start": "2022-01-01",
+  "end": "2024-12-31",
+  "paramGrid": {
+    "fastLength": [5, 10, 15, 20],
+    "slowLength": [20, 30, 40, 50]
+  },
+  "objective": "sharpe",
+  "constraints": {
+    "minTrades": 10,
+    "maxDrawdown": -0.30
+  }
+}
+
+Response:
+{
+  "optId": "opt-abc123",
+  "totalCombinations": 16,
+  "bestParams": {
+    "fastLength": 10,
+    "slowLength": 30
+  },
+  "bestScore": 1.85,
+  "allResults": [
+    {
+      "params": { "fastLength": 5, "slowLength": 20 },
+      "sharpe": 1.2,
+      "trades": 45,
+      "maxDD": -0.18
+    },
+    ...
+  ]
+}
+
+7.2 Advanced Optimization (Future)
+Phase 1 focuses on grid search. Phase 2+ will add:
+	•	Genetic algorithms
+	•	Bayesian optimization
+	•	Particle swarm optimization
+
+────────────────────────────────────────────
+	8.	ENHANCED METRICS
+────────────────────────────────────────────
+
+New metrics in packages/metrics/src/advanced.ts:
+
+Value at Risk (VaR)
+Maximum expected loss at 95% confidence over N days.
+var95 = percentile(returns, 0.05)
+
+Conditional Value at Risk (CVaR)
+Average loss beyond VaR threshold.
+cvar95 = mean(returns where returns < var95)
+
+Omega Ratio
+Probability-weighted ratio of gains to losses.
+omega = sum(returns > threshold) / sum(returns < threshold)
+
+Calmar Ratio
+Return / Max Drawdown (annualized).
+calmar = cagr / abs(max_dd)
+
+Recovery Factor
+Total return / Max Drawdown.
+recovery = total_pnl / abs(max_dd_dollars)
+
+Tail Ratio
+95th percentile return / 5th percentile return.
+tail = percentile(returns, 0.95) / abs(percentile(returns, 0.05))
+
+Drawdown Analysis
+	•	Underwater curve (equity below peak)
+	•	Drawdown duration (days underwater)
+	•	Recovery time (days to new high)
+	•	Max consecutive losing days
+
+────────────────────────────────────────────
+	9.	REGIME DETECTION
+────────────────────────────────────────────
+
+Purpose: Identify market conditions and adapt strategies.
+
+Regime Types:
+	1.	Trend: Bull, Bear, Sideways
+	2.	Volatility: Low, Medium, High
+	3.	Combined: Bull+LowVol, Bear+HighVol, etc.
+
+Detection Methods:
+	•	Moving Average Slopes (trend)
+	•	ATR / Historical Volatility (volatility)
+	•	Hidden Markov Models (HMM)
+	•	Change Point Detection
+
+Implementation:
+POST /api/regimes/detect
+{
+  "symbol": "AAPL",
+  "timeframe": "1d",
+  "start": "2020-01-01",
+  "end": "2024-12-31",
+  "method": "hmm", // 'ma', 'hmm', 'volatility'
+  "states": 3 // bull, bear, sideways
+}
+
+Response:
+{
+  "regimes": [
+    {
+      "type": "bull",
+      "start": "2020-01-01",
+      "end": "2020-02-15",
+      "confidence": 0.89
+    },
+    {
+      "type": "bear",
+      "start": "2020-02-16",
+      "end": "2020-03-31",
+      "confidence": 0.94
+    },
+    ...
+  ],
+  "strategyPerformance": {
+    "bull": { "sharpe": 2.1, "trades": 15 },
+    "bear": { "sharpe": -0.5, "trades": 8 },
+    "sideways": { "sharpe": 0.3, "trades": 22 }
+  }
+}
+
+────────────────────────────────────────────
+	10.	REPORTING ENHANCEMENTS
+────────────────────────────────────────────
+
+10.1 Statistical Report
+Generated for every backtest with statistical validation.
+
+Sections:
+	1.	Executive Summary
+	   - Strategy name, symbol, date range
+	   - Key metrics with confidence intervals
+	   - Statistical significance (p-values)
+	2.	Performance Metrics
+	   - Sharpe, Sortino, Calmar, Omega
+	   - VaR 95%, CVaR 95%
+	   - Max DD, Recovery Time
+	3.	Statistical Validation
+	   - Permutation test results
+	   - Bootstrap confidence intervals
+	   - Walk-forward OOS performance
+	4.	Monte Carlo Simulation
+	   - Expected return distribution
+	   - Risk metrics (VaR, CVaR)
+	   - Probability of profit/loss
+	5.	Regime Analysis
+	   - Performance by market regime
+	   - Regime transition heatmap
+	6.	Trade Analysis
+	   - Win/loss distribution
+	   - Trade duration analysis
+	   - P&L attribution
+
+10.2 PDF Export
+Convert Markdown reports to professional PDFs:
+	•	HTML rendering with Puppeteer
+	•	Chart embedding (PNG snapshots from TradingView)
+	•	Table of contents
+	•	Page numbers and headers
+	•	Company branding
+
+Endpoint:
+GET /api/runs/:runId/report.pdf
+
+────────────────────────────────────────────
+	11.	UI ENHANCEMENTS
+────────────────────────────────────────────
+
+New Pages:
+
+/optimize
+Parameter optimization interface
+	•	Define parameter grid
+	•	Select objective function
+	•	View optimization progress
+	•	3D surface plots (param1 vs param2 vs objective)
+	•	Heatmaps for 2-param grids
+
+/stats
+Statistical validation results
+	•	Permutation test visualizations
+	•	Walk-forward performance charts (IS vs OOS)
+	•	Bootstrap confidence interval plots
+	•	p-value interpretations
+
+/regimes
+Market regime analysis
+	•	Regime timeline visualization
+	•	Strategy performance by regime
+	•	Transition probability matrix
+	•	Regime detection settings
+
+/monte-carlo
+Monte Carlo simulation results
+	•	Return distribution histogram
+	•	VaR/CVaR visualization
+	•	Percentile range bands
+	•	Path simulations overlay
+
+Enhanced /runs/[runId]
+Additional tabs:
+	•	Statistics (p-values, confidence intervals)
+	•	Monte Carlo (simulation results)
+	•	Regimes (regime-specific performance)
+	•	Optimization (if part of grid search)
+
+────────────────────────────────────────────
+	12.	API ENDPOINTS (NEW)
+────────────────────────────────────────────
+
+Statistical Validation
+POST /api/stats/permutation
+POST /api/stats/walkforward
+POST /api/stats/bootstrap
+POST /api/stats/montecarlo
+GET  /api/stats/:testId
+
+Optimization
+POST /api/optimize/grid
+GET  /api/optimize/:optId
+GET  /api/optimize/:optId/results
+
+Regime Detection
+POST /api/regimes/detect
+GET  /api/regimes/:symbol/:timeframe
+
+Live Data
+GET  /api/data/live/quote/:symbol
+GET  /api/data/live/bars/:symbol/:timeframe
+POST /api/data/cache/invalidate
+
+Advanced Metrics
+GET  /api/metrics/advanced/:runId
+GET  /api/metrics/correlation (cross-strategy)
+
+Reports
+GET  /api/runs/:runId/report.pdf
+GET  /api/runs/:runId/statistical-report
+
+────────────────────────────────────────────
+	13.	TESTING REQUIREMENTS
+────────────────────────────────────────────
+
+Unit Tests (TypeScript)
+packages/stats/test/
+	•	Permutation logic
+	•	Walk-forward window splitting
+	•	Bootstrap resampling
+	•	Regime detection algorithms
+
+Integration Tests
+	•	End-to-end permutation test
+	•	Walk-forward optimization
+	•	Monte Carlo via C++ service
+	•	Live data fetching with caching
+
+C++ Tests
+services/quant-cpp/tests/
+	•	VaR calculation accuracy
+	•	CVaR edge cases
+	•	Monte Carlo convergence
+	•	Correlation matrix correctness
+
+API Tests
+	•	Statistical endpoints return valid JSON
+	•	Optimization jobs are queued correctly
+	•	Regime detection handles edge cases
+
+Golden Tests
+	•	Known dataset → expected statistical results
+	•	Permutation test p-value reproducibility
+	•	Walk-forward OOS matches manual calculation
+
+Performance Tests
+	•	Permutation with 10,000 iterations < 30s
+	•	Grid search (100 combinations) < 5 min
+	•	Monte Carlo (10,000 paths) < 10s (C++)
+
+────────────────────────────────────────────
+	14.	PHASE 1 DELIVERABLES
+────────────────────────────────────────────
+
+	1.	✓ Stats Package
+	   - Permutation testing
+	   - Walk-forward analysis
+	   - Bootstrap resampling
+	   - Monte Carlo integration with C++
+
+	2.	✓ Live Data Integration
+	   - Tiingo as primary source
+	   - Data quality validation
+	   - Multi-source fallback logic
+	   - Smart caching with TTL
+
+	3.	✓ Parameter Optimization
+	   - Grid search implementation
+	   - Constraint handling
+	   - Best parameter selection
+	   - Optimization job queue
+
+	4.	✓ Enhanced Metrics
+	   - VaR, CVaR, Omega, Calmar
+	   - Drawdown analysis
+	   - Return attribution
+	   - Correlation matrix
+
+	5.	✓ Regime Detection
+	   - HMM-based regime classifier
+	   - Regime-specific performance
+	   - Transition analysis
+
+	6.	✓ C++ Quant Extensions
+	   - VaR/CVaR calculator
+	   - Correlation engine
+	   - Optimization helpers
+
+	7.	✓ API Extensions
+	   - Statistical endpoints
+	   - Optimization endpoints
+	   - Regime endpoints
+	   - Live data endpoints
+
+	8.	✓ UI Enhancements
+	   - Optimization page
+	   - Statistical validation page
+	   - Regime analysis page
+	   - Monte Carlo visualization
+
+	9.	✓ Enhanced Reporting
+	   - Statistical reports
+	   - PDF export
+	   - Confidence intervals
+	   - p-value interpretations
+
+	10.	✓ Comprehensive Tests
+	    - 150+ new tests across packages
+	    - Integration tests for statistics
+	    - C++ performance benchmarks
+
+────────────────────────────────────────────
+	15.	SUCCESS CRITERIA
+────────────────────────────────────────────
+
+Phase 1 is complete when:
+
+Functionality
+✓ Permutation test produces valid p-values
+✓ Walk-forward analysis shows IS/OOS split correctly
+✓ Bootstrap confidence intervals are accurate
+✓ Monte Carlo calls C++ service successfully
+✓ Grid search finds optimal parameters
+✓ Regime detection classifies market states
+✓ Tiingo data fetches with caching
+✓ Statistical reports generate with p-values
+✓ PDF export works for all reports
+
+Quality
+✓ All new tests passing (target: 150+)
+✓ No regressions in Phase 0 tests
+✓ TypeScript strict mode with no errors
+✓ ESLint passes with no warnings
+✓ Code coverage > 80% for new packages
+
+Performance
+✓ Permutation (1,000 iterations) < 30s
+✓ Walk-forward (12 windows) < 2 min
+✓ Grid search (100 combos) < 5 min
+✓ Monte Carlo (10,000 paths) < 10s
+✓ Live data fetch with cache < 200ms
+
+Documentation
+✓ All new endpoints documented in spec
+✓ Statistical methods explained
+✓ Optimization guide written
+✓ Regime detection tutorial
+
+────────────────────────────────────────────
+	16.	IMPLEMENTATION PHASES
+────────────────────────────────────────────
+
+Phase 1 is divided into 4 sprints:
+
+Sprint 1: Statistical Foundation (Weeks 1-2)
+	•	Create packages/stats package
+	•	Implement permutation testing
+	•	Implement bootstrap resampling
+	•	Write unit tests
+	•	Add statistical test SQLite table
+
+Sprint 2: Live Data & Validation (Weeks 3-4)
+	•	Tiingo as default source
+	•	Data quality validator
+	•	Multi-source fallback
+	•	Cache manager with TTL
+	•	Integration tests
+
+Sprint 3: Optimization & Regimes (Weeks 5-6)
+	•	Grid search implementation
+	•	Optimization job queue
+	•	Regime detection (HMM)
+	•	C++ VaR/CVaR implementation
+	•	API endpoints
+
+Sprint 4: UI, Reporting, Integration (Weeks 7-8)
+	•	Build optimization UI
+	•	Build stats validation UI
+	•	Build regime analysis UI
+	•	PDF export functionality
+	•	Walk-forward implementation
+	•	End-to-end integration tests
+
+────────────────────────────────────────────
+	17.	DEPENDENCIES
+────────────────────────────────────────────
+
+External Libraries (TypeScript)
+	•	ml-matrix – matrix operations for HMM
+	•	simple-statistics – statistical functions
+	•	puppeteer – PDF generation
+	•	chart.js – chart rendering for PDFs
+
+External Libraries (C++)
+	•	Eigen – matrix operations
+	•	Boost Math – statistical distributions
+
+API Keys Required
+	•	Tiingo API key (free tier: 500 requests/hour)
+	•	Polygon API key (optional backup)
+
+────────────────────────────────────────────
+	18.	RISK MITIGATION
+────────────────────────────────────────────
+
+Potential Risks:
+
+	1.	API Rate Limits
+	   Mitigation: Smart caching, request batching, fallback sources
+
+	2.	Statistical Complexity
+	   Mitigation: Start with simple methods, validate against R/Python
+
+	3.	Performance Bottlenecks
+	   Mitigation: Use C++ for heavy computation, async job queue
+
+	4.	Data Quality Issues
+	   Mitigation: Comprehensive validation, user warnings
+
+	5.	Overfitting in Optimization
+	   Mitigation: Walk-forward required for all optimizations
+
+────────────────────────────────────────────
+	19.	FUTURE EXTENSIBILITY
+────────────────────────────────────────────
+
+Phase 1 prepares for Phase 2 (Live Trading):
+	•	WebSocket infrastructure stubs
+	•	Real-time data subscriptions table
+	•	Regime detection for live adaptation
+	•	Enhanced risk metrics for live monitoring
+
+Phase 1 enables Phase 3 (Options):
+	•	C++ Black-Scholes already implemented
+	•	Monte Carlo for options pricing
+	•	Greeks calculation ready
+
+────────────────────────────────────────────
+	20.	DOCUMENTATION STRUCTURE
+────────────────────────────────────────────
+
+New Spec Documents (Phase 1):
+docs/spec/11-statistical-validation.md
+docs/spec/12-live-data-integration.md
+docs/spec/13-parameter-optimization.md
+docs/spec/14-regime-detection.md
+docs/spec/15-advanced-metrics.md
+docs/spec/16-monte-carlo.md
+
+Guides:
+docs/guides/permutation-testing.md
+docs/guides/walk-forward-analysis.md
+docs/guides/parameter-optimization.md
+docs/guides/interpreting-pvalues.md
+
+────────────────────────────────────────────
+	21.	CORE MANTRA (PHASE 1)
+────────────────────────────────────────────
+
+"A backtest without statistical validation is a fairy tale.
+Phase 1 brings rigor, skepticism, and truth to trading strategies.
+Only strategies that survive statistical fire deserve capital."
+
+────────────────────────────────────────────
+END OF PHASE 1 SPEC – CRUCIBLE TRADER V1.0
+────────────────────────────────────────────
