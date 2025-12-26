@@ -174,3 +174,44 @@ test("risk profiles can be stored and retrieved", async (t) => {
   const profiles = await db.listRiskProfiles();
   assert.ok(profiles.some((entry) => entry.id === "custom"));
 });
+
+test("stat tests can be stored and retrieved", async (t) => {
+  const createApiDatabase = await loadDatabase();
+  const db = await createApiDatabase({ filename: ":memory:" });
+  t.after(async () => {
+    await db.close();
+  });
+
+  const createdAt = new Date().toISOString();
+  await db.insertRun({
+    runId: "run-stats",
+    name: "Stats Test Run",
+    createdAt,
+    status: "queued",
+    requestJson: JSON.stringify({ runName: "Stats Test Run" }),
+  });
+
+  const testId = await db.insertStatTest({
+    runId: "run-stats",
+    testType: "permutation",
+    pValue: 0.023,
+    confidenceLevel: 0.95,
+    inSampleMetric: null,
+    outSampleMetric: null,
+    metadataJson: JSON.stringify({ iterations: 1000, metric: "sharpe" }),
+    createdAt,
+  });
+
+  assert.ok(testId > 0);
+
+  const statTest = await db.getStatTest(testId);
+  assert(statTest);
+  assert.equal(statTest.runId, "run-stats");
+  assert.equal(statTest.testType, "permutation");
+  assert.equal(statTest.pValue, 0.023);
+  assert.equal(statTest.confidenceLevel, 0.95);
+
+  const statTests = await db.listStatTests("run-stats");
+  assert.equal(statTests.length, 1);
+  assert.equal(statTests[0]?.testType, "permutation");
+});

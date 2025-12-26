@@ -7,6 +7,7 @@ import { initializeQueue, JobQueue } from "./queue.js";
 import { registerDatasetRoutes } from "./routes/datasets.js";
 import { registerRiskProfileRoutes } from "./routes/risk-profiles.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
+import { registerStatsRoutes } from "./routes/stats.js";
 
 type ResultCache = Map<string, BacktestResult>;
 
@@ -147,6 +148,12 @@ export const createFastifyServer = async (
   registerRiskProfileRoutes(app, {
     listRiskProfiles: () => database.listRiskProfiles(),
     saveRiskProfile: (profile) => database.upsertRiskProfile(profile),
+  });
+
+  registerStatsRoutes(app, {
+    insertStatTest: (args) => database.insertStatTest(args),
+    listStatTests: (runId) => database.listStatTests(runId),
+    getStatTest: (id) => database.getStatTest(id),
   });
 
   app.addHook("onClose", async () => {

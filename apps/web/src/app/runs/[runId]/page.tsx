@@ -236,6 +236,75 @@ const useTrades = (runId: string | undefined): Trade[] | null => {
   return trades;
 };
 
+interface StatTest {
+  readonly id: number;
+  readonly runId: string;
+  readonly testType: string;
+  readonly pValue: number | null;
+  readonly confidenceLevel: number | null;
+  readonly inSampleMetric: number | null;
+  readonly outSampleMetric: number | null;
+  readonly createdAt: string;
+  readonly metadata: Record<string, unknown>;
+}
+
+const useStatTests = (
+  runId: string | undefined,
+): { tests: StatTest[]; loading: boolean; refresh: () => void } => {
+  const [tests, setTests] = useState<StatTest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  useEffect(() => {
+    if (!runId) {
+      setTests([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async (): Promise<void> => {
+      setLoading(true);
+      try {
+        const response = await fetch(apiRoute(`/api/stats/${runId}`), {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch stat tests");
+        }
+
+        const data = (await response.json()) as StatTest[];
+        if (!cancelled) {
+          setTests(data);
+        }
+      } catch (error) {
+        console.error("Failed to load stat tests", error);
+        if (!cancelled) {
+          setTests([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, refreshCounter]);
+
+  const refresh = (): void => {
+    setRefreshCounter((prev) => prev + 1);
+  };
+
+  return { tests, loading, refresh };
+};
+
 const createMockMarkers = (equity: Array<{ time: number; value: number }>): TradeMarker[] => {
   if (equity.length === 0) {
     return [];
@@ -264,7 +333,7 @@ const toUnix = (value: unknown): number => {
   return Math.floor(Date.now() / 1000);
 };
 
-const tabs = ["overview", "metrics", "datasets", "chart", "trades"] as const;
+const tabs = ["overview", "metrics", "stats", "datasets", "chart", "trades"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function RunDetailPage(): JSX.Element {
@@ -272,7 +341,13 @@ export default function RunDetailPage(): JSX.Element {
   const { result, loading, error } = useRunDetail(params?.runId);
   const chartData = useChartData(result);
   const trades = useTrades(params?.runId);
+  const {
+    tests: statTests,
+    loading: statsLoading,
+    refresh: refreshStats,
+  } = useStatTests(params?.runId);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [runningTest, setRunningTest] = useState<string | null>(null);
 
   return (
     <div style={{ display: "grid", gap: "2rem" }}>
@@ -902,6 +977,465 @@ export default function RunDetailPage(): JSX.Element {
             </div>
           ) : activeTab === "trades" && trades && trades.length === 0 ? (
             <div className="alert">No trades executed in this run</div>
+          ) : null}
+
+          {/* STATS TAB */}
+          {activeTab === "stats" ? (
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "700",
+                  color: "var(--ember-orange)",
+                  marginBottom: "1.5rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                Statistical Validation
+              </h2>
+
+              {/* Run Tests Section */}
+              <div
+                style={{
+                  padding: "1.5rem",
+                  background: "var(--graphite-500)",
+                  border: "2px solid var(--ember-dim)",
+                  borderRadius: "4px",
+                  marginBottom: "2rem",
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    color: "var(--steel-200)",
+                    marginBottom: "1rem",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  🔥 Run Statistical Tests
+                </h3>
+                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                  <button
+                    className="btn-primary"
+                    disabled={runningTest !== null}
+                    onClick={async () => {
+                      if (!params?.runId) return;
+                      setRunningTest("permutation");
+                      try {
+                        const response = await fetch(apiRoute("/api/stats/permutation"), {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            runId: params.runId,
+                            iterations: 1000,
+                            metric: "sharpe",
+                            seed: 42,
+                            alpha: 0.05,
+                          }),
+                        });
+                        if (!response.ok) {
+                          throw new Error("Permutation test failed");
+                        }
+                        refreshStats();
+                      } catch (error) {
+                        console.error("Failed to run permutation test", error);
+                        alert("Failed to run permutation test");
+                      } finally {
+                        setRunningTest(null);
+                      }
+                    }}
+                    style={{ opacity: runningTest === "permutation" ? 0.6 : 1 }}
+                  >
+                    {runningTest === "permutation" ? "⏳ Running..." : "📊 Permutation Test"}
+                  </button>
+                  <button
+                    className="btn-primary"
+                    disabled={runningTest !== null}
+                    onClick={async () => {
+                      if (!params?.runId) return;
+                      setRunningTest("bootstrap");
+                      try {
+                        const response = await fetch(apiRoute("/api/stats/bootstrap"), {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            runId: params.runId,
+                            iterations: 1000,
+                            metric: "sharpe",
+                            seed: 42,
+                            confidenceLevel: 0.95,
+                          }),
+                        });
+                        if (!response.ok) {
+                          throw new Error("Bootstrap test failed");
+                        }
+                        refreshStats();
+                      } catch (error) {
+                        console.error("Failed to run bootstrap test", error);
+                        alert("Failed to run bootstrap test");
+                      } finally {
+                        setRunningTest(null);
+                      }
+                    }}
+                    style={{ opacity: runningTest === "bootstrap" ? 0.6 : 1 }}
+                  >
+                    {runningTest === "bootstrap" ? "⏳ Running..." : "🔄 Bootstrap Analysis"}
+                  </button>
+                </div>
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--steel-400)",
+                    marginTop: "1rem",
+                  }}
+                >
+                  Statistical tests validate whether backtest results are statistically significant
+                  or could be due to random chance.
+                </p>
+              </div>
+
+              {/* Test Results */}
+              {statsLoading ? (
+                <div className="loading" style={{ textAlign: "center", padding: "2rem" }}>
+                  Loading statistical tests...
+                </div>
+              ) : statTests.length === 0 ? (
+                <div
+                  className="alert"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(255, 210, 63, 0.1) 0%, transparent 100%)",
+                    borderLeft: "4px solid var(--spark-yellow)",
+                  }}
+                >
+                  💡 No statistical tests run yet. Click a button above to run your first test!
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "1.5rem" }}>
+                  {statTests.map((test) => (
+                    <div
+                      key={test.id}
+                      style={{
+                        padding: "1.5rem",
+                        background: "var(--graphite-500)",
+                        border: `2px solid ${
+                          test.testType === "permutation"
+                            ? "var(--ember-orange)"
+                            : "var(--spark-yellow)"
+                        }`,
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {/* Test Header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "1.5rem",
+                          flexWrap: "wrap",
+                          gap: "1rem",
+                        }}
+                      >
+                        <div>
+                          <h3
+                            style={{
+                              fontSize: "1rem",
+                              fontWeight: "700",
+                              color: "var(--steel-100)",
+                              marginBottom: "0.5rem",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {test.testType === "permutation"
+                              ? "📊 Permutation Test"
+                              : "🔄 Bootstrap Analysis"}
+                          </h3>
+                          <p style={{ fontSize: "0.75rem", color: "var(--steel-400)" }}>
+                            {new Date(test.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {test.testType === "permutation" &&
+                        test.metadata.isSignificant !== undefined ? (
+                          <span
+                            style={{
+                              padding: "0.5rem 1rem",
+                              borderRadius: "2px",
+                              fontSize: "0.8rem",
+                              fontWeight: "700",
+                              background: test.metadata.isSignificant
+                                ? "linear-gradient(135deg, #047857 0%, #10b981 100%)"
+                                : "linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)",
+                              color: "white",
+                            }}
+                          >
+                            {test.metadata.isSignificant ? "✓ SIGNIFICANT" : "✗ NOT SIGNIFICANT"}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Test Results Grid */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                          gap: "1rem",
+                        }}
+                      >
+                        {test.testType === "permutation" ? (
+                          <>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                P-Value
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--ember-orange)",
+                                }}
+                              >
+                                {test.pValue?.toFixed(4) ?? "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Z-Score
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {typeof test.metadata.zScore === "number"
+                                  ? test.metadata.zScore.toFixed(2)
+                                  : "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Original Metric
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {test.inSampleMetric?.toFixed(3) ?? "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Iterations
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {typeof test.metadata.iterations === "number"
+                                  ? test.metadata.iterations.toLocaleString()
+                                  : "—"}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Point Estimate
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--spark-yellow)",
+                                }}
+                              >
+                                {test.inSampleMetric?.toFixed(3) ?? "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                CI Lower
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {typeof test.metadata.ciLower === "number"
+                                  ? test.metadata.ciLower.toFixed(3)
+                                  : "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                CI Upper
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {typeof test.metadata.ciUpper === "number"
+                                  ? test.metadata.ciUpper.toFixed(3)
+                                  : "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--steel-400)",
+                                  marginBottom: "0.5rem",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Std Error
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "1.5rem",
+                                  fontWeight: "700",
+                                  color: "var(--steel-100)",
+                                }}
+                              >
+                                {typeof test.metadata.standardError === "number"
+                                  ? test.metadata.standardError.toFixed(4)
+                                  : "—"}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Interpretation */}
+                      <div
+                        style={{
+                          marginTop: "1.5rem",
+                          padding: "1rem",
+                          background: "var(--graphite-400)",
+                          borderLeft: "4px solid var(--steel-300)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "var(--steel-400)",
+                            marginBottom: "0.5rem",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Interpretation
+                        </div>
+                        <p
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--steel-200)",
+                            lineHeight: "1.6",
+                          }}
+                        >
+                          {test.testType === "permutation" ? (
+                            <>
+                              The p-value of <strong>{test.pValue?.toFixed(4)}</strong> indicates{" "}
+                              {test.metadata.isSignificant
+                                ? "that the strategy performance is statistically significant and unlikely due to random chance."
+                                : "that the strategy performance could be due to random chance. Consider testing with more data or different parameters."}
+                            </>
+                          ) : (
+                            <>
+                              The 95% confidence interval for{" "}
+                              <strong>
+                                {typeof test.metadata.metric === "string"
+                                  ? test.metadata.metric
+                                  : "the metric"}
+                              </strong>{" "}
+                              is [
+                              {typeof test.metadata.ciLower === "number"
+                                ? test.metadata.ciLower.toFixed(3)
+                                : "?"}
+                              ,{" "}
+                              {typeof test.metadata.ciUpper === "number"
+                                ? test.metadata.ciUpper.toFixed(3)
+                                : "?"}
+                              ]. The point estimate is{" "}
+                              <strong>{test.inSampleMetric?.toFixed(3)}</strong> with standard error{" "}
+                              {typeof test.metadata.standardError === "number"
+                                ? test.metadata.standardError.toFixed(4)
+                                : "?"}
+                              .
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : null}
 
           {/* Download Report */}

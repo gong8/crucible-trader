@@ -33,3 +33,15 @@ create table if not exists risk_profiles (
   name text not null,
   json text not null
 );
+create table if not exists stat_tests (
+  id integer primary key autoincrement,
+  run_id text not null,
+  test_type text not null,
+  p_value real,
+  confidence_level real,
+  in_sample_metric real,
+  out_sample_metric real,
+  metadata_json text,
+  created_at text default current_timestamp,
+  foreign key(run_id) references runs(run_id)
+);

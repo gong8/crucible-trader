@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiRoute } from "../../lib/api";
 import type { DataSource, Timeframe } from "@crucible-trader/sdk";
@@ -18,15 +18,115 @@ interface DatasetRecord {
   readonly createdAt: string;
 }
 
+interface AvailableRange {
+  readonly start: string;
+  readonly end: string;
+  readonly source: DataSource | "auto";
+  readonly contributingSources: readonly string[];
+}
+
+const SUPPORTED_REMOTE_SOURCES: readonly DataSource[] = ["tiingo", "polygon"];
+
+const computeAvailableRange = (
+  datasets: readonly DatasetRecord[],
+  symbol: string,
+  timeframe: Timeframe,
+  source: DataSource,
+): AvailableRange | null => {
+  const matching = datasets
+    .filter(
+      (record) =>
+        record.symbol.toLowerCase() === symbol.toLowerCase() &&
+        record.timeframe === timeframe &&
+        record.start &&
+        record.end,
+    )
+    .map((record) => ({
+      source: record.source as DataSource,
+      start: record.start!,
+      end: record.end!,
+    }));
+
+  if (matching.length === 0) {
+    return null;
+  }
+
+  if (source === "auto") {
+    const remoteCandidates = matching.filter((record) =>
+      SUPPORTED_REMOTE_SOURCES.includes(record.source),
+    );
+    const pool = remoteCandidates.length > 0 ? remoteCandidates : matching;
+    const start = pool.reduce(
+      (min, record) => (record.start < min ? record.start : min),
+      pool[0]!.start,
+    );
+    const end = pool.reduce((max, record) => (record.end > max ? record.end : max), pool[0]!.end);
+    const sources = Array.from(new Set(pool.map((record) => record.source)));
+    return {
+      start,
+      end,
+      source: "auto",
+      contributingSources: sources,
+    };
+  }
+
+  const candidate = matching.find((record) => record.source === source);
+  if (!candidate) {
+    return null;
+  }
+
+  return {
+    start: candidate.start,
+    end: candidate.end,
+    source,
+    contributingSources: [source],
+  };
+};
+
+const createInitialRange = (): { start: string; end: string } => {
+  const end = new Date();
+  end.setDate(end.getDate() - 1);
+  const start = new Date(end);
+  start.setFullYear(start.getFullYear() - 1);
+  return {
+    start: end.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+};
+
 export default function DatasetsPage(): JSX.Element {
+  const initialRange = useMemo(() => createInitialRange(), []);
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
   const [symbol, setSymbol] = useState("AAPL");
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [source, setSource] = useState<DataSource>("auto");
-  const [start, setStart] = useState("2022-01-01");
-  const [end, setEnd] = useState("2024-12-31");
+  const [start, setStart] = useState(initialRange.start);
+  const [end, setEnd] = useState(initialRange.end);
   const [adjusted, setAdjusted] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
+  const [datesLocked, setDatesLocked] = useState(false);
+
+  const availableRange = useMemo(
+    () => computeAvailableRange(datasets, symbol, timeframe, source),
+    [datasets, symbol, timeframe, source],
+  );
+
+  // Sync dates with available range when it changes (default to max range, but allow editing)
+  useEffect(() => {
+    if (source === "csv") {
+      setDatesLocked(false);
+      return;
+    }
+    if (availableRange) {
+      setDatesLocked(true); // Show indicator
+      setStart(availableRange.start);
+      setEnd(availableRange.end);
+    } else {
+      setDatesLocked(false);
+      setStart(initialRange.start);
+      setEnd(initialRange.end);
+    }
+  }, [availableRange, source, initialRange.start, initialRange.end]);
 
   const loadDatasets = useCallback(async () => {
     const response = await fetch(apiRoute("/api/datasets"), {
@@ -150,24 +250,43 @@ export default function DatasetsPage(): JSX.Element {
           </label>
         </div>
         {source !== "csv" ? (
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            <label style={{ flex: 1 }}>
-              start date
-              <input
-                type="date"
-                value={start}
-                onChange={(event) => setStart(event.currentTarget.value)}
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              end date
-              <input
-                type="date"
-                value={end}
-                onChange={(event) => setEnd(event.currentTarget.value)}
-              />
-            </label>
-          </div>
+          <>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              <label style={{ flex: 1 }}>
+                start date
+                <input
+                  type="date"
+                  value={start}
+                  onChange={(event) => setStart(event.currentTarget.value)}
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                end date
+                <input
+                  type="date"
+                  value={end}
+                  onChange={(event) => setEnd(event.currentTarget.value)}
+                />
+              </label>
+            </div>
+            {datesLocked && availableRange ? (
+              <div
+                style={{
+                  padding: "0.75rem",
+                  background: "#1e293b",
+                  borderLeft: "3px solid #fbbf24",
+                  fontSize: "0.75rem",
+                  color: "#cbd5e1",
+                }}
+              >
+                📊 Available Range: {availableRange.start} → {availableRange.end} (
+                {availableRange.source === "auto"
+                  ? `auto via ${availableRange.contributingSources.join(", ")}`
+                  : availableRange.source}
+                )
+              </div>
+            ) : null}
+          </>
         ) : null}
         <button
           type="button"

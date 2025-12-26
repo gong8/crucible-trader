@@ -74,6 +74,18 @@ export interface RiskProfileRow {
   readonly json: string;
 }
 
+export interface StatTestRecord {
+  readonly id: number;
+  readonly runId: string;
+  readonly testType: string;
+  readonly pValue: number | null;
+  readonly confidenceLevel: number | null;
+  readonly inSampleMetric: number | null;
+  readonly outSampleMetric: number | null;
+  readonly metadataJson: string | null;
+  readonly createdAt: string;
+}
+
 export class ApiDatabase {
   public constructor(private readonly db: SqliteInstance) {}
 
@@ -437,6 +449,68 @@ export class ApiDatabase {
     if (!existing) {
       await this.upsertRiskProfile(profile);
     }
+  }
+
+  public async insertStatTest(args: {
+    runId: string;
+    testType: string;
+    pValue?: number | null;
+    confidenceLevel?: number | null;
+    inSampleMetric?: number | null;
+    outSampleMetric?: number | null;
+    metadataJson?: string | null;
+    createdAt: string;
+  }): Promise<number> {
+    const result = await this.db.run(
+      `insert into stat_tests (run_id, test_type, p_value, confidence_level, in_sample_metric, out_sample_metric, metadata_json, created_at)
+       values (:runId, :testType, :pValue, :confidenceLevel, :inSampleMetric, :outSampleMetric, :metadataJson, :createdAt)`,
+      {
+        ":runId": args.runId,
+        ":testType": args.testType,
+        ":pValue": args.pValue ?? null,
+        ":confidenceLevel": args.confidenceLevel ?? null,
+        ":inSampleMetric": args.inSampleMetric ?? null,
+        ":outSampleMetric": args.outSampleMetric ?? null,
+        ":metadataJson": args.metadataJson ?? null,
+        ":createdAt": args.createdAt,
+      },
+    );
+    return result.lastID!;
+  }
+
+  public async listStatTests(runId: string): Promise<StatTestRecord[]> {
+    return this.db.all<StatTestRecord[]>(
+      `select id,
+              run_id as runId,
+              test_type as testType,
+              p_value as pValue,
+              confidence_level as confidenceLevel,
+              in_sample_metric as inSampleMetric,
+              out_sample_metric as outSampleMetric,
+              metadata_json as metadataJson,
+              created_at as createdAt
+         from stat_tests
+        where run_id = :runId
+     order by created_at desc`,
+      { ":runId": runId },
+    );
+  }
+
+  public async getStatTest(id: number): Promise<StatTestRecord | undefined> {
+    return this.db.get<StatTestRecord>(
+      `select id,
+              run_id as runId,
+              test_type as testType,
+              p_value as pValue,
+              confidence_level as confidenceLevel,
+              in_sample_metric as inSampleMetric,
+              out_sample_metric as outSampleMetric,
+              metadata_json as metadataJson,
+              created_at as createdAt
+         from stat_tests
+        where id = :id`,
+      { ":id": id },
+    );
   }
 
   public async reset(): Promise<void> {

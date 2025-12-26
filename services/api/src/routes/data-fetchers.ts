@@ -47,10 +47,22 @@ export const fetchRemoteDataset = async ({
   await mkdir(dirname(datasetPath), { recursive: true });
   await writeFile(datasetPath, serializeBarsToCsv(sorted), { encoding: "utf-8" });
 
+  // Extract just the date portion (YYYY-MM-DD) from timestamps
+  const extractDate = (timestamp: string): string => {
+    if (timestamp.includes("T")) {
+      const parts = timestamp.split("T");
+      return parts[0] ?? timestamp.slice(0, 10);
+    }
+    return timestamp.slice(0, 10);
+  };
+
+  const firstBar = sorted[0];
+  const lastBar = sorted[sorted.length - 1];
+
   return {
     rows: sorted.length,
-    start: sorted[0]?.timestamp ?? null,
-    end: sorted[sorted.length - 1]?.timestamp ?? null,
+    start: firstBar?.timestamp ? extractDate(firstBar.timestamp) : null,
+    end: lastBar?.timestamp ? extractDate(lastBar.timestamp) : null,
   };
 };
 
@@ -130,9 +142,21 @@ export const extractCsvMetadata = (
   const rows = lines.slice(1);
   const first = rows[0]?.split(",")[0]?.trim() ?? null;
   const last = rows[rows.length - 1]?.split(",")[0]?.trim() ?? null;
+
+  // Extract just the date portion (YYYY-MM-DD) from ISO timestamps
+  const normalizeDate = (timestamp: string | null): string | null => {
+    if (!timestamp) return null;
+    // If it's an ISO timestamp, extract the date part
+    if (timestamp.includes("T")) {
+      return timestamp.split("T")[0] ?? null;
+    }
+    // If it's already YYYY-MM-DD, return as-is
+    return timestamp.length >= 10 ? timestamp.slice(0, 10) : timestamp;
+  };
+
   return {
-    start: first,
-    end: last,
+    start: normalizeDate(first),
+    end: normalizeDate(last),
     rows: rows.length,
   };
 };

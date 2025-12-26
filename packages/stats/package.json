@@ -1,0 +1,26 @@
+{
+  "name": "@crucible-trader/stats",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Statistical validation and analysis for backtests",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "node --loader ts-node/esm --test test/**/*.test.ts",
+    "lint": "eslint src test --ext .ts"
+  },
+  "dependencies": {
+    "@crucible-trader/sdk": "workspace:*",
+    "@crucible-trader/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "eslint": "^8.56.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

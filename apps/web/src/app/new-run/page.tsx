@@ -82,7 +82,7 @@ export default function NewRunPage(): JSX.Element {
   ]);
   const [submission, setSubmission] = useState<SubmissionState>({ status: "idle", message: null });
   const [datesLocked, setDatesLocked] = useState(false);
-  const dateInputsDisabled = useExistingDataset || datesLocked;
+  const dateInputsDisabled = useExistingDataset; // Only disable when using existing dataset
 
   const selectedStrategy: StrategyConfig = strategyConfigs[strategyName];
 
@@ -298,6 +298,7 @@ export default function NewRunPage(): JSX.Element {
       return;
     }
     if (coverage) {
+      // Show available range but don't lock - user can still edit
       setDatesLocked(true);
       previousCoverage.current = `${coverage.start}:${coverage.end}`;
       setStart((prev) => (prev === coverage.start ? prev : coverage.start));
@@ -509,7 +510,7 @@ export default function NewRunPage(): JSX.Element {
                         color: "var(--steel-200)",
                       }}
                     >
-                      🔒 Locked to {coverage.start} → {coverage.end} (
+                      📊 Available Range: {coverage.start} → {coverage.end} (
                       {coverage.source === "auto"
                         ? `auto via ${coverage.contributingSources.join(", ")}`
                         : coverage.source}
