@@ -25,3 +25,4 @@ storage/api.sqlite-*
 .DS_Store
 Agents.md
 .tsbuildinfo
+test-output.log
