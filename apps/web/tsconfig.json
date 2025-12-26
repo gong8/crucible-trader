@@ -3,17 +3,12 @@
   "compilerOptions": {
     "jsx": "preserve",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
-    "types": [
-      "node"
-    ],
-    "lib": [
-      "ES2020",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "types": ["node"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "incremental": true,
     "isolatedModules": true,
     "plugins": [
@@ -22,13 +17,6 @@
       }
     ]
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

@@ -7,7 +7,7 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
-    "test": "echo 'No tests yet for web app' && exit 0"
+    "test": "TS_NODE_COMPILER_OPTIONS='{\"jsx\":\"react-jsx\",\"allowImportingTsExtensions\":true}' node --loader ts-node/esm --test test/api.test.ts test/new-run-helpers.test.ts test/strategy-controls.test.tsx"
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",
@@ -17,7 +17,10 @@
     "react-dom": "18.2.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^14.3.1",
+    "@types/jsdom": "^21.1.4",
     "@types/react": "18.2.47",
-    "@types/react-dom": "18.2.18"
+    "@types/react-dom": "18.2.18",
+    "jsdom": "^24.1.0"
   }
 }
