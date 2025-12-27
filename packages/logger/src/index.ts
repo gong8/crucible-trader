@@ -46,3 +46,16 @@ export const createLogger = (moduleName: string): Logger => {
     error: (msg, meta) => log("error", msg, meta),
   };
 };
+
+/**
+ * Creates a seeded random number generator using Linear Congruential Generator (LCG).
+ * Returns a function that generates pseudo-random numbers between 0 and 1.
+ */
+export const createSeededRng = (seed: number): (() => number) => {
+  let state = seed;
+  return () => {
+    // LCG parameters (glibc values)
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
+  };
+};

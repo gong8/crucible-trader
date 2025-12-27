@@ -24,6 +24,7 @@
     "@crucible-trader/engine": "workspace:*",
     "@crucible-trader/logger": "workspace:*",
     "@crucible-trader/sdk": "workspace:*",
+    "@crucible-trader/stats": "workspace:*",
     "dotenv": "^17.2.3"
   }
 }

@@ -6,3 +6,4 @@
 export * from "./types.js";
 export * from "./permutation.js";
 export * from "./bootstrap.js";
+export * from "./optimization.js";

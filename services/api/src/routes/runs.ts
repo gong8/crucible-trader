@@ -248,7 +248,7 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       reply: FastifyReply,
     ): Promise<FastifyReply> => {
       const { id, artifact } = request.params;
-      const result = deps.getResult(id);
+      const result = await getResultWithFallback(id, deps);
       if (!result) {
         return reply.code(404).send({ message: "Run not found" });
       }

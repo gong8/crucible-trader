@@ -16,6 +16,7 @@ import { createApiDatabase } from "@crucible-trader/api/db";
 
 // Import from compiled dist since workspace module resolution has issues
 import { JobQueue, type QueueJob } from "../../api/dist/queue.js";
+import { createOptimizationHandler, type OptimizationJob } from "./optimization-handler.js";
 
 const RUNS_DIR = join(MODULE_DIR, "..", "..", "..", "storage", "runs");
 
@@ -237,9 +238,38 @@ const main = async (): Promise<void> => {
     now: () => new Date(),
   });
 
+  const handleOptimization = createOptimizationHandler({
+    database,
+    runBacktest,
+    logger,
+  });
+
   queue.onJob(handleJob);
 
-  logger.info("Backtest worker ready and polling for jobs");
+  // Poll for optimization jobs
+  const pollOptimizations = async (): Promise<void> => {
+    try {
+      const opt = await database.getOldestQueuedOptimization();
+      if (opt) {
+        logger.info("Found queued optimization", { optId: opt.optId });
+        await handleOptimization(opt as OptimizationJob);
+      }
+    } catch (error) {
+      logger.error("Optimization handler error", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  // Poll every 5 seconds for optimization jobs
+  setInterval(() => {
+    void pollOptimizations();
+  }, 5000);
+
+  // Initial poll
+  void pollOptimizations();
+
+  logger.info("Backtest worker ready and polling for jobs and optimizations");
 };
 
 const shouldAutostart = process.env.CRUCIBLE_WORKER_AUTOSTART !== "false";

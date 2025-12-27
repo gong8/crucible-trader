@@ -10,6 +10,7 @@ const WORKSPACE_EVENT = "crucible:workspace-mode";
 export function NavBar(): JSX.Element | null {
   const pathname = usePathname();
   const [workspaceActive, setWorkspaceActive] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     const handleWorkspaceToggle = (event: Event): void => {
@@ -30,15 +31,68 @@ export function NavBar(): JSX.Element | null {
     return null;
   }
 
+  const toggleDropdown = (name: string): void => {
+    setOpenDropdown(openDropdown === name ? null : name);
+  };
+
+  const closeDropdowns = (): void => {
+    setOpenDropdown(null);
+  };
+
   return (
-    <nav className="navbar">
+    <nav className="navbar" onMouseLeave={closeDropdowns}>
       <div className="badge">crucible trader</div>
       <div className="nav-links">
-        <Link href="/runs">runs</Link>
-        <Link href="/new-run">new run</Link>
+        <div className="nav-dropdown" onMouseEnter={() => toggleDropdown("backtests")}>
+          <button className="nav-dropdown-trigger">
+            backtests
+            <span className="nav-dropdown-icon">▾</span>
+          </button>
+          {openDropdown === "backtests" && (
+            <div className="nav-dropdown-menu">
+              <Link href="/runs" onClick={closeDropdowns}>
+                view runs
+              </Link>
+              <Link href="/new-run" onClick={closeDropdowns}>
+                new run
+              </Link>
+              <Link href="/optimize" onClick={closeDropdowns}>
+                optimize
+              </Link>
+            </div>
+          )}
+        </div>
+
         <Link href="/strategies">strategies</Link>
-        <Link href="/datasets">datasets</Link>
-        <Link href="/risk">risk</Link>
+
+        <div className="nav-dropdown" onMouseEnter={() => toggleDropdown("data")}>
+          <button className="nav-dropdown-trigger">
+            data
+            <span className="nav-dropdown-icon">▾</span>
+          </button>
+          {openDropdown === "data" && (
+            <div className="nav-dropdown-menu">
+              <Link href="/datasets" onClick={closeDropdowns}>
+                datasets
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div className="nav-dropdown" onMouseEnter={() => toggleDropdown("config")}>
+          <button className="nav-dropdown-trigger">
+            config
+            <span className="nav-dropdown-icon">▾</span>
+          </button>
+          {openDropdown === "config" && (
+            <div className="nav-dropdown-menu">
+              <Link href="/risk" onClick={closeDropdowns}>
+                risk profiles
+              </Link>
+            </div>
+          )}
+        </div>
+
         <Link href="/reports">reports</Link>
       </div>
     </nav>

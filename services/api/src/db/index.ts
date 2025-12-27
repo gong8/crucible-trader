@@ -537,6 +537,227 @@ export class ApiDatabase {
     );
   }
 
+  public async insertOptimization(args: {
+    optId: string;
+    name: string;
+    strategyName: string;
+    paramGridJson: string;
+    objective: string;
+    constraintsJson: string | null;
+    walkForwardConfigJson: string | null;
+    bootstrapIterations: number | null;
+    permutationIterations: number | null;
+    seed: number | null;
+    totalCombinations: number;
+    baseRequestJson: string;
+    createdAt?: string;
+  }): Promise<void> {
+    await this.db.run(
+      `insert into optimizations (
+        opt_id, name, strategy_name, param_grid_json, objective,
+        constraints_json, walk_forward_config_json, bootstrap_iterations,
+        permutation_iterations, seed, total_combinations, base_request_json,
+        created_at, status
+      ) values (
+        :optId, :name, :strategyName, :paramGridJson, :objective,
+        :constraintsJson, :walkForwardConfigJson, :bootstrapIterations,
+        :permutationIterations, :seed, :totalCombinations, :baseRequestJson,
+        :createdAt, 'queued'
+      )`,
+      {
+        ":optId": args.optId,
+        ":name": args.name,
+        ":strategyName": args.strategyName,
+        ":paramGridJson": args.paramGridJson,
+        ":objective": args.objective,
+        ":constraintsJson": args.constraintsJson,
+        ":walkForwardConfigJson": args.walkForwardConfigJson,
+        ":bootstrapIterations": args.bootstrapIterations,
+        ":permutationIterations": args.permutationIterations,
+        ":seed": args.seed,
+        ":totalCombinations": args.totalCombinations,
+        ":baseRequestJson": args.baseRequestJson,
+        ":createdAt": args.createdAt ?? new Date().toISOString(),
+      },
+    );
+  }
+
+  public async getOptimization(optId: string): Promise<
+    | {
+        optId: string;
+        name: string;
+        strategyName: string;
+        paramGridJson: string;
+        objective: string;
+        constraintsJson: string | null;
+        walkForwardConfigJson: string | null;
+        bootstrapIterations: number | null;
+        permutationIterations: number | null;
+        seed: number | null;
+        status: string;
+        bestParamsJson: string | null;
+        bestScore: number | null;
+        bestRobustnessScore: number | null;
+        resultsJson: string | null;
+        walkForwardResultsJson: string | null;
+        totalCombinations: number;
+        baseRequestJson: string;
+        createdAt: string;
+        completedAt: string | null;
+        errorMessage: string | null;
+      }
+    | undefined
+  > {
+    return this.db.get(
+      `select opt_id as optId,
+              name,
+              strategy_name as strategyName,
+              param_grid_json as paramGridJson,
+              objective,
+              constraints_json as constraintsJson,
+              walk_forward_config_json as walkForwardConfigJson,
+              bootstrap_iterations as bootstrapIterations,
+              permutation_iterations as permutationIterations,
+              seed,
+              status,
+              best_params_json as bestParamsJson,
+              best_score as bestScore,
+              best_robustness_score as bestRobustnessScore,
+              results_json as resultsJson,
+              walk_forward_results_json as walkForwardResultsJson,
+              total_combinations as totalCombinations,
+              base_request_json as baseRequestJson,
+              created_at as createdAt,
+              completed_at as completedAt,
+              error_message as errorMessage
+         from optimizations
+        where opt_id = :optId`,
+      { ":optId": optId },
+    );
+  }
+
+  public async listOptimizations(): Promise<
+    Array<{
+      optId: string;
+      name: string;
+      strategyName: string;
+      objective: string;
+      status: string;
+      bestScore: number | null;
+      totalCombinations: number;
+      createdAt: string;
+      completedAt: string | null;
+    }>
+  > {
+    return this.db.all(
+      `select opt_id as optId,
+              name,
+              strategy_name as strategyName,
+              objective,
+              status,
+              best_score as bestScore,
+              total_combinations as totalCombinations,
+              created_at as createdAt,
+              completed_at as completedAt
+         from optimizations
+     order by created_at desc`,
+    );
+  }
+
+  public async updateOptimization(
+    optId: string,
+    updates: {
+      status?: string;
+      bestParamsJson?: string;
+      bestScore?: number;
+      bestRobustnessScore?: number;
+      resultsJson?: string;
+      walkForwardResultsJson?: string;
+      completedAt?: string;
+      errorMessage?: string;
+    },
+  ): Promise<void> {
+    const setClauses: string[] = [];
+    const params: Record<string, unknown> = { ":optId": optId };
+
+    if (updates.status !== undefined) {
+      setClauses.push("status = :status");
+      params[":status"] = updates.status;
+    }
+    if (updates.bestParamsJson !== undefined) {
+      setClauses.push("best_params_json = :bestParamsJson");
+      params[":bestParamsJson"] = updates.bestParamsJson;
+    }
+    if (updates.bestScore !== undefined) {
+      setClauses.push("best_score = :bestScore");
+      params[":bestScore"] = updates.bestScore;
+    }
+    if (updates.bestRobustnessScore !== undefined) {
+      setClauses.push("best_robustness_score = :bestRobustnessScore");
+      params[":bestRobustnessScore"] = updates.bestRobustnessScore;
+    }
+    if (updates.resultsJson !== undefined) {
+      setClauses.push("results_json = :resultsJson");
+      params[":resultsJson"] = updates.resultsJson;
+    }
+    if (updates.walkForwardResultsJson !== undefined) {
+      setClauses.push("walk_forward_results_json = :walkForwardResultsJson");
+      params[":walkForwardResultsJson"] = updates.walkForwardResultsJson;
+    }
+    if (updates.completedAt !== undefined) {
+      setClauses.push("completed_at = :completedAt");
+      params[":completedAt"] = updates.completedAt;
+    }
+    if (updates.errorMessage !== undefined) {
+      setClauses.push("error_message = :errorMessage");
+      params[":errorMessage"] = updates.errorMessage;
+    }
+
+    if (setClauses.length === 0) {
+      return;
+    }
+
+    await this.db.run(
+      `update optimizations set ${setClauses.join(", ")} where opt_id = :optId`,
+      params,
+    );
+  }
+
+  public async getOldestQueuedOptimization(): Promise<
+    | {
+        optId: string;
+        name: string;
+        strategyName: string;
+        paramGridJson: string;
+        objective: string;
+        constraintsJson: string | null;
+        walkForwardConfigJson: string | null;
+        bootstrapIterations: number | null;
+        permutationIterations: number | null;
+        seed: number | null;
+        baseRequestJson: string;
+      }
+    | undefined
+  > {
+    return this.db.get(
+      `select opt_id as optId,
+              name,
+              strategy_name as strategyName,
+              param_grid_json as paramGridJson,
+              objective,
+              constraints_json as constraintsJson,
+              walk_forward_config_json as walkForwardConfigJson,
+              bootstrap_iterations as bootstrapIterations,
+              permutation_iterations as permutationIterations,
+              seed,
+              base_request_json as baseRequestJson
+         from optimizations
+        where status = 'queued'
+     order by created_at asc
+        limit 1`,
+    );
+  }
+
   public async reset(): Promise<void> {
     await this.db.exec("begin immediate transaction");
     try {

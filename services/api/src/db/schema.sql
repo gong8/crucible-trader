@@ -46,3 +46,27 @@ create table if not exists stat_tests (
   created_at text default current_timestamp,
   foreign key(run_id) references runs(run_id)
 );
+create table if not exists optimizations (
+  id integer primary key autoincrement,
+  opt_id text unique not null,
+  name text not null,
+  strategy_name text not null,
+  param_grid_json text not null,
+  objective text not null,
+  constraints_json text,
+  walk_forward_config_json text,
+  bootstrap_iterations integer,
+  permutation_iterations integer,
+  seed integer,
+  status text not null default 'queued',
+  best_params_json text,
+  best_score real,
+  best_robustness_score real,
+  results_json text,
+  walk_forward_results_json text,
+  total_combinations integer not null,
+  base_request_json text not null,
+  created_at text default current_timestamp,
+  completed_at text,
+  error_message text
+);

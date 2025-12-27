@@ -211,6 +211,9 @@ importers:
       "@crucible-trader/sdk":
         specifier: workspace:*
         version: link:../../packages/sdk
+      "@crucible-trader/stats":
+        specifier: workspace:*
+        version: link:../../packages/stats
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3

@@ -1,6 +1,12 @@
 import Fastify, { type FastifyInstance } from "fastify";
 
-import type { BacktestRequest, BacktestResult, RiskProfile } from "@crucible-trader/sdk";
+import type {
+  BacktestRequest,
+  BacktestResult,
+  RiskProfile,
+  OptimizationResult,
+  MetricKey,
+} from "@crucible-trader/sdk";
 
 import { createApiDatabase, type ApiDatabase } from "./db/index.js";
 import { initializeQueue, JobQueue } from "./queue.js";
@@ -8,6 +14,7 @@ import { registerDatasetRoutes } from "./routes/datasets.js";
 import { registerRiskProfileRoutes } from "./routes/risk-profiles.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 import { registerStatsRoutes } from "./routes/stats.js";
+import { registerOptimizeRoutes } from "./routes/optimize.js";
 
 type ResultCache = Map<string, BacktestResult>;
 
@@ -171,6 +178,87 @@ export const createFastifyServer = async (
     insertStatTest: (args) => database.insertStatTest(args),
     listStatTests: (runId) => database.listStatTests(runId),
     getStatTest: (id) => database.getStatTest(id),
+  });
+
+  const createOptimization = async (opt: {
+    optId: string;
+    name: string;
+    strategyName: string;
+    paramGridJson: string;
+    objective: string;
+    constraintsJson: string | null;
+    walkForwardConfigJson: string | null;
+    bootstrapIterations: number | null;
+    permutationIterations: number | null;
+    seed: number | null;
+    totalCombinations: number;
+    baseRequestJson: string;
+  }): Promise<void> => {
+    await database.insertOptimization(opt);
+  };
+
+  const getOptimization = async (optId: string): Promise<OptimizationResult | undefined> => {
+    const row = await database.getOptimization(optId);
+    if (!row) {
+      return undefined;
+    }
+
+    return {
+      optId: row.optId,
+      name: row.name,
+      strategyName: row.strategyName,
+      objective: row.objective as MetricKey,
+      status: row.status as "queued" | "running" | "completed" | "failed",
+      totalCombinations: row.totalCombinations,
+      bestParams: row.bestParamsJson ? JSON.parse(row.bestParamsJson) : undefined,
+      bestScore: row.bestScore ?? undefined,
+      bestRobustnessScore: row.bestRobustnessScore ?? undefined,
+      allResults: row.resultsJson ? JSON.parse(row.resultsJson) : undefined,
+      walkForwardResults: row.walkForwardResultsJson
+        ? JSON.parse(row.walkForwardResultsJson)
+        : undefined,
+      createdAt: row.createdAt,
+      completedAt: row.completedAt ?? undefined,
+      error: row.errorMessage ?? undefined,
+    };
+  };
+
+  const listOptimizations = async (): Promise<OptimizationResult[]> => {
+    const rows = await database.listOptimizations();
+    return rows.map((row) => ({
+      optId: row.optId,
+      name: row.name,
+      strategyName: row.strategyName,
+      objective: row.objective as MetricKey,
+      status: row.status as "queued" | "running" | "completed" | "failed",
+      totalCombinations: row.totalCombinations,
+      bestScore: row.bestScore ?? undefined,
+      createdAt: row.createdAt,
+      completedAt: row.completedAt ?? undefined,
+    }));
+  };
+
+  const updateOptimization = async (
+    optId: string,
+    updates: {
+      status?: string;
+      bestParamsJson?: string;
+      bestScore?: number;
+      bestRobustnessScore?: number;
+      resultsJson?: string;
+      walkForwardResultsJson?: string;
+      completedAt?: string;
+      errorMessage?: string;
+    },
+  ): Promise<void> => {
+    await database.updateOptimization(optId, updates);
+  };
+
+  registerOptimizeRoutes(app, {
+    createOptimization,
+    getOptimization,
+    listOptimizations,
+    updateOptimization,
   });
 
   app.addHook("onClose", async () => {

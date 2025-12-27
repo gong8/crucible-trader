@@ -254,7 +254,12 @@ pre {
   align-items: center;
 }
 
-.nav-links a {
+.nav-links > a,
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-links > a {
   padding: 0.6rem 1.2rem;
   color: var(--steel-200);
   font-size: 0.8rem;
@@ -268,14 +273,100 @@ pre {
   position: relative;
 }
 
-.nav-links a::after {
+.nav-links > a::after {
   display: none;
 }
 
-.nav-links a:hover {
+.nav-links > a:hover {
   color: var(--ember-orange);
   background: rgba(255, 107, 53, 0.05);
   border-color: var(--ember-orange);
+  text-shadow: 0 0 12px rgba(255, 107, 53, 0.4);
+}
+
+/* DROPDOWN NAVIGATION */
+.nav-dropdown-trigger {
+  padding: 0.6rem 1.2rem;
+  color: var(--steel-200);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-dropdown-trigger:hover {
+  color: var(--ember-orange);
+  background: rgba(255, 107, 53, 0.05);
+  border-color: var(--ember-orange);
+  text-shadow: 0 0 12px rgba(255, 107, 53, 0.4);
+}
+
+.nav-dropdown-icon {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown:hover .nav-dropdown-icon {
+  transform: translateY(2px);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background: var(--graphite-300);
+  border: 1px solid var(--ember-orange);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  margin-top: 0.5rem;
+  z-index: 1000;
+  animation: dropdownSlide 0.2s ease;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-dropdown-menu a {
+  display: block;
+  padding: 0.85rem 1.2rem;
+  color: var(--steel-200);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--graphite-100);
+  transition: all 0.2s ease;
+}
+
+.nav-dropdown-menu a:last-child {
+  border-bottom: none;
+}
+
+.nav-dropdown-menu a::after {
+  display: none;
+}
+
+.nav-dropdown-menu a:hover {
+  color: var(--ember-orange);
+  background: rgba(255, 107, 53, 0.1);
+  padding-left: 1.5rem;
   text-shadow: 0 0 12px rgba(255, 107, 53, 0.4);
 }
 

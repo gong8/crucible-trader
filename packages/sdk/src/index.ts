@@ -239,11 +239,319 @@ export function assertValid<T>(schema: z.ZodType<T>, value: unknown, label = "pa
  *  -------------------------------------------------------------------- */
 
 /** Namespaced access to the primary schemas. */
+/** -----------------------------------------------------------------------
+ *  OptimizationRequest
+ *  -------------------------------------------------------------------- */
+
+/**
+ * Parameter range specification for grid search optimization.
+ * Each param can be a discrete list or a range specification.
+ */
+export type ParamRange = number[] | { min: number; max: number; step: number };
+
+/**
+ * Parameter grid for optimization.
+ * Keys are parameter names, values are ranges to explore.
+ */
+export type ParamGrid = Record<string, ParamRange>;
+
+/**
+ * Request to run a grid search optimization for a strategy.
+ */
+export interface OptimizationRequest {
+  /** Human readable name for the optimization job. */
+  name: string;
+  /** Base backtest configuration to optimize. */
+  baseRequest: Omit<BacktestRequest, "strategy">;
+  /** Strategy to optimize. */
+  strategy: {
+    /** Strategy slug (e.g., "sma_crossover"). */
+    name: string;
+  };
+  /** Parameter grid to search over. */
+  paramGrid: ParamGrid;
+  /** Objective metric to optimize (e.g., "sharpe", "sortino"). */
+  objective: MetricKey;
+  /** Optional constraints for valid parameter sets. */
+  constraints?: {
+    /** Minimum number of trades required. */
+    minTrades?: number;
+    /** Maximum allowed drawdown (negative value, e.g., -0.30 for -30%). */
+    maxDrawdown?: number;
+    /** Minimum objective score to consider. */
+    minScore?: number;
+  };
+  /** Walk-forward configuration for out-of-sample validation. */
+  walkForward?: {
+    /** Number of months for in-sample optimization window. */
+    inSampleMonths: number;
+    /** Number of months for out-of-sample testing window. */
+    outSampleMonths: number;
+    /** Whether to use anchored or rolling windows. */
+    anchored?: boolean;
+  };
+  /** Number of bootstrap iterations for confidence intervals. */
+  bootstrapIterations?: number;
+  /** Number of permutation test iterations for p-value calculation. */
+  permutationIterations?: number;
+  /** Random seed for reproducibility. */
+  seed?: number;
+}
+
+/** Runtime validator for {@link OptimizationRequest}. */
+export const OptimizationRequestSchema = z.object({
+  name: z.string().min(1),
+  baseRequest: z.object({
+    runName: z.string().min(1),
+    data: z.array(DataRequestSchema).min(1),
+    costs: z.object({
+      feeBps: z.number().nonnegative(),
+      slippageBps: z.number().nonnegative(),
+    }),
+    initialCash: z.number().positive(),
+    seed: z.number().int().optional(),
+    metrics: z
+      .array(
+        z.enum([
+          "sharpe",
+          "sortino",
+          "max_dd",
+          "cagr",
+          "winrate",
+          "total_pnl",
+          "total_return",
+          "num_trades",
+          "profit_factor",
+        ]),
+      )
+      .optional(),
+    riskProfileId: z.string().min(1).optional(),
+  }),
+  strategy: z.object({
+    name: z.string().min(1),
+  }),
+  paramGrid: z.record(
+    z.union([
+      z.array(z.number()),
+      z.object({
+        min: z.number(),
+        max: z.number(),
+        step: z.number().positive(),
+      }),
+    ]),
+  ),
+  objective: z.enum([
+    "sharpe",
+    "sortino",
+    "max_dd",
+    "cagr",
+    "winrate",
+    "total_pnl",
+    "total_return",
+    "num_trades",
+    "profit_factor",
+  ]),
+  constraints: z
+    .object({
+      minTrades: z.number().int().nonnegative().optional(),
+      maxDrawdown: z.number().max(0).optional(),
+      minScore: z.number().optional(),
+    })
+    .optional(),
+  walkForward: z
+    .object({
+      inSampleMonths: z.number().int().positive(),
+      outSampleMonths: z.number().int().positive(),
+      anchored: z.boolean().optional(),
+    })
+    .optional(),
+  bootstrapIterations: z.number().int().positive().optional(),
+  permutationIterations: z.number().int().positive().optional(),
+  seed: z.number().int().optional(),
+});
+
+/** -----------------------------------------------------------------------
+ *  OptimizationResult
+ *  -------------------------------------------------------------------- */
+
+/**
+ * Single parameter combination result from optimization.
+ */
+export interface OptimizationCombinationResult {
+  /** Parameter values for this combination. */
+  params: Record<string, number>;
+  /** In-sample metrics (if walk-forward enabled). */
+  inSampleMetrics?: Record<string, number>;
+  /** Out-of-sample metrics (if walk-forward enabled). */
+  outSampleMetrics?: Record<string, number>;
+  /** Full metrics if no walk-forward. */
+  metrics?: Record<string, number>;
+  /** Objective score (primary ranking metric). */
+  score: number;
+  /** Robustness score incorporating penalties. */
+  robustnessScore?: number;
+  /** Bootstrap confidence interval (if enabled). */
+  bootstrapCI?: {
+    lower: number;
+    upper: number;
+    width: number;
+  };
+  /** Permutation test p-value (if enabled). */
+  pValue?: number;
+  /** Run ID of the backtest for this combination. */
+  runId?: string;
+  /** Constraint violations, if any. */
+  violations?: string[];
+}
+
+/**
+ * Walk-forward window result.
+ */
+export interface WalkForwardWindow {
+  /** Window index (0-based). */
+  windowIndex: number;
+  /** In-sample period. */
+  inSample: {
+    start: ISODate;
+    end: ISODate;
+  };
+  /** Out-of-sample period. */
+  outSample: {
+    start: ISODate;
+    end: ISODate;
+  };
+  /** Best parameters found in IS optimization. */
+  bestParams: Record<string, number>;
+  /** In-sample objective score. */
+  inSampleScore: number;
+  /** Out-of-sample objective score. */
+  outSampleScore: number;
+  /** Full IS metrics. */
+  inSampleMetrics: Record<string, number>;
+  /** Full OOS metrics. */
+  outSampleMetrics: Record<string, number>;
+}
+
+/**
+ * Complete optimization result.
+ */
+export interface OptimizationResult {
+  /** Unique optimization job ID. */
+  optId: string;
+  /** Job name. */
+  name: string;
+  /** Job status. */
+  status: "queued" | "running" | "completed" | "failed";
+  /** Strategy being optimized. */
+  strategyName: string;
+  /** Objective metric. */
+  objective: MetricKey;
+  /** Total parameter combinations tested. */
+  totalCombinations: number;
+  /** Best parameter set found. */
+  bestParams?: Record<string, number>;
+  /** Best objective score. */
+  bestScore?: number;
+  /** Robustness score of best params. */
+  bestRobustnessScore?: number;
+  /** All combination results. */
+  allResults?: OptimizationCombinationResult[];
+  /** Walk-forward analysis results (if enabled). */
+  walkForwardResults?: {
+    windows: WalkForwardWindow[];
+    aggregateOOS: {
+      score: number;
+      metrics: Record<string, number>;
+    };
+  };
+  /** Timestamps. */
+  createdAt: ISODate;
+  completedAt?: ISODate;
+  /** Error message if failed. */
+  error?: string;
+}
+
+/** Runtime validator for {@link OptimizationResult}. */
+export const OptimizationResultSchema = z.object({
+  optId: z.string().min(1),
+  name: z.string().min(1),
+  status: z.enum(["queued", "running", "completed", "failed"]),
+  strategyName: z.string().min(1),
+  objective: z.enum([
+    "sharpe",
+    "sortino",
+    "max_dd",
+    "cagr",
+    "winrate",
+    "total_pnl",
+    "total_return",
+    "num_trades",
+    "profit_factor",
+  ]),
+  totalCombinations: z.number().int().nonnegative(),
+  bestParams: z.record(z.number()).optional(),
+  bestScore: z.number().optional(),
+  bestRobustnessScore: z.number().optional(),
+  allResults: z
+    .array(
+      z.object({
+        params: z.record(z.number()),
+        inSampleMetrics: z.record(z.number()).optional(),
+        outSampleMetrics: z.record(z.number()).optional(),
+        metrics: z.record(z.number()).optional(),
+        score: z.number(),
+        robustnessScore: z.number().optional(),
+        bootstrapCI: z
+          .object({
+            lower: z.number(),
+            upper: z.number(),
+            width: z.number(),
+          })
+          .optional(),
+        pValue: z.number().optional(),
+        runId: z.string().optional(),
+        violations: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
+  walkForwardResults: z
+    .object({
+      windows: z.array(
+        z.object({
+          windowIndex: z.number().int().nonnegative(),
+          inSample: z.object({
+            start: z.string(),
+            end: z.string(),
+          }),
+          outSample: z.object({
+            start: z.string(),
+            end: z.string(),
+          }),
+          bestParams: z.record(z.number()),
+          inSampleScore: z.number(),
+          outSampleScore: z.number(),
+          inSampleMetrics: z.record(z.number()),
+          outSampleMetrics: z.record(z.number()),
+        }),
+      ),
+      aggregateOOS: z.object({
+        score: z.number(),
+        metrics: z.record(z.number()),
+      }),
+    })
+    .optional(),
+  createdAt: z.string(),
+  completedAt: z.string().optional(),
+  error: z.string().optional(),
+});
+
 export const Schemas = {
   DataRequest: DataRequestSchema,
   BacktestRequest: BacktestRequestSchema,
   BacktestResult: BacktestResultSchema,
   RiskProfile: RiskProfileSchema,
+  OptimizationRequest: OptimizationRequestSchema,
+  OptimizationResult: OptimizationResultSchema,
 };
 
 export * from "./strategies/types.js";
