@@ -13,6 +13,18 @@ export const metadata = {
   tags: ["custom", "volatility", "breakout", "mean-reversion"],
 };
 
+// Configuration schema for UI
+export const configSchema = {
+  period: {
+    type: "number" as const,
+    label: "Period",
+    default: 40,
+    min: 10,
+    max: 200,
+    description: "Lookback period for volatility and breakout detection",
+  },
+};
+
 // ---------------- helpers ----------------
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));

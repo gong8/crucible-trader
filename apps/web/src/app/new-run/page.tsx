@@ -25,6 +25,17 @@ interface CustomStrategy {
   id: string;
   name: string;
   description: string;
+  configSchema?: Record<
+    string,
+    {
+      type: "number" | "string" | "boolean";
+      label: string;
+      default: number | string | boolean;
+      min?: number;
+      max?: number;
+      description?: string;
+    }
+  >;
 }
 
 const metricOptions: MetricKey[] = [
@@ -97,15 +108,23 @@ function NewRunPageContent(): JSX.Element {
   const dateInputsDisabled = useExistingDataset; // Only disable when using existing dataset
 
   const selectedStrategy: StrategyConfig | undefined = strategyConfigs[strategyName];
+  const selectedCustomStrategy = customStrategies.find((s) => s.id === strategyName);
 
   useEffect(() => {
     if (selectedStrategy) {
       setStrategyValues({ ...selectedStrategy.defaults });
+    } else if (selectedCustomStrategy?.configSchema) {
+      // Initialize with defaults from custom strategy config
+      const defaults: Record<string, number> = {};
+      Object.entries(selectedCustomStrategy.configSchema).forEach(([key, field]) => {
+        defaults[key] = Number(field.default);
+      });
+      setStrategyValues(defaults);
     } else {
       setStrategyValues({});
     }
     setStrategyErrors({});
-  }, [strategyName, selectedStrategy]);
+  }, [strategyName, selectedStrategy, selectedCustomStrategy]);
 
   useEffect(() => {
     if (autoNameEnabled) {
@@ -633,6 +652,40 @@ function NewRunPageContent(): JSX.Element {
                     setStrategyValues((prev) => ({ ...prev, [field]: value }));
                   }}
                 />
+              ) : selectedCustomStrategy?.configSchema ? (
+                <div style={{ display: "grid", gap: "1rem" }}>
+                  {Object.entries(selectedCustomStrategy.configSchema).map(([key, field]) => (
+                    <label key={key}>
+                      {field.label}
+                      {field.type === "number" && (
+                        <input
+                          type="number"
+                          value={strategyValues[key] ?? field.default}
+                          min={field.min}
+                          max={field.max}
+                          onChange={(e) =>
+                            setStrategyValues((prev) => ({
+                              ...prev,
+                              [key]: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      )}
+                      {field.description && (
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: "0.7rem",
+                            color: "var(--steel-400)",
+                            marginTop: "0.25rem",
+                          }}
+                        >
+                          {field.description}
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
               ) : (
                 <div
                   style={{
@@ -643,7 +696,7 @@ function NewRunPageContent(): JSX.Element {
                     color: "var(--steel-200)",
                   }}
                 >
-                  Custom strategy selected. Configuration is defined in the strategy code.
+                  Custom strategy selected. No configuration available.
                 </div>
               )}
             </div>

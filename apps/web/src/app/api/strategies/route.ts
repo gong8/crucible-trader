@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
 import { cwd } from "process";
 
-// In Next.js, cwd() returns the project root
-const REPO_ROOT = cwd();
-const STRATEGIES_DIR = join(REPO_ROOT, "storage", "strategies", "custom");
+// In Next.js, cwd() returns the Next.js app root, but we need the monorepo root
+// Go up two levels: apps/web -> apps -> monorepo root
+const REPO_ROOT = resolve(cwd(), "..", "..");
+const STRATEGIES_DIR = resolve(REPO_ROOT, "storage", "strategies", "custom");
+console.log(`[API] cwd() = ${cwd()}`);
+console.log(`[API] REPO_ROOT = ${REPO_ROOT}`);
+console.log(`[API] STRATEGIES_DIR = ${STRATEGIES_DIR}`);
 
 interface StrategyMetadata {
   name: string;
@@ -13,6 +17,17 @@ interface StrategyMetadata {
   version?: string;
   author?: string;
   tags?: string[];
+  configSchema?: Record<
+    string,
+    {
+      type: "number" | "string" | "boolean";
+      label: string;
+      default: number | string | boolean;
+      min?: number;
+      max?: number;
+      description?: string;
+    }
+  >;
 }
 
 interface Strategy {
@@ -24,6 +39,7 @@ interface Strategy {
   author?: string;
   tags?: string[];
   filename: string;
+  configSchema?: StrategyMetadata["configSchema"];
 }
 
 /**
@@ -31,9 +47,14 @@ interface Strategy {
  */
 function extractMetadata(code: string): Partial<StrategyMetadata> | null {
   try {
+    console.log(`[API extractMetadata] Code length: ${code.length} bytes`);
     // Match: export const metadata = { ... }
     // Use lazy matching and handle nested braces
     const metadataMatch = code.match(/export\s+const\s+metadata\s*=\s*\{([\s\S]*?)\};/);
+
+    console.log("[API extractMetadata] Testing regex match...");
+    console.log("[API extractMetadata] Match found:", !!metadataMatch);
+    console.log("[API extractMetadata] First 200 chars of code:", code.substring(0, 200));
 
     if (!metadataMatch || !metadataMatch[1]) {
       console.log("[API] Failed to extract metadata object");
@@ -56,6 +77,99 @@ function extractMetadata(code: string): Partial<StrategyMetadata> | null {
     if (authorMatch?.[1]) metadata.author = authorMatch[1];
     if (tagsMatch?.[1]) {
       metadata.tags = tagsMatch[1].split(",").map((tag) => tag.trim().replace(/["']/g, ""));
+    }
+
+    // Extract configSchema
+    const configSchemaMatch = code.match(/export\s+const\s+configSchema\s*=\s*\{([\s\S]*?)\};/);
+    console.log(`[API] configSchemaMatch found:`, !!configSchemaMatch);
+
+    if (configSchemaMatch?.[1]) {
+      try {
+        console.log(`[API] Parsing configSchema content...`);
+        const schemaContent = configSchemaMatch[1];
+        console.log(`[API] Schema content length:`, schemaContent.length);
+        console.log(`[API] Schema content preview:`, schemaContent.substring(0, 100));
+
+        // Use more robust regex that handles nested content better
+        // Match pattern: fieldName: { ... },
+        const fieldPattern = /(\w+):\s*\{([^}]+)\}/g;
+        const fieldMatches = [...schemaContent.matchAll(fieldPattern)];
+
+        console.log(`[API] Found ${fieldMatches.length} field matches`);
+
+        const schema: Record<
+          string,
+          {
+            type: string;
+            label: string;
+            default: string | number;
+            min?: number;
+            max?: number;
+            description?: string;
+          }
+        > = {};
+
+        for (const match of fieldMatches) {
+          const fieldName = match[1];
+          const fieldContent = match[2];
+
+          console.log(`[API] Processing field: ${fieldName}`);
+          console.log(`[API] Field content:`, fieldContent);
+
+          const typeMatch = fieldContent.match(/type:\s*"(\w+)"/);
+          const labelMatch = fieldContent.match(/label:\s*"([^"]+)"/);
+          const defaultMatch = fieldContent.match(/default:\s*([^,\n]+)/);
+          const minMatch = fieldContent.match(/min:\s*(\d+)/);
+          const maxMatch = fieldContent.match(/max:\s*(\d+)/);
+          const descriptionMatch = fieldContent.match(/description:\s*"([^"]+)"/);
+
+          console.log(`[API] Parsed values:`, {
+            type: typeMatch?.[1],
+            label: labelMatch?.[1],
+            default: defaultMatch?.[1],
+            min: minMatch?.[1],
+            max: maxMatch?.[1],
+            description: descriptionMatch?.[1],
+          });
+
+          if (typeMatch && labelMatch && defaultMatch) {
+            let defaultValue: string | number = defaultMatch[1].trim();
+
+            // Try to parse as number if it looks like a number
+            if (/^\d+(\.\d+)?$/.test(defaultValue)) {
+              defaultValue = Number(defaultValue);
+            }
+
+            schema[fieldName] = {
+              type: typeMatch[1],
+              label: labelMatch[1],
+              default: defaultValue,
+            };
+
+            if (minMatch) schema[fieldName].min = parseInt(minMatch[1]);
+            if (maxMatch) schema[fieldName].max = parseInt(maxMatch[1]);
+            if (descriptionMatch) schema[fieldName].description = descriptionMatch[1];
+
+            console.log(`[API] ✓ Added field ${fieldName} to schema`);
+          } else {
+            console.log(`[API] ✗ Skipped field ${fieldName}: missing required fields`);
+          }
+        }
+
+        if (Object.keys(schema).length > 0) {
+          console.log(
+            `[API] Setting configSchema with ${Object.keys(schema).length} fields:`,
+            Object.keys(schema),
+          );
+          metadata.configSchema = schema;
+        } else {
+          console.log(`[API] No fields found in configSchema`);
+        }
+      } catch (error) {
+        console.error("Error parsing configSchema:", error);
+      }
+    } else {
+      console.log(`[API] No configSchemaMatch found`);
     }
 
     return metadata;
@@ -88,7 +202,7 @@ function nameToFilename(name: string): string {
  */
 export async function GET() {
   try {
-    console.log(`[API] Loading strategies from: ${STRATEGIES_DIR}`);
+    console.log(`[API GET] Starting - loading from: ${STRATEGIES_DIR}`);
 
     // Ensure directory exists
     await mkdir(STRATEGIES_DIR, { recursive: true });
@@ -104,11 +218,13 @@ export async function GET() {
 
     for (const filename of strategyFiles) {
       try {
+        console.log(`[API] Processing file: ${filename}`);
         const filePath = join(STRATEGIES_DIR, filename);
         const code = await readFile(filePath, "utf-8");
+        console.log(`[API] Read ${code.length} bytes from ${filename}`);
         const metadata = extractMetadata(code);
 
-        console.log(`[API] Parsed metadata for ${filename}:`, metadata);
+        console.log(`[API] Parsed metadata for ${filename}:`, JSON.stringify(metadata));
 
         if (metadata && metadata.name) {
           const strategy = {
@@ -120,6 +236,7 @@ export async function GET() {
             author: metadata.author,
             tags: metadata.tags,
             filename,
+            configSchema: metadata.configSchema,
           };
           strategies.push(strategy);
           console.log(`[API] ✓ Added strategy: ${metadata.name}`);
