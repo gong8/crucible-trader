@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "test": "node --loader ts-node/esm --test test/**/*.test.ts",
+    "test": "node --loader ts-node/esm --test test/bootstrap.test.ts test/permutation.test.ts",
     "lint": "eslint src test --ext .ts"
   },
   "dependencies": {
