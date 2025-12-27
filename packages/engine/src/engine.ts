@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
 import { writeParquetArtifacts, writeReportArtifact } from "./persistence.js";
+import { loadCustomStrategies } from "./customStrategyLoader.js";
 
 export interface RunBacktestOptions {
   readonly runId?: string;
@@ -51,6 +52,7 @@ const needsExtraAscend = ENGINE_MODULE_DIR.includes(`${sep}dist-test${sep}`);
 const ascenders = needsExtraAscend ? ["..", "..", "..", ".."] : ["..", "..", ".."];
 const ENGINE_REPO_ROOT = join(ENGINE_MODULE_DIR, ...ascenders);
 const RUNS_OUTPUT_ROOT = join(ENGINE_REPO_ROOT, "storage", "runs");
+// Initialize with preset strategies
 const STRATEGY_REGISTRY: Record<string, StrategyModule> = {
   [strategies.smaCrossover.name]: strategies.smaCrossover,
   [strategies.momentum.name]: strategies.momentum,
@@ -58,6 +60,19 @@ const STRATEGY_REGISTRY: Record<string, StrategyModule> = {
   [strategies.breakout.name]: strategies.breakout,
   [strategies.chaosTrader.name]: strategies.chaosTrader,
 };
+
+// Load custom strategies (async initialization)
+let customStrategiesLoaded = false;
+const customStrategiesPromise = loadCustomStrategies()
+  .then((customStrategies) => {
+    Object.assign(STRATEGY_REGISTRY, customStrategies);
+    customStrategiesLoaded = true;
+    return customStrategies;
+  })
+  .catch((error) => {
+    console.error("Failed to load custom strategies:", error);
+    return {};
+  });
 
 const isBarsBySymbol = (value: unknown): value is BarsBySymbol => {
   if (value === null || typeof value !== "object") {
@@ -132,6 +147,11 @@ export async function runBacktest(
   request: BacktestRequest,
   options: RunBacktestOptions = {},
 ): Promise<BacktestResult> {
+  // Ensure custom strategies are loaded
+  if (!customStrategiesLoaded) {
+    await customStrategiesPromise;
+  }
+
   // Validate request structure and constraints
   assertValid(Schemas.BacktestRequest, request, "BacktestRequest");
 

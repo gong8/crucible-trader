@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@crucible-trader/sdk": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
     "lightweight-charts": "^5.0.9",
     "next": "14.2.5",
     "react": "18.2.0",
@@ -21,6 +22,7 @@
     "@types/jsdom": "^21.1.4",
     "@types/react": "18.2.47",
     "@types/react-dom": "18.2.18",
-    "jsdom": "^24.1.0"
+    "jsdom": "^24.1.0",
+    "monaco-editor": "^0.55.1"
   }
 }
