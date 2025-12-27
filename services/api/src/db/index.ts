@@ -516,6 +516,8 @@ export class ApiDatabase {
   public async reset(): Promise<void> {
     await this.db.exec("begin immediate transaction");
     try {
+      // Delete in correct order to respect foreign key constraints
+      await this.db.exec("delete from stat_tests;");
       await this.db.exec("delete from artifacts;");
       await this.db.exec("delete from runs;");
       await this.db.exec("commit");

@@ -242,7 +242,7 @@ export default function RunsPage(): JSX.Element {
                       marginTop: "0.5rem",
                     }}
                   >
-                    🕐 {new Date(run.createdAt).toLocaleString()}
+                    {new Date(run.createdAt).toLocaleString()}
                   </p>
                 ) : null}
               </div>

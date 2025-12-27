@@ -110,11 +110,20 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
   });
 
   app.post("/api/runs/reset", async (request, reply) => {
+    console.log("[API] Reset runs endpoint called");
     try {
+      console.log("[API] Calling deps.resetRuns()...");
       await deps.resetRuns();
+      console.log("[API] deps.resetRuns() completed");
+
+      console.log("[API] Calling resetRunStorage()...");
       await resetRunStorage();
+      console.log("[API] resetRunStorage() completed");
+
+      console.log("[API] Reset successful, returning 204");
       return reply.code(204).send();
     } catch (error) {
+      console.error("[API] Reset failed with error:", error);
       request.log.error({ err: error }, "failed to reset runs");
       return reply.code(500).send({ message: "Run reset failed" });
     }

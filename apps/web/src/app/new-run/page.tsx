@@ -643,7 +643,7 @@ function NewRunPageContent(): JSX.Element {
                     <optgroup label="CUSTOM STRATEGIES">
                       {customStrategies.map((strategy) => (
                         <option key={strategy.id} value={strategy.id}>
-                          {strategy.name} — {strategy.description}
+                          {strategy.name}
                         </option>
                       ))}
                     </optgroup>
@@ -667,15 +667,24 @@ function NewRunPageContent(): JSX.Element {
                       {field.type === "number" && (
                         <input
                           type="number"
-                          value={strategyValues[key] ?? Number(field.default)}
+                          value={strategyValues[key] ?? field.default}
                           min={field.min}
                           max={field.max}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setStrategyValues((prev) => ({
                               ...prev,
-                              [key]: Number(e.target.value),
-                            }))
-                          }
+                              [key]: val === "" ? "" : Number(val),
+                            }));
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value === "") {
+                              setStrategyValues((prev) => ({
+                                ...prev,
+                                [key]: Number(field.default),
+                              }));
+                            }
+                          }}
                         />
                       )}
                       {field.description && (
