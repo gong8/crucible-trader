@@ -4,23 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import type { BacktestRequest, BacktestResult, RiskProfile } from "@crucible-trader/sdk";
-import type { Logger } from "@crucible-trader/logger";
-import { createJobHandler, createManifestWriter } from "../src/index.js";
-import type { ManifestPayload, ManifestWriter } from "../src/index.js";
-import type { QueueJob } from "../../api/dist/queue.js";
-import type { RunBacktestOptions } from "@crucible-trader/engine";
+import { createJobHandler, createManifestWriter } from "../dist/index.js";
 
-type WorkerDeps = Parameters<typeof createJobHandler>[0];
-type WorkerDatabase = WorkerDeps["database"];
-type RunBacktestMock = WorkerDeps["runBacktest"];
-
-interface TestJob {
-  readonly runId: string;
-  readonly request: BacktestRequest;
-}
-
-const baseRequest = (): BacktestRequest => ({
+const baseRequest = () => ({
   runName: "test_run",
   data: [
     {
@@ -52,26 +38,26 @@ const baseRequest = (): BacktestRequest => ({
   metrics: ["sharpe", "max_dd"],
 });
 
-const baseResult = (overrides?: Partial<BacktestResult>): BacktestResult => ({
+const baseResult = (overrides = {}) => ({
   runId: "run-123",
   summary: { sharpe: 1.23, max_dd: -0.12 },
   artifacts: {
     equityParquet: "/tmp/equity.parquet",
     tradesParquet: "/tmp/trades.parquet",
     barsParquet: "/tmp/bars.parquet",
-    ...overrides?.artifacts,
+    ...(overrides.artifacts ?? {}),
   },
   diagnostics: {
     seed: 84,
-    ...overrides?.diagnostics,
+    ...(overrides.diagnostics ?? {}),
   },
   ...overrides,
 });
 
 const createTestLogger = () => {
-  const infoMessages: Array<[string, Record<string, unknown>?]> = [];
-  const errorMessages: Array<[string, Record<string, unknown>?]> = [];
-  const logger: Logger = {
+  const infoMessages = [];
+  const errorMessages = [];
+  const logger = {
     module: "test",
     log: () => {},
     debug: () => {},
@@ -86,7 +72,7 @@ const createTestLogger = () => {
   return { logger, infoMessages, errorMessages };
 };
 
-const buildRiskProfile = (id: string): RiskProfile => ({
+const buildRiskProfile = (id) => ({
   id,
   name: `${id}-profile`,
   maxDailyLossPct: 0.01,
@@ -204,36 +190,33 @@ test("createManifestWriter records failure manifests with error metadata", async
 
 test("createJobHandler processes job successfully and persists result", async () => {
   const request = { ...baseRequest(), riskProfileId: "guard-1" };
-  const job: TestJob = { runId: "run-success", request };
+  const job = { runId: "run-success", request };
 
-  const savedResults: BacktestResult[] = [];
-  const statusUpdates: Array<{ runId: string; status: string; errorMessage?: string }> = [];
-  let fetchedRiskProfile: string | undefined;
+  const savedResults = [];
+  const statusUpdates = [];
+  let fetchedRiskProfile;
   const resolvedProfile = buildRiskProfile("guard-1");
 
-  const database: WorkerDatabase = {
-    getRiskProfileById: async (riskProfileId: string) => {
+  const database = {
+    getRiskProfileById: async (riskProfileId) => {
       fetchedRiskProfile = riskProfileId;
       return resolvedProfile;
     },
-    saveRunResult: async (result: BacktestResult) => {
+    saveRunResult: async (result) => {
       savedResults.push(result);
     },
-    updateRunStatus: async (runId: string, status: string, errorMessage?: string) => {
+    updateRunStatus: async (runId, status, errorMessage) => {
       statusUpdates.push({ runId, status, errorMessage });
     },
   };
 
-  const manifestCalls: ManifestPayload[] = [];
-  const writeManifest: ManifestWriter = async (payload) => {
+  const manifestCalls = [];
+  const writeManifest = async (payload) => {
     manifestCalls.push(payload);
   };
 
-  const backtestCalls: Array<{ request: BacktestRequest; options?: RunBacktestOptions }> = [];
-  const runBacktest: RunBacktestMock = async (
-    btRequest: BacktestRequest,
-    options?: RunBacktestOptions,
-  ): Promise<BacktestResult> => {
+  const backtestCalls = [];
+  const runBacktest = async (btRequest, options) => {
     backtestCalls.push({ request: btRequest, options });
     return baseResult({ runId: job.runId });
   };
@@ -248,7 +231,7 @@ test("createJobHandler processes job successfully and persists result", async ()
     now: () => new Date("2024-02-01T12:34:56Z"),
   });
 
-  await handler(job as QueueJob);
+  await handler(job);
 
   assert.equal(fetchedRiskProfile, "guard-1");
   assert.equal(backtestCalls.length, 1);
@@ -296,10 +279,10 @@ test("createJobHandler processes job successfully and persists result", async ()
 });
 
 test("createJobHandler skips risk profile lookup when not provided", async () => {
-  const job: TestJob = { runId: "run-norp", request: baseRequest() };
+  const job = { runId: "run-norp", request: baseRequest() };
   let riskLookupCount = 0;
 
-  const database: WorkerDatabase = {
+  const database = {
     getRiskProfileById: async () => {
       riskLookupCount += 1;
       return undefined;
@@ -310,43 +293,43 @@ test("createJobHandler skips risk profile lookup when not provided", async () =>
 
   const handler = createJobHandler({
     database,
-    runBacktest: (async () => baseResult({ runId: job.runId })) as RunBacktestMock,
+    runBacktest: async () => baseResult({ runId: job.runId }),
     logger: createTestLogger().logger,
     writeManifest: async () => {},
   });
 
-  await handler(job as QueueJob);
+  await handler(job);
   assert.equal(riskLookupCount, 0);
 });
 
 test("createJobHandler marks runs as failed when runBacktest throws", async () => {
-  const job: TestJob = { runId: "run-error", request: baseRequest() };
-  const statusUpdates: Array<{ runId: string; status: string; errorMessage?: string }> = [];
+  const job = { runId: "run-error", request: baseRequest() };
+  const statusUpdates = [];
 
-  const database: WorkerDatabase = {
+  const database = {
     getRiskProfileById: async () => undefined,
     saveRunResult: async () => {
       throw new Error("should not save on failure");
     },
-    updateRunStatus: async (runId: string, status: string, errorMessage?: string) => {
+    updateRunStatus: async (runId, status, errorMessage) => {
       statusUpdates.push({ runId, status, errorMessage });
     },
   };
 
-  const failureManifests: ManifestPayload[] = [];
+  const failureManifests = [];
   const { logger, errorMessages } = createTestLogger();
   const handler = createJobHandler({
     database,
-    runBacktest: (async () => {
+    runBacktest: async () => {
       throw new Error("engine failure");
-    }) as RunBacktestMock,
+    },
     logger,
     writeManifest: async (payload) => {
       failureManifests.push(payload);
     },
   });
 
-  await assert.rejects(() => handler(job as QueueJob), /engine failure/);
+  await assert.rejects(() => handler(job), /engine failure/);
 
   assert.deepEqual(statusUpdates, [
     { runId: "run-error", status: "failed", errorMessage: "engine failure" },
