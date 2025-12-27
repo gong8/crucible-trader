@@ -14,9 +14,11 @@ export default function NewStrategyPage(): JSX.Element {
   const [code, setCode] = useState(STRATEGY_EDITOR_DEFAULT_TEMPLATE);
   const [strategyName, setStrategyName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+  const [validationSuccess, setValidationSuccess] = useState(false);
   const [mode, setMode] = useState<StrategyMode | null>(null);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function NewStrategyPage(): JSX.Element {
     setCode(newCode);
     setValidationErrors([]);
     setValidationWarnings([]);
+    setValidationSuccess(false);
     setError(null);
 
     const metadata = extractMetadataFromCode(newCode);
@@ -63,36 +66,60 @@ export default function NewStrategyPage(): JSX.Element {
     }
   };
 
+  const handleValidate = async (): Promise<boolean> => {
+    setError(null);
+    setValidationErrors([]);
+    setValidationWarnings([]);
+    setValidationSuccess(false);
+    setValidating(true);
+
+    try {
+      const validationResponse = await fetch("/api/strategies/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          name: strategyName,
+        }),
+      });
+
+      if (!validationResponse.ok) {
+        setError("Failed to validate strategy");
+        return false;
+      }
+
+      const validationResult = await validationResponse.json();
+      if (!validationResult.valid) {
+        setValidationErrors(validationResult.errorMessages || []);
+        setValidationWarnings(validationResult.warningMessages || []);
+        return false;
+      }
+
+      if (validationResult.warningMessages?.length) {
+        setValidationWarnings(validationResult.warningMessages);
+      }
+
+      setValidationSuccess(true);
+      return true;
+    } catch (err) {
+      setError("Failed to validate strategy");
+      return false;
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const handleSaveStrategy = async (): Promise<void> => {
     setError(null);
     setValidationErrors([]);
     setValidationWarnings([]);
+    setValidationSuccess(false);
 
-    const validationResponse = await fetch("/api/strategies/validate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        code,
-        name: strategyName,
-      }),
-    });
-
-    if (!validationResponse.ok) {
-      setError("Failed to validate strategy");
+    const isValid = await handleValidate();
+    if (!isValid) {
       return;
-    }
-
-    const validationResult = await validationResponse.json();
-    if (!validationResult.valid) {
-      setValidationErrors(validationResult.errorMessages || []);
-      setValidationWarnings(validationResult.warningMessages || []);
-      return;
-    }
-
-    if (validationResult.warningMessages?.length) {
-      setValidationWarnings(validationResult.warningMessages);
     }
 
     setSaving(true);
@@ -129,7 +156,12 @@ export default function NewStrategyPage(): JSX.Element {
   };
 
   const renderValidation = (): JSX.Element | null => {
-    if (!error && validationErrors.length === 0 && validationWarnings.length === 0) {
+    if (
+      !error &&
+      validationErrors.length === 0 &&
+      validationWarnings.length === 0 &&
+      !validationSuccess
+    ) {
       return null;
     }
     return (
@@ -144,6 +176,19 @@ export default function NewStrategyPage(): JSX.Element {
             }}
           >
             <strong>ERROR:</strong> {error}
+          </div>
+        ) : null}
+        {validationSuccess && validationErrors.length === 0 ? (
+          <div
+            className="alert"
+            style={{
+              borderLeft: "4px solid var(--success-green)",
+              background: "rgba(16, 185, 129, 0.1)",
+              color: "var(--success-green)",
+            }}
+          >
+            <strong>✓ VALIDATION PASSED</strong>
+            {validationWarnings.length === 0 && <span> - No errors or warnings found.</span>}
           </div>
         ) : null}
         {validationErrors.length > 0 ? (
@@ -237,6 +282,17 @@ export default function NewStrategyPage(): JSX.Element {
             </button>
             <button onClick={handleCancel} className="btn-secondary">
               Cancel
+            </button>
+            <button
+              onClick={() => void handleValidate()}
+              disabled={validating}
+              className="btn-secondary"
+              style={{
+                borderColor: validationSuccess ? "var(--success-green)" : "var(--ember-orange)",
+                color: validationSuccess ? "var(--success-green)" : "var(--ember-orange)",
+              }}
+            >
+              {validating ? "Validating..." : validationSuccess ? "✓ Valid" : "Validate"}
             </button>
             <button
               onClick={() => void handleSaveStrategy()}

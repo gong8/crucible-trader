@@ -14,9 +14,11 @@ export default function EditStrategyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+  const [validationSuccess, setValidationSuccess] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Load strategy code
@@ -58,14 +60,16 @@ export default function EditStrategyPage() {
     setError(null);
     setValidationErrors([]);
     setValidationWarnings([]);
+    setValidationSuccess(false);
   };
 
-  const handleSaveStrategy = async () => {
+  const handleValidate = async () => {
     setError(null);
     setValidationErrors([]);
     setValidationWarnings([]);
+    setValidationSuccess(false);
+    setValidating(true);
 
-    // Run validation first
     try {
       const validationResponse = await fetch("/api/strategies/validate", {
         method: "POST",
@@ -80,7 +84,7 @@ export default function EditStrategyPage() {
 
       if (!validationResponse.ok) {
         setError("Failed to validate strategy");
-        return;
+        return false;
       }
 
       const validationResult = await validationResponse.json();
@@ -88,15 +92,33 @@ export default function EditStrategyPage() {
       if (!validationResult.valid) {
         setValidationErrors(validationResult.errorMessages || []);
         setValidationWarnings(validationResult.warningMessages || []);
-        return;
+        return false;
       }
 
-      // Show warnings but allow saving
+      // Show warnings but mark as valid
       if (validationResult.warningMessages && validationResult.warningMessages.length > 0) {
         setValidationWarnings(validationResult.warningMessages);
       }
+
+      setValidationSuccess(true);
+      return true;
     } catch (err) {
       setError("Failed to validate strategy");
+      return false;
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleSaveStrategy = async () => {
+    setError(null);
+    setValidationErrors([]);
+    setValidationWarnings([]);
+    setValidationSuccess(false);
+
+    // Run validation first
+    const isValid = await handleValidate();
+    if (!isValid) {
       return;
     }
 
@@ -278,6 +300,17 @@ export default function EditStrategyPage() {
               CANCEL
             </button>
             <button
+              onClick={handleValidate}
+              disabled={validating}
+              className="btn-secondary"
+              style={{
+                borderColor: validationSuccess ? "var(--success-green)" : "var(--ember-orange)",
+                color: validationSuccess ? "var(--success-green)" : "var(--ember-orange)",
+              }}
+            >
+              {validating ? "VALIDATING..." : validationSuccess ? "✓ VALID" : "VALIDATE"}
+            </button>
+            <button
               onClick={handleSaveStrategy}
               disabled={saving || !hasChanges}
               className="btn-primary"
@@ -299,6 +332,21 @@ export default function EditStrategyPage() {
             }}
           >
             <strong>ERROR:</strong> {error}
+          </div>
+        )}
+
+        {validationSuccess && validationErrors.length === 0 && (
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--success-green)",
+              background: "rgba(16, 185, 129, 0.1)",
+              color: "var(--success-green)",
+            }}
+          >
+            <strong>✓ VALIDATION PASSED</strong>
+            {validationWarnings.length === 0 && <span> - No errors or warnings found.</span>}
           </div>
         )}
 

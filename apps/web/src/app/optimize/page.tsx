@@ -1,7 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { strategyConfigs, type StrategyKey } from "@crucible-trader/sdk";
+import { useState, useEffect, useMemo } from "react";
+import {
+  strategyConfigs,
+  type StrategyKey,
+  type DataSource,
+  type Timeframe,
+} from "@crucible-trader/sdk";
+import { apiRoute } from "../../lib/api";
+
+interface DatasetRecord {
+  id: number;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  startDate: string;
+  endDate: string;
+  rowCount: number;
+  createdAt: string;
+}
+
+interface CustomStrategy {
+  id: string;
+  name: string;
+  description: string;
+  configSchema?: Record<
+    string,
+    {
+      type: "number" | "string" | "boolean";
+      label: string;
+      default: number | string | boolean;
+      min?: number;
+      max?: number;
+      step?: number;
+      description?: string;
+    }
+  >;
+}
 
 interface ParamRange {
   min: number;
@@ -37,6 +72,7 @@ interface CombinationResult {
 }
 
 export default function OptimizePage(): JSX.Element {
+  const [customStrategies, setCustomStrategies] = useState<CustomStrategy[]>([]);
   const [strategyName, setStrategyName] = useState<StrategyKey>("sma_crossover");
   const [paramGrid, setParamGrid] = useState<Record<string, ParamGridValue>>({});
   const [objective, setObjective] = useState("sharpe");
@@ -45,9 +81,16 @@ export default function OptimizePage(): JSX.Element {
   const [enableWalkForward, setEnableWalkForward] = useState(false);
   const [inSampleMonths, setInSampleMonths] = useState<number | "">(12);
   const [outSampleMonths, setOutSampleMonths] = useState<number | "">(3);
+  // Data configuration
+  const [useExistingDataset, setUseExistingDataset] = useState(false);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
+  const [dataSource, setDataSource] = useState<DataSource>("auto");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [symbol, setSymbol] = useState("AAPL");
   const [startDate, setStartDate] = useState("2020-01-01");
   const [endDate, setEndDate] = useState("2024-12-31");
+  const [adjusted, setAdjusted] = useState(true);
   const [initialCash, setInitialCash] = useState<number | "">(100000);
   const [jobName, setJobName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -69,25 +112,94 @@ export default function OptimizePage(): JSX.Element {
   >(null);
 
   const strategy = strategyConfigs[strategyName];
+  const selectedCustomStrategy = customStrategies.find((s) => s.id === strategyName);
+
+  const selectedDataset = useMemo(
+    () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId],
+  );
+
+  // Load datasets
+  useEffect(() => {
+    const loadDatasets = async (): Promise<void> => {
+      try {
+        const response = await fetch(apiRoute("/api/datasets"), {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error("failed to load datasets");
+        }
+        const payload = (await response.json()) as DatasetRecord[];
+        setDatasets(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.error("Failed to load datasets:", error);
+      }
+    };
+    void loadDatasets();
+  }, []);
+
+  // Auto-select first dataset when enabling "use existing dataset"
+  useEffect(() => {
+    if (useExistingDataset && !selectedDatasetId && datasets.length > 0) {
+      setSelectedDatasetId(datasets[0]?.id ?? null);
+    }
+  }, [useExistingDataset, datasets, selectedDatasetId]);
+
+  // Load custom strategies from API
+  useEffect(() => {
+    const loadCustomStrategies = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/strategies", {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          console.warn("Failed to load custom strategies");
+          return;
+        }
+        const payload = (await response.json()) as CustomStrategy[];
+        console.log("[optimize] Loaded custom strategies:", payload);
+        setCustomStrategies(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.error("Error loading custom strategies:", error);
+      }
+    };
+    void loadCustomStrategies();
+  }, []);
 
   // Initialize param grid when strategy changes
   useEffect(() => {
     const initialGrid: Record<string, ParamGridValue> = {};
-    strategy.fields.forEach((field) => {
-      const defaultValue = strategy.defaults[field.key] as number;
-      initialGrid[field.key] = {
-        type: "discrete",
-        discrete: [defaultValue],
-      };
-    });
+
+    if (strategy) {
+      // Built-in strategy
+      strategy.fields.forEach((field) => {
+        const defaultValue = strategy.defaults[field.key] as number;
+        initialGrid[field.key] = {
+          type: "discrete",
+          discrete: [defaultValue],
+        };
+      });
+    } else if (selectedCustomStrategy?.configSchema) {
+      // Custom strategy
+      Object.entries(selectedCustomStrategy.configSchema).forEach(([key, field]) => {
+        if (field.type === "number") {
+          initialGrid[key] = {
+            type: "discrete",
+            discrete: [typeof field.default === "number" ? field.default : 0],
+          };
+        }
+      });
+    }
+
     setParamGrid(initialGrid);
-  }, [strategyName, strategy]);
+  }, [strategyName, strategy, selectedCustomStrategy]);
 
   // Fetch optimization jobs
   useEffect(() => {
     const fetchJobs = async (): Promise<void> => {
       try {
-        const response = await fetch("/api/optimize");
+        const response = await fetch(apiRoute("/api/optimize"));
         if (response.ok) {
           const data = await response.json();
           setJobs(data.optimizations || []);
@@ -109,7 +221,7 @@ export default function OptimizePage(): JSX.Element {
     }
     const fetchDetails = async (): Promise<void> => {
       try {
-        const response = await fetch(`/api/optimize/${selectedJob}`);
+        const response = await fetch(apiRoute(`/api/optimize/${selectedJob}`));
         if (response.ok) {
           const data = await response.json();
           setJobDetails(data);
@@ -165,22 +277,28 @@ export default function OptimizePage(): JSX.Element {
   };
 
   const switchToRange = (paramKey: string): void => {
-    const field = strategy.fields.find((f) => f.key === paramKey);
+    const field = strategy?.fields.find((f) => f.key === paramKey);
+    const customField = selectedCustomStrategy?.configSchema?.[paramKey];
+
     setParamGrid({
       ...paramGrid,
       [paramKey]: {
         type: "range",
         range: {
-          min: field?.min ?? 1,
-          max: field?.max ?? 100,
-          step: field?.step ?? 1,
+          min: field?.min ?? customField?.min ?? 1,
+          max: field?.max ?? customField?.max ?? 100,
+          step: field?.step ?? customField?.step ?? 1,
         },
       },
     });
   };
 
   const switchToDiscrete = (paramKey: string): void => {
-    const defaultValue = strategy.defaults[paramKey] as number;
+    const defaultValue =
+      (strategy?.defaults[paramKey] as number) ??
+      (typeof selectedCustomStrategy?.configSchema?.[paramKey]?.default === "number"
+        ? selectedCustomStrategy.configSchema[paramKey].default
+        : 0);
     setParamGrid({
       ...paramGrid,
       [paramKey]: {
@@ -226,16 +344,24 @@ export default function OptimizePage(): JSX.Element {
 
     try {
       // Validate inputs
-      if (!symbol || symbol.trim() === "") {
-        setNotification({ type: "error", message: "Symbol is required" });
-        setSubmitting(false);
-        return;
-      }
+      if (useExistingDataset) {
+        if (!selectedDataset) {
+          setNotification({ type: "error", message: "Please select a dataset" });
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        if (!symbol || symbol.trim() === "") {
+          setNotification({ type: "error", message: "Symbol is required" });
+          setSubmitting(false);
+          return;
+        }
 
-      if (!startDate || !endDate) {
-        setNotification({ type: "error", message: "Start and end dates are required" });
-        setSubmitting(false);
-        return;
+        if (!startDate || !endDate) {
+          setNotification({ type: "error", message: "Start and end dates are required" });
+          setSubmitting(false);
+          return;
+        }
       }
 
       // Convert param grid to API format and validate
@@ -264,20 +390,36 @@ export default function OptimizePage(): JSX.Element {
         return;
       }
 
+      // For custom strategies, use the actual name instead of the ID
+      const actualStrategyName = selectedCustomStrategy
+        ? selectedCustomStrategy.name
+        : strategyName;
+
       const request = {
-        name: jobName || `Optimize ${strategyName} - ${new Date().toLocaleString()}`,
+        name: jobName || `Optimize ${actualStrategyName} - ${new Date().toLocaleString()}`,
         baseRequest: {
-          runName: `opt-${strategyName}`,
-          data: [
-            {
-              source: "csv",
-              symbol,
-              timeframe: "1d",
-              start: startDate,
-              end: endDate,
-              adjusted: true,
-            },
-          ],
+          runName: `opt-${actualStrategyName}`,
+          data:
+            useExistingDataset && selectedDataset
+              ? [
+                  {
+                    datasetId: selectedDataset.id,
+                    symbol: selectedDataset.symbol,
+                    timeframe: selectedDataset.timeframe as Timeframe,
+                    start: selectedDataset.startDate,
+                    end: selectedDataset.endDate,
+                  },
+                ]
+              : [
+                  {
+                    source: dataSource,
+                    symbol,
+                    timeframe,
+                    start: startDate,
+                    end: endDate,
+                    adjusted,
+                  },
+                ],
           costs: {
             feeBps: 1,
             slippageBps: 2,
@@ -286,7 +428,7 @@ export default function OptimizePage(): JSX.Element {
           seed: 42,
         },
         strategy: {
-          name: strategyName,
+          name: actualStrategyName,
         },
         paramGrid: apiParamGrid,
         objective,
@@ -303,7 +445,9 @@ export default function OptimizePage(): JSX.Element {
         }),
       };
 
-      const response = await fetch("/api/optimize/grid", {
+      console.log("[optimize] Request payload:", JSON.stringify(request, null, 2));
+
+      const response = await fetch(apiRoute("/api/optimize/grid"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
@@ -318,12 +462,15 @@ export default function OptimizePage(): JSX.Element {
         setSelectedJob(data.optId);
       } else {
         const errorData = await response.json();
+        console.error("[optimize] Error response:", errorData);
+        const errorMsg = errorData.error || errorData.message || "Failed to create optimization";
         setNotification({
           type: "error",
-          message: errorData.message || errorData.error || "Failed to create optimization",
+          message: errorMsg,
         });
       }
     } catch (error) {
+      console.error("[optimize] Submission error:", error);
       setNotification({
         type: "error",
         message: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -383,37 +530,161 @@ export default function OptimizePage(): JSX.Element {
                   value={strategyName}
                   onChange={(e) => setStrategyName(e.target.value as StrategyKey)}
                 >
+                  {/* Built-in strategies */}
                   {Object.values(strategyConfigs).map((config) => (
                     <option key={config.key} value={config.key}>
                       {config.title}
                     </option>
                   ))}
+                  {/* Custom strategies */}
+                  {customStrategies.length > 0 && (
+                    <optgroup label="CUSTOM STRATEGIES">
+                      {customStrategies.map((strategy) => (
+                        <option key={strategy.id} value={strategy.id}>
+                          {strategy.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
 
-              <label>
-                <span>Symbol</span>
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "1px solid var(--graphite-100)",
+                  margin: "0.5rem 0",
+                }}
+              />
+
+              <label
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  textTransform: "none",
+                }}
+              >
                 <input
-                  type="text"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  type="checkbox"
+                  checked={useExistingDataset}
+                  onChange={(e) => {
+                    setUseExistingDataset(e.target.checked);
+                    if (!e.target.checked) {
+                      setSelectedDatasetId(null);
+                    }
+                  }}
                 />
+                <span>Use existing dataset</span>
               </label>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <label>
-                  <span>Start Date</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>End Date</span>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </label>
-              </div>
+              {useExistingDataset ? (
+                datasets.length > 0 ? (
+                  <label>
+                    <span>Dataset</span>
+                    <select
+                      value={selectedDatasetId ?? ""}
+                      onChange={(e) =>
+                        setSelectedDatasetId(e.target.value ? Number(e.target.value) : null)
+                      }
+                    >
+                      <option value="">Choose dataset</option>
+                      {datasets.map((dataset) => (
+                        <option key={dataset.id} value={dataset.id}>
+                          {dataset.symbol} · {dataset.timeframe} · {dataset.source}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div
+                    style={{
+                      padding: "0.75rem",
+                      background: "rgba(255, 210, 63, 0.1)",
+                      borderLeft: "3px solid var(--spark-yellow)",
+                      color: "var(--spark-yellow)",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    No datasets available. Register one under the datasets tab.
+                  </div>
+                )
+              ) : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label>
+                      <span>Data Vendor</span>
+                      <select
+                        value={dataSource}
+                        onChange={(e) => setDataSource(e.target.value as DataSource)}
+                      >
+                        <option value="auto">AUTO</option>
+                        <option value="csv">CSV</option>
+                        <option value="tiingo">TIINGO</option>
+                        <option value="polygon">POLYGON</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Timeframe</span>
+                      <select
+                        value={timeframe}
+                        onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+                      >
+                        <option value="1d">1D</option>
+                        <option value="1h">1H</option>
+                        <option value="15m">15M</option>
+                        <option value="1m">1M</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label>
+                    <span>Symbol</span>
+                    <input
+                      type="text"
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                      placeholder="e.g. AAPL"
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </label>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label>
+                      <span>Start Date</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>End Date</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <label
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      textTransform: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={adjusted}
+                      onChange={(e) => setAdjusted(e.target.checked)}
+                    />
+                    <span>Use adjusted prices</span>
+                  </label>
+                </>
+              )}
 
               <label>
                 <span>Initial Cash</span>
@@ -448,149 +719,319 @@ export default function OptimizePage(): JSX.Element {
               2. parameter grid
             </h2>
 
-            {strategy.fields.map((field) => {
-              const gridValue = paramGrid[field.key];
-              if (!gridValue) return null;
+            {strategy ? (
+              // Built-in strategy fields
+              strategy.fields.map((field) => {
+                const gridValue = paramGrid[field.key];
+                if (!gridValue) return null;
 
-              return (
-                <div
-                  key={field.key}
-                  style={{
-                    background: "var(--graphite-400)",
-                    border: "1px solid var(--graphite-100)",
-                    padding: "1rem",
-                    marginBottom: "1rem",
-                  }}
-                >
+                return (
                   <div
+                    key={field.key}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.75rem",
+                      background: "var(--graphite-400)",
+                      border: "1px solid var(--graphite-100)",
+                      padding: "1rem",
+                      marginBottom: "1rem",
                     }}
                   >
-                    <h3 style={{ fontSize: "0.85rem", color: "var(--ember-orange)" }}>
-                      {field.label}
-                    </h3>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        onClick={() => switchToDiscrete(field.key)}
-                        style={{
-                          padding: "0.25rem 0.75rem",
-                          fontSize: "0.7rem",
-                          background:
-                            gridValue.type === "discrete" ? "var(--ember-orange)" : "transparent",
-                          color: gridValue.type === "discrete" ? "white" : "var(--steel-300)",
-                          border: "1px solid var(--graphite-100)",
-                        }}
-                      >
-                        discrete
-                      </button>
-                      <button
-                        onClick={() => switchToRange(field.key)}
-                        style={{
-                          padding: "0.25rem 0.75rem",
-                          fontSize: "0.7rem",
-                          background:
-                            gridValue.type === "range" ? "var(--ember-orange)" : "transparent",
-                          color: gridValue.type === "range" ? "white" : "var(--steel-300)",
-                          border: "1px solid var(--graphite-100)",
-                        }}
-                      >
-                        range
-                      </button>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.75rem",
+                      }}
+                    >
+                      <h3 style={{ fontSize: "0.85rem", color: "var(--ember-orange)" }}>
+                        {field.label}
+                      </h3>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          onClick={() => switchToDiscrete(field.key)}
+                          style={{
+                            padding: "0.25rem 0.75rem",
+                            fontSize: "0.7rem",
+                            background:
+                              gridValue.type === "discrete" ? "var(--ember-orange)" : "transparent",
+                            color: gridValue.type === "discrete" ? "white" : "var(--steel-300)",
+                            border: "1px solid var(--graphite-100)",
+                          }}
+                        >
+                          discrete
+                        </button>
+                        <button
+                          onClick={() => switchToRange(field.key)}
+                          style={{
+                            padding: "0.25rem 0.75rem",
+                            fontSize: "0.7rem",
+                            background:
+                              gridValue.type === "range" ? "var(--ember-orange)" : "transparent",
+                            color: gridValue.type === "range" ? "white" : "var(--steel-300)",
+                            border: "1px solid var(--graphite-100)",
+                          }}
+                        >
+                          range
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {gridValue.type === "discrete" && gridValue.discrete && (
-                    <div style={{ display: "grid", gap: "0.5rem" }}>
-                      {gridValue.discrete.map((value, idx) => (
-                        <div key={idx} style={{ display: "flex", gap: "0.5rem" }}>
+                    {gridValue.type === "discrete" && gridValue.discrete && (
+                      <div style={{ display: "grid", gap: "0.5rem" }}>
+                        {gridValue.discrete.map((value, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: "0.5rem" }}>
+                            <input
+                              type="number"
+                              value={value}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateDiscreteValue(field.key, idx, val === "" ? "" : Number(val));
+                              }}
+                              step={field.step}
+                              style={{ flex: 1 }}
+                            />
+                            {gridValue.discrete && gridValue.discrete.length > 1 && (
+                              <button
+                                onClick={() => removeDiscreteValue(field.key, idx)}
+                                style={{
+                                  padding: "0.5rem",
+                                  background: "var(--danger-red)",
+                                  color: "white",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addDiscreteValue(field.key)}
+                          style={{
+                            padding: "0.5rem",
+                            background: "var(--success-green)",
+                            color: "white",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          + Add Value
+                        </button>
+                      </div>
+                    )}
+
+                    {gridValue.type === "range" && gridValue.range && (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1fr",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Min</span>
                           <input
                             type="number"
-                            value={value}
+                            value={gridValue.range.min}
                             onChange={(e) => {
                               const val = e.target.value;
-                              updateDiscreteValue(field.key, idx, val === "" ? "" : Number(val));
+                              updateRange(field.key, "min", val === "" ? "" : Number(val));
                             }}
                             step={field.step}
-                            style={{ flex: 1 }}
                           />
-                          {gridValue.discrete && gridValue.discrete.length > 1 && (
-                            <button
-                              onClick={() => removeDiscreteValue(field.key, idx)}
-                              style={{
-                                padding: "0.5rem",
-                                background: "var(--danger-red)",
-                                color: "white",
-                                fontSize: "0.75rem",
+                        </label>
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Max</span>
+                          <input
+                            type="number"
+                            value={gridValue.range.max}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateRange(field.key, "max", val === "" ? "" : Number(val));
+                            }}
+                            step={field.step}
+                          />
+                        </label>
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Step</span>
+                          <input
+                            type="number"
+                            value={gridValue.range.step}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateRange(field.key, "step", val === "" ? "" : Number(val));
+                            }}
+                            step={field.step}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : selectedCustomStrategy?.configSchema ? (
+              // Custom strategy fields
+              Object.entries(selectedCustomStrategy.configSchema).map(([key, field]) => {
+                if (field.type !== "number") return null;
+                const gridValue = paramGrid[key];
+                if (!gridValue) return null;
+
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      background: "var(--graphite-400)",
+                      border: "1px solid var(--graphite-100)",
+                      padding: "1rem",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.75rem",
+                      }}
+                    >
+                      <h3 style={{ fontSize: "0.85rem", color: "var(--ember-orange)" }}>
+                        {field.label}
+                      </h3>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          onClick={() => switchToDiscrete(key)}
+                          style={{
+                            padding: "0.25rem 0.75rem",
+                            fontSize: "0.7rem",
+                            background:
+                              gridValue.type === "discrete" ? "var(--ember-orange)" : "transparent",
+                            color: gridValue.type === "discrete" ? "white" : "var(--steel-300)",
+                            border: "1px solid var(--graphite-100)",
+                          }}
+                        >
+                          discrete
+                        </button>
+                        <button
+                          onClick={() => switchToRange(key)}
+                          style={{
+                            padding: "0.25rem 0.75rem",
+                            fontSize: "0.7rem",
+                            background:
+                              gridValue.type === "range" ? "var(--ember-orange)" : "transparent",
+                            color: gridValue.type === "range" ? "white" : "var(--steel-300)",
+                            border: "1px solid var(--graphite-100)",
+                          }}
+                        >
+                          range
+                        </button>
+                      </div>
+                    </div>
+
+                    {gridValue.type === "discrete" && gridValue.discrete && (
+                      <div style={{ display: "grid", gap: "0.5rem" }}>
+                        {gridValue.discrete.map((value, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: "0.5rem" }}>
+                            <input
+                              type="number"
+                              value={value}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateDiscreteValue(key, idx, val === "" ? "" : Number(val));
                               }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addDiscreteValue(field.key)}
+                              step={field.step ?? 1}
+                              style={{ flex: 1 }}
+                            />
+                            {gridValue.discrete && gridValue.discrete.length > 1 && (
+                              <button
+                                onClick={() => removeDiscreteValue(key, idx)}
+                                style={{
+                                  padding: "0.5rem",
+                                  background: "var(--danger-red)",
+                                  color: "white",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addDiscreteValue(key)}
+                          style={{
+                            padding: "0.5rem",
+                            background: "var(--success-green)",
+                            color: "white",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          + Add Value
+                        </button>
+                      </div>
+                    )}
+
+                    {gridValue.type === "range" && gridValue.range && (
+                      <div
                         style={{
-                          padding: "0.5rem",
-                          background: "var(--success-green)",
-                          color: "white",
-                          fontSize: "0.75rem",
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1fr",
+                          gap: "0.5rem",
                         }}
                       >
-                        + Add Value
-                      </button>
-                    </div>
-                  )}
-
-                  {gridValue.type === "range" && gridValue.range && (
-                    <div
-                      style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}
-                    >
-                      <label>
-                        <span style={{ fontSize: "0.7rem" }}>Min</span>
-                        <input
-                          type="number"
-                          value={gridValue.range.min}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateRange(field.key, "min", val === "" ? "" : Number(val));
-                          }}
-                          step={field.step}
-                        />
-                      </label>
-                      <label>
-                        <span style={{ fontSize: "0.7rem" }}>Max</span>
-                        <input
-                          type="number"
-                          value={gridValue.range.max}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateRange(field.key, "max", val === "" ? "" : Number(val));
-                          }}
-                          step={field.step}
-                        />
-                      </label>
-                      <label>
-                        <span style={{ fontSize: "0.7rem" }}>Step</span>
-                        <input
-                          type="number"
-                          value={gridValue.range.step}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateRange(field.key, "step", val === "" ? "" : Number(val));
-                          }}
-                          step={field.step}
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Min</span>
+                          <input
+                            type="number"
+                            value={gridValue.range.min}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateRange(key, "min", val === "" ? "" : Number(val));
+                            }}
+                            step={field.step ?? 1}
+                          />
+                        </label>
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Max</span>
+                          <input
+                            type="number"
+                            value={gridValue.range.max}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateRange(key, "max", val === "" ? "" : Number(val));
+                            }}
+                            step={field.step ?? 1}
+                          />
+                        </label>
+                        <label>
+                          <span style={{ fontSize: "0.7rem" }}>Step</span>
+                          <input
+                            type="number"
+                            value={gridValue.range.step}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateRange(key, "step", val === "" ? "" : Number(val));
+                            }}
+                            step={field.step ?? 1}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div
+                style={{
+                  padding: "1rem",
+                  background: "var(--graphite-400)",
+                  border: "1px solid var(--spark-yellow)",
+                  fontSize: "0.85rem",
+                  color: "var(--steel-300)",
+                }}
+              >
+                No parameters available for optimization. Select a strategy with configurable
+                parameters.
+              </div>
+            )}
 
             <div
               style={{
@@ -955,6 +1396,52 @@ export default function OptimizePage(): JSX.Element {
 
                 {jobDetails.allResults && jobDetails.allResults.length > 0 && (
                   <div style={{ overflowX: "auto" }}>
+                    {(() => {
+                      const withViolations = jobDetails.allResults.filter(
+                        (r) => r.violations && r.violations.length > 0,
+                      );
+                      const validResults = jobDetails.allResults.filter(
+                        (r) => !r.violations || r.violations.length === 0,
+                      );
+                      return withViolations.length > 0 ? (
+                        <div
+                          style={{
+                            marginBottom: "1.5rem",
+                            padding: "1rem",
+                            background: "rgba(239, 68, 68, 0.1)",
+                            border: "1px solid var(--danger-red)",
+                          }}
+                        >
+                          <h4
+                            style={{
+                              fontSize: "0.8rem",
+                              marginBottom: "0.75rem",
+                              color: "var(--danger-red)",
+                            }}
+                          >
+                            ⚠ Constraint Violations
+                          </h4>
+                          <div style={{ fontSize: "0.85rem", color: "var(--steel-200)" }}>
+                            <div>
+                              {validResults.length} valid / {jobDetails.allResults.length} total
+                              combinations
+                            </div>
+                            <div style={{ marginTop: "0.5rem", fontSize: "0.8rem" }}>
+                              {withViolations.length > 0 && (
+                                <div>
+                                  Common violations:{" "}
+                                  {Array.from(
+                                    new Set(withViolations.flatMap((r) => r.violations || [])),
+                                  )
+                                    .slice(0, 3)
+                                    .join("; ")}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
                     <h4
                       style={{
                         fontSize: "0.8rem",
@@ -1009,6 +1496,14 @@ export default function OptimizePage(): JSX.Element {
                           >
                             Robustness
                           </th>
+                          <th
+                            style={{
+                              padding: "0.5rem",
+                              borderBottom: "2px solid var(--ember-orange)",
+                            }}
+                          >
+                            Status
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1022,7 +1517,12 @@ export default function OptimizePage(): JSX.Element {
                             <tr
                               key={idx}
                               style={{
-                                background: idx === 0 ? "rgba(16, 185, 129, 0.1)" : "transparent",
+                                background:
+                                  result.violations && result.violations.length > 0
+                                    ? "rgba(239, 68, 68, 0.05)"
+                                    : idx === 0
+                                      ? "rgba(16, 185, 129, 0.1)"
+                                      : "transparent",
                                 borderBottom: "1px solid var(--graphite-100)",
                               }}
                             >
@@ -1043,6 +1543,20 @@ export default function OptimizePage(): JSX.Element {
                               </td>
                               <td style={{ padding: "0.5rem" }}>
                                 {result.robustnessScore?.toFixed(4) ?? "-"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "0.5rem",
+                                  color:
+                                    result.violations && result.violations.length > 0
+                                      ? "var(--danger-red)"
+                                      : "var(--success-green)",
+                                }}
+                                title={result.violations?.join(", ") || "Valid"}
+                              >
+                                {result.violations && result.violations.length > 0
+                                  ? `⚠ ${result.violations.length} violation${result.violations.length > 1 ? "s" : ""}`
+                                  : "✓ Valid"}
                               </td>
                             </tr>
                           ))}

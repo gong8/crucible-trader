@@ -200,7 +200,16 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
 
       // Check database for run status first
       const runRecord = await deps.getRunRecord(runId);
+
+      // If no database record, try to load from manifest
       if (!runRecord) {
+        const manifestResult = await loadManifestResult(runId);
+        if (manifestResult) {
+          // Found manifest-only run, save it to database and return
+          await deps.saveResult(manifestResult);
+          await deps.markRunCompleted(runId);
+          return reply.send(manifestResult);
+        }
         return reply.code(404).send({ message: "Run not found" });
       }
 

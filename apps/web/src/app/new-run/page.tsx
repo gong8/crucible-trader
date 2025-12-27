@@ -660,51 +660,14 @@ function NewRunPageContent(): JSX.Element {
                   }}
                 />
               ) : selectedCustomStrategy?.configSchema ? (
-                <div style={{ display: "grid", gap: "1rem" }}>
-                  {Object.entries(selectedCustomStrategy.configSchema).map(([key, field]) => (
-                    <label key={key}>
-                      {field.label}
-                      {field.type === "number" && (
-                        <input
-                          type="number"
-                          value={
-                            strategyValues[key] ??
-                            (typeof field.default === "number" ? field.default : 0)
-                          }
-                          min={field.min}
-                          max={field.max}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setStrategyValues((prev) => ({
-                              ...prev,
-                              [key]: val === "" ? "" : Number(val),
-                            }));
-                          }}
-                          onBlur={(e) => {
-                            if (e.target.value === "") {
-                              setStrategyValues((prev) => ({
-                                ...prev,
-                                [key]: Number(field.default),
-                              }));
-                            }
-                          }}
-                        />
-                      )}
-                      {field.description && (
-                        <span
-                          style={{
-                            display: "block",
-                            fontSize: "0.7rem",
-                            color: "var(--steel-400)",
-                            marginTop: "0.25rem",
-                          }}
-                        >
-                          {field.description}
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                </div>
+                <StrategyControls
+                  customConfig={selectedCustomStrategy.configSchema}
+                  values={strategyValues}
+                  errors={strategyErrors}
+                  onChange={(field, value) => {
+                    setStrategyValues((prev) => ({ ...prev, [field]: value }));
+                  }}
+                />
               ) : (
                 <div
                   style={{

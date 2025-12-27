@@ -344,8 +344,35 @@ export const createOptimizationHandler =
 
         // Find best parameter set
         const validResults = allResults.filter((r) => !r.violations || r.violations.length === 0);
+
         if (validResults.length === 0) {
-          throw new Error("No valid parameter combinations found");
+          // No valid combinations - save results with violations for analysis
+          const sampleViolations = allResults.slice(0, 5).map((r) => ({
+            params: r.params,
+            violations: r.violations,
+            score: r.score,
+            metrics: r.metrics,
+          }));
+
+          deps.logger.warn("No valid parameter combinations found", {
+            optId: job.optId,
+            totalTested: allResults.length,
+            sampleViolations,
+          });
+
+          // Save all results for user to analyze what went wrong
+          await deps.database.updateOptimization(job.optId, {
+            status: "completed",
+            resultsJson: JSON.stringify(allResults),
+            errorMessage: `No valid combinations found. All ${allResults.length} combinations violated constraints. Check constraints and try again.`,
+            completedAt: new Date().toISOString(),
+          });
+
+          deps.logger.info("Optimization completed with no valid results", {
+            optId: job.optId,
+            totalCombinations: allResults.length,
+          });
+          return;
         }
 
         const bestResult = validResults.reduce((best, current) =>
