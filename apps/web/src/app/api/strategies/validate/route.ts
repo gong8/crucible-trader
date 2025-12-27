@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateStrategy, formatValidationResults } from "../../../../lib/strategy-validation.js";
+import { validateStrategy, formatValidationResults } from "../../../../lib/strategy-validation";
 
 /**
  * POST /api/strategies/validate

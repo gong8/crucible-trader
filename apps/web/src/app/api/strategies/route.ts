@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, resolve } from "path";
 import { cwd } from "process";
-import { validateStrategy, formatValidationResults } from "../../../lib/strategy-validation.js";
+import { validateStrategy, formatValidationResults } from "../../../lib/strategy-validation";
 
 // In Next.js, cwd() returns the Next.js app root, but we need the monorepo root
 // Go up two levels: apps/web -> apps -> monorepo root
