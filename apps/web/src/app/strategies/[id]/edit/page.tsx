@@ -351,7 +351,7 @@ export default function EditStrategyPage() {
 
       {/* Editor */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        <StrategyEditor initialCode={code} onChange={handleCodeChange} />
+        <StrategyEditor value={code} onChange={handleCodeChange} />
       </div>
 
       {/* Footer */}

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-
 import "./globals.css";
+import { NavBar } from "@/components/navigation/NavBar";
 
 export const metadata: Metadata = {
   title: "crucible trader",
@@ -12,17 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html lang="en">
       <body>
-        <nav className="navbar">
-          <div className="badge">crucible trader</div>
-          <div className="nav-links">
-            <Link href="/runs">runs</Link>
-            <Link href="/new-run">new run</Link>
-            <Link href="/strategies">strategies</Link>
-            <Link href="/datasets">datasets</Link>
-            <Link href="/risk">risk</Link>
-            <Link href="/reports">reports</Link>
-          </div>
-        </nav>
+        <NavBar />
         <main>{children}</main>
         <footer
           style={{

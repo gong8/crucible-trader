@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 
 interface StrategyEditorProps {
   initialCode?: string;
+  value?: string;
   onChange?: (code: string) => void;
   readOnly?: boolean;
 }
@@ -81,17 +82,36 @@ export function createStrategy(config: StrategyConfig) {
 }
 `;
 
+export const STRATEGY_EDITOR_DEFAULT_TEMPLATE = DEFAULT_TEMPLATE;
+
 export default function StrategyEditor({
   initialCode = DEFAULT_TEMPLATE,
+  value,
   onChange,
   readOnly = false,
 }: StrategyEditorProps) {
-  const [code, setCode] = useState(initialCode);
+  const [internalCode, setInternalCode] = useState(initialCode);
+  const latestCodeRef = useRef(value ?? initialCode);
   const [theme] = useState<"vs-dark" | "light">("vs-dark");
 
-  const handleEditorChange = (value: string | undefined) => {
-    const newCode = value ?? "";
-    setCode(newCode);
+  useEffect(() => {
+    if (value === undefined) {
+      setInternalCode(initialCode);
+    }
+  }, [initialCode, value]);
+
+  const displayedCode = value ?? internalCode;
+
+  useEffect(() => {
+    latestCodeRef.current = displayedCode;
+  }, [displayedCode]);
+
+  const handleEditorChange = (nextValue: string | undefined) => {
+    const newCode = nextValue ?? "";
+    latestCodeRef.current = newCode;
+    if (value === undefined) {
+      setInternalCode(newCode);
+    }
     onChange?.(newCode);
   };
 
@@ -172,7 +192,7 @@ declare module "@crucible-trader/sdk" {
     });
 
     editor.addCommand(2097 | 49, () => {
-      const event = new CustomEvent("editor-save", { detail: { code } });
+      const event = new CustomEvent("editor-save", { detail: { code: latestCodeRef.current } });
       window.dispatchEvent(event);
     });
   };
@@ -198,7 +218,7 @@ declare module "@crucible-trader/sdk" {
           <span style={{ color: "var(--ember-orange)" }}>STRATEGY EDITOR</span>
           <span style={{ color: "var(--steel-400)" }}>TYPESCRIPT</span>
         </div>
-        <div style={{ color: "var(--steel-400)" }}>LINES: {code.split("\n").length}</div>
+        <div style={{ color: "var(--steel-400)" }}>LINES: {displayedCode.split("\n").length}</div>
       </div>
 
       {/* Monaco Editor */}
@@ -207,7 +227,7 @@ declare module "@crucible-trader/sdk" {
           height="100%"
           language="typescript"
           defaultLanguage="typescript"
-          value={code}
+          value={displayedCode}
           onChange={handleEditorChange}
           beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
