@@ -154,8 +154,8 @@ export interface StrategyLLMResponse {
 
 export const extractCodeBlock = (raw: string): string => {
   const match = raw.match(/```(?:ts|typescript)?\s*([\s\S]*?)```/);
-  if (match?.[1]) {
-    return match[1].trim();
+  if (match) {
+    return match[1]!.trim();
   }
   return raw.trim();
 };
