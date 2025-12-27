@@ -68,7 +68,7 @@ const createInitialRange = (): { start: string; end: string } => {
 };
 
 interface SubmissionState {
-  status: "idle" | "success" | "error";
+  status: "idle" | "loading" | "success" | "error";
   message: string | null;
   runId?: string;
 }
@@ -294,7 +294,7 @@ function NewRunPageContent(): JSX.Element {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    setSubmission({ status: "idle", message: null });
+    setSubmission({ status: "loading", message: null });
 
     // For custom strategies, use the actual name instead of the ID
     const actualStrategyName = selectedCustomStrategy ? selectedCustomStrategy.name : strategyName;
@@ -851,8 +851,17 @@ function NewRunPageContent(): JSX.Element {
           </div>
 
           {/* Submit Button */}
-          <button type="submit" className="btn-primary" style={{ width: "100%" }}>
-            Run Backtest
+          <button
+            type="submit"
+            disabled={submission.status === "loading"}
+            className="btn-primary"
+            style={{
+              width: "100%",
+              opacity: submission.status === "loading" ? 0.6 : 1,
+              cursor: submission.status === "loading" ? "not-allowed" : "pointer",
+            }}
+          >
+            {submission.status === "loading" ? "Submitting..." : "Run Backtest"}
           </button>
 
           {/* Submission Status */}
