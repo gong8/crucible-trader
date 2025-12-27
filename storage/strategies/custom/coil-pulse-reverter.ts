@@ -45,7 +45,6 @@ function median(xs: number[]): number {
   if (!xs.length) return 0;
   const a = [...xs].sort((x, y) => x - y);
   const mid = Math.floor(a.length / 2);
-  // @ts-expect-error - TypeScript doesn't infer that mid-1 is safe when a.length > 1
   return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
 }
 

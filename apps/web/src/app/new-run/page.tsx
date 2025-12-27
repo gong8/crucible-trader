@@ -660,7 +660,7 @@ function NewRunPageContent(): JSX.Element {
                       {field.type === "number" && (
                         <input
                           type="number"
-                          value={strategyValues[key] ?? field.default}
+                          value={strategyValues[key] ?? Number(field.default)}
                           min={field.min}
                           max={field.max}
                           onChange={(e) =>
