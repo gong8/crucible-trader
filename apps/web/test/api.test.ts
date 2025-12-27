@@ -8,7 +8,7 @@ const importApiModule = async (baseUrl?: string) => {
   } else {
     delete process.env.NEXT_PUBLIC_API_BASE_URL;
   }
-  const module = await import(`../src/lib/api.ts?cacheBust=${Math.random()}`);
+  const module = await import(`../src/lib/api.js?cacheBust=${Math.random()}`);
   if (original) {
     process.env.NEXT_PUBLIC_API_BASE_URL = original;
   } else {

@@ -11,6 +11,7 @@ export default function NewStrategyPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     const handleSave = () => {
@@ -33,6 +34,7 @@ export default function NewStrategyPage() {
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
     setValidationErrors([]);
+    setValidationWarnings([]);
     setError(null);
 
     const metadata = extractMetadataFromCode(newCode);
@@ -41,42 +43,44 @@ export default function NewStrategyPage() {
     }
   };
 
-  const validateStrategy = async () => {
-    if (!code.trim()) {
-      setValidationErrors(["Strategy code cannot be empty"]);
-      return false;
-    }
-
-    if (!strategyName.trim()) {
-      setValidationErrors(["Strategy name is required"]);
-      return false;
-    }
-
-    if (!code.includes("export const metadata")) {
-      setValidationErrors(["Strategy must export 'metadata' object"]);
-      return false;
-    }
-
-    if (!code.includes("export function createStrategy")) {
-      setValidationErrors(["Strategy must export 'createStrategy' function"]);
-      return false;
-    }
-
-    return true;
-  };
-
   const handleSaveStrategy = async () => {
     setError(null);
     setValidationErrors([]);
+    setValidationWarnings([]);
 
-    if (!(await validateStrategy())) {
+    // Run validation
+    const result = await fetch("/api/strategies/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+        name: strategyName,
+      }),
+    });
+
+    if (!result.ok) {
+      setError("Failed to validate strategy");
       return;
+    }
+
+    const validationResult = await result.json();
+
+    if (!validationResult.valid) {
+      setValidationErrors(validationResult.errorMessages || []);
+      setValidationWarnings(validationResult.warningMessages || []);
+      return;
+    }
+
+    // Show warnings but allow saving
+    if (validationResult.warningMessages && validationResult.warningMessages.length > 0) {
+      setValidationWarnings(validationResult.warningMessages);
     }
 
     setSaving(true);
 
     try {
-      // Use relative URL since API routes are in the same Next.js app
       const response = await fetch("/api/strategies", {
         method: "POST",
         headers: {
@@ -94,7 +98,6 @@ export default function NewStrategyPage() {
       }
 
       await response.json();
-      // Refresh the strategies page to show the new strategy
       router.push("/strategies");
       router.refresh();
     } catch (err) {
@@ -217,11 +220,46 @@ export default function NewStrategyPage() {
         )}
 
         {validationErrors.length > 0 && (
-          <div className="alert" style={{ marginTop: "1rem" }}>
-            <strong>VALIDATION ERRORS:</strong>
-            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--danger-red)",
+              background: "rgba(239, 68, 68, 0.1)",
+              color: "var(--danger-red)",
+              maxHeight: "200px",
+              overflow: "auto",
+            }}
+          >
+            <strong>VALIDATION ERRORS ({validationErrors.length}):</strong>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
               {validationErrors.map((err, i) => (
-                <li key={i}>{err}</li>
+                <li key={i} style={{ marginBottom: "0.5rem", whiteSpace: "pre-wrap" }}>
+                  {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validationWarnings.length > 0 && (
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--spark-yellow)",
+              background: "rgba(252, 211, 77, 0.1)",
+              color: "var(--spark-yellow)",
+              maxHeight: "150px",
+              overflow: "auto",
+            }}
+          >
+            <strong>WARNINGS ({validationWarnings.length}):</strong>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
+              {validationWarnings.map((warn, i) => (
+                <li key={i} style={{ marginBottom: "0.5rem", whiteSpace: "pre-wrap" }}>
+                  {warn}
+                </li>
               ))}
             </ul>
           </div>

@@ -88,7 +88,7 @@ function NewRunPageContent(): JSX.Element {
   const [end, setEnd] = useState(initialRange.end);
   const [adjusted, setAdjusted] = useState(true);
   const [strategyName, setStrategyName] = useState<StrategyKey>(defaultStrategyKey);
-  const [strategyValues, setStrategyValues] = useState<Record<string, number>>({
+  const [strategyValues, setStrategyValues] = useState<Record<string, string | number>>({
     ...strategyConfigs[defaultStrategyKey].defaults,
   });
   const [strategyErrors, setStrategyErrors] = useState<Record<string, string>>({});
@@ -667,7 +667,10 @@ function NewRunPageContent(): JSX.Element {
                       {field.type === "number" && (
                         <input
                           type="number"
-                          value={strategyValues[key] ?? field.default}
+                          value={
+                            strategyValues[key] ??
+                            (typeof field.default === "number" ? field.default : 0)
+                          }
                           min={field.min}
                           max={field.max}
                           onChange={(e) => {

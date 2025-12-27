@@ -15,6 +15,8 @@ export default function EditStrategyPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Load strategy code
@@ -54,10 +56,50 @@ export default function EditStrategyPage() {
     setCode(newCode);
     setHasChanges(newCode !== originalCode);
     setError(null);
+    setValidationErrors([]);
+    setValidationWarnings([]);
   };
 
   const handleSaveStrategy = async () => {
     setError(null);
+    setValidationErrors([]);
+    setValidationWarnings([]);
+
+    // Run validation first
+    try {
+      const validationResponse = await fetch("/api/strategies/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          name: strategyId,
+        }),
+      });
+
+      if (!validationResponse.ok) {
+        setError("Failed to validate strategy");
+        return;
+      }
+
+      const validationResult = await validationResponse.json();
+
+      if (!validationResult.valid) {
+        setValidationErrors(validationResult.errorMessages || []);
+        setValidationWarnings(validationResult.warningMessages || []);
+        return;
+      }
+
+      // Show warnings but allow saving
+      if (validationResult.warningMessages && validationResult.warningMessages.length > 0) {
+        setValidationWarnings(validationResult.warningMessages);
+      }
+    } catch (err) {
+      setError("Failed to validate strategy");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -257,6 +299,52 @@ export default function EditStrategyPage() {
             }}
           >
             <strong>ERROR:</strong> {error}
+          </div>
+        )}
+
+        {validationErrors.length > 0 && (
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--danger-red)",
+              background: "rgba(239, 68, 68, 0.1)",
+              color: "var(--danger-red)",
+              maxHeight: "200px",
+              overflow: "auto",
+            }}
+          >
+            <strong>VALIDATION ERRORS ({validationErrors.length}):</strong>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
+              {validationErrors.map((err, i) => (
+                <li key={i} style={{ marginBottom: "0.5rem", whiteSpace: "pre-wrap" }}>
+                  {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validationWarnings.length > 0 && (
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--spark-yellow)",
+              background: "rgba(252, 211, 77, 0.1)",
+              color: "var(--spark-yellow)",
+              maxHeight: "150px",
+              overflow: "auto",
+            }}
+          >
+            <strong>WARNINGS ({validationWarnings.length}):</strong>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
+              {validationWarnings.map((warn, i) => (
+                <li key={i} style={{ marginBottom: "0.5rem", whiteSpace: "pre-wrap" }}>
+                  {warn}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

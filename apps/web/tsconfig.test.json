@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist-test",
+    "rootDir": ".",
+    "noEmit": false,
+    "noEmitOnError": false,
+    "moduleResolution": "Node",
+    "skipLibCheck": true,
+    "strict": false,
+    "strictNullChecks": false,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "src/lib/**/*.ts",
+    "src/app/new-run/helpers.ts",
+    "src/app/new-run/date-range.ts",
+    "src/app/new-run/StrategyControls.tsx",
+    "src/lib/api.ts"
+  ],
+  "exclude": ["dist", "dist-test", "node_modules", ".next"]
+}

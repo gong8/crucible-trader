@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, resolve } from "path";
 import { cwd } from "process";
+import { validateStrategy, formatValidationResults } from "../../../lib/strategy-validation.js";
 
 // In Next.js, cwd() returns the Next.js app root, but we need the monorepo root
 // Go up two levels: apps/web -> apps -> monorepo root
@@ -291,17 +292,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and code are required" }, { status: 400 });
     }
 
-    // Validate code contains required exports
-    if (!code.includes("export const metadata")) {
-      return NextResponse.json(
-        { error: "Strategy must export 'metadata' object" },
-        { status: 400 },
-      );
-    }
+    // Run comprehensive validation
+    const validationResult = validateStrategy(code, name);
 
-    if (!code.includes("export function createStrategy")) {
+    if (!validationResult.valid) {
+      const formatted = formatValidationResults(validationResult);
       return NextResponse.json(
-        { error: "Strategy must export 'createStrategy' function" },
+        {
+          error: "Strategy validation failed",
+          validationErrors: formatted.errorMessages,
+          errors: validationResult.errors,
+        },
         { status: 400 },
       );
     }

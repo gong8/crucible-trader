@@ -8,7 +8,7 @@ import React from "react";
 import { strategyConfigs } from "@crucible-trader/sdk";
 import type { ZodIssue } from "zod";
 
-import { StrategyControls, mapZodIssues } from "../src/app/new-run/StrategyControls.tsx";
+import { StrategyControls, mapZodIssues } from "../src/app/new-run/StrategyControls.js";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 globalThis.window = dom.window as unknown as Window & typeof globalThis;

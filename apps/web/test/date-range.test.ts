@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { DataSource, Timeframe } from "@crucible-trader/sdk";
 import type { DatasetRecord } from "../src/app/new-run/helpers";
-import { computeAvailableRange } from "../src/app/new-run/date-range.ts";
+import { computeAvailableRange } from "../src/app/new-run/date-range.js";
 
 const record = (overrides?: Partial<DatasetRecord>): DatasetRecord => ({
   id: Math.floor(Math.random() * 1000),

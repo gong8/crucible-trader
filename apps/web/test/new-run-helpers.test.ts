@@ -4,12 +4,12 @@ import test from "node:test";
 import { strategyConfigs } from "@crucible-trader/sdk";
 import type { BacktestRequest, Timeframe } from "@crucible-trader/sdk";
 
-import type { BuildArgs, DatasetRecord } from "../src/app/new-run/helpers.ts";
+import type { BuildArgs, DatasetRecord } from "../src/app/new-run/helpers.js";
 import {
   buildDatasetOverride,
   buildRequestSafely,
   generateRunName,
-} from "../src/app/new-run/helpers.ts";
+} from "../src/app/new-run/helpers.js";
 
 const sampleStrategy = strategyConfigs.sma_crossover;
 

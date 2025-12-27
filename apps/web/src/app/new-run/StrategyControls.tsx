@@ -3,8 +3,8 @@ import type { ZodIssue } from "zod";
 
 interface StrategyControlsProps {
   readonly config: StrategyConfig;
-  readonly values: Record<string, number>;
-  readonly onChange: (field: string, value: number) => void;
+  readonly values: Record<string, string | number>;
+  readonly onChange: (field: string, value: string | number) => void;
   readonly errors?: Record<string, string | undefined>;
 }
 
@@ -49,7 +49,9 @@ export function StrategyControls({
             </span>
             <input
               type="number"
-              value={Number.isFinite(currentValue) ? formatField(field, currentValue) : ""}
+              value={
+                Number.isFinite(currentValue) ? formatField(field, currentValue as number) : ""
+              }
               min={field.min}
               max={field.max}
               step={field.step ?? "any"}
