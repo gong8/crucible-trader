@@ -74,6 +74,8 @@ export interface RunSummary {
   readonly createdAt: string;
   readonly name?: string;
   readonly summary?: Record<string, number>;
+  readonly strategy?: string;
+  readonly symbol?: string;
 }
 
 interface ArtifactParams {
@@ -488,6 +490,8 @@ const mergeRunSummaries = (dbRuns: RunSummary[], manifestRuns: RunSummary[]): Ru
         createdAt: manifest.createdAt ?? existing.createdAt,
         name: manifest.name ?? existing.name,
         summary: manifest.summary ?? existing.summary,
+        strategy: manifest.strategy ?? existing.strategy,
+        symbol: manifest.symbol ?? existing.symbol,
       });
     } else {
       merged.set(manifest.runId, manifest);

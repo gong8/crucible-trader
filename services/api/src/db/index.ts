@@ -52,6 +52,7 @@ export interface RunSummaryRow {
   readonly status: string;
   readonly summaryJson: string | null;
   readonly errorMessage: string | null;
+  readonly requestJson: string;
 }
 
 export interface DatasetRecord {
@@ -184,7 +185,8 @@ export class ApiDatabase {
               created_at as createdAt,
               status,
               summary_json as summaryJson,
-              error_message as errorMessage
+              error_message as errorMessage,
+              request_json as requestJson
          from runs
      order by created_at desc`,
     );

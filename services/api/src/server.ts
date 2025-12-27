@@ -81,12 +81,27 @@ export const createFastifyServer = async (
           summary = undefined;
         }
       }
+
+      let strategy: string | undefined;
+      let symbol: string | undefined;
+      if (row.requestJson) {
+        try {
+          const request = JSON.parse(row.requestJson) as BacktestRequest;
+          strategy = request.strategy?.name;
+          symbol = request.data?.[0]?.symbol;
+        } catch {
+          // If parsing fails, leave strategy and symbol undefined
+        }
+      }
+
       return {
         runId: row.runId,
         name: row.name ?? undefined,
         status: row.status,
         createdAt: row.createdAt,
         summary,
+        strategy,
+        symbol,
       };
     });
   };

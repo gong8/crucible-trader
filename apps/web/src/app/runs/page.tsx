@@ -11,6 +11,8 @@ interface RunListItem {
   status?: string;
   name?: string;
   summary?: Record<string, number>;
+  strategy?: string;
+  symbol?: string;
 }
 
 export default function RunsPage(): JSX.Element {
@@ -18,6 +20,15 @@ export default function RunsPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+
+  // Filtering, sorting, pagination state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [strategyFilter, setStrategyFilter] = useState<string>("all");
+  const [symbolFilter, setSymbolFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date-desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   const fetchRuns = useCallback(async (): Promise<RunListItem[]> => {
     const response = await fetch(apiRoute("/api/runs"), {
@@ -88,6 +99,64 @@ export default function RunsPage(): JSX.Element {
     }
   }, [fetchRuns]);
 
+  // Extract unique strategies and symbols for filter dropdowns
+  const uniqueStrategies = Array.from(new Set(runs.map((r) => r.strategy).filter(Boolean)));
+  const uniqueSymbols = Array.from(new Set(runs.map((r) => r.symbol).filter(Boolean)));
+
+  // Filter and sort runs
+  const filteredAndSortedRuns = runs
+    .filter((run) => {
+      // Search filter (name or runId)
+      const matchesSearch =
+        searchQuery === "" ||
+        run.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        run.runId.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Status filter
+      const matchesStatus = statusFilter === "all" || run.status === statusFilter;
+
+      // Strategy filter
+      const matchesStrategy = strategyFilter === "all" || run.strategy === strategyFilter;
+
+      // Symbol filter
+      const matchesSymbol = symbolFilter === "all" || run.symbol === symbolFilter;
+
+      return matchesSearch && matchesStatus && matchesStrategy && matchesSymbol;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "date-asc":
+          return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        case "date-desc":
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        case "name-asc":
+          return (a.name || a.runId).localeCompare(b.name || b.runId);
+        case "name-desc":
+          return (b.name || b.runId).localeCompare(a.name || a.runId);
+        case "sharpe-desc":
+          return (b.summary?.sharpeRatio || 0) - (a.summary?.sharpeRatio || 0);
+        case "sharpe-asc":
+          return (a.summary?.sharpeRatio || 0) - (b.summary?.sharpeRatio || 0);
+        case "pnl-desc":
+          return (b.summary?.totalPnL || 0) - (a.summary?.totalPnL || 0);
+        case "pnl-asc":
+          return (a.summary?.totalPnL || 0) - (b.summary?.totalPnL || 0);
+        default:
+          return 0;
+      }
+    });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedRuns.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRuns = filteredAndSortedRuns.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, strategyFilter, symbolFilter, sortBy]);
+
   return (
     <div style={{ display: "grid", gap: "2rem" }}>
       {/* HEADER */}
@@ -120,6 +189,111 @@ export default function RunsPage(): JSX.Element {
           </button>
         </div>
       </header>
+
+      {/* FILTERS AND CONTROLS */}
+      {!loading && runs.length > 0 && (
+        <div
+          className="card"
+          style={{
+            padding: "1.5rem",
+            display: "grid",
+            gap: "1rem",
+            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Search by name or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem",
+              background: "var(--graphite-300)",
+              border: "1px solid var(--graphite-100)",
+              color: "var(--steel-100)",
+              fontSize: "0.9rem",
+            }}
+          />
+
+          <select
+            value={strategyFilter}
+            onChange={(e) => setStrategyFilter(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem",
+              background: "var(--graphite-300)",
+              border: "1px solid var(--graphite-100)",
+              color: "var(--steel-100)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="all">All Strategies</option>
+            {uniqueStrategies.map((strategy) => (
+              <option key={strategy} value={strategy}>
+                {strategy}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={symbolFilter}
+            onChange={(e) => setSymbolFilter(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem",
+              background: "var(--graphite-300)",
+              border: "1px solid var(--graphite-100)",
+              color: "var(--steel-100)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="all">All Symbols</option>
+            {uniqueSymbols.map((symbol) => (
+              <option key={symbol} value={symbol}>
+                {symbol}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem",
+              background: "var(--graphite-300)",
+              border: "1px solid var(--graphite-100)",
+              color: "var(--steel-100)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="all">All Status</option>
+            <option value="queued">Queued</option>
+            <option value="running">Running</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem",
+              background: "var(--graphite-300)",
+              border: "1px solid var(--graphite-100)",
+              color: "var(--steel-100)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="sharpe-desc">Sharpe (High-Low)</option>
+            <option value="sharpe-asc">Sharpe (Low-High)</option>
+            <option value="pnl-desc">PnL (High-Low)</option>
+            <option value="pnl-asc">PnL (Low-High)</option>
+          </select>
+        </div>
+      )}
 
       {/* CONTENT */}
       {loading ? (
@@ -173,7 +347,7 @@ export default function RunsPage(): JSX.Element {
             gap: "1.5rem",
           }}
         >
-          {runs.map((run) => (
+          {paginatedRuns.map((run) => (
             <article
               key={run.runId}
               className="card"
@@ -308,6 +482,47 @@ export default function RunsPage(): JSX.Element {
               </Link>
             </article>
           ))}
+        </div>
+      )}
+
+      {/* PAGINATION */}
+      {!loading && filteredAndSortedRuns.length > 0 && totalPages > 1 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "1rem",
+            padding: "1rem",
+          }}
+        >
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="btn-secondary"
+            style={{
+              opacity: currentPage === 1 ? 0.5 : 1,
+              cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            }}
+          >
+            Previous
+          </button>
+
+          <span style={{ color: "var(--steel-200)", fontSize: "0.9rem" }}>
+            Page {currentPage} of {totalPages} ({filteredAndSortedRuns.length} runs)
+          </span>
+
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="btn-secondary"
+            style={{
+              opacity: currentPage === totalPages ? 0.5 : 1,
+              cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            }}
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
