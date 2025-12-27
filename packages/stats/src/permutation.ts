@@ -223,18 +223,16 @@ export function runPermutationTest(
     nullDistribution.push(permutedMetric);
   }
 
-  // Calculate p-value
+  // Calculate p-value (one-tailed test)
   // For metrics where higher is better (Sharpe, Sortino, total_return):
-  // p-value = proportion of permuted results >= original
+  // - p-value = proportion of permuted results > original (strictly better)
+  // - Result is "significant" only if original > nullMean AND p-value < alpha
   // For metrics where lower is better (max_dd):
-  // p-value = proportion of permuted results <= original
+  // - p-value = proportion of permuted results < original (strictly better)
+  // - Result is "significant" only if original < nullMean AND p-value < alpha
   const isLowerBetter = config.metric === "max_dd";
-  const extremeCount = nullDistribution.filter((value) =>
-    isLowerBetter ? value <= originalMetric : value >= originalMetric,
-  ).length;
-  const pValue = extremeCount / config.iterations;
 
-  // Calculate null distribution statistics
+  // Calculate null distribution statistics first
   const nullMean = nullDistribution.reduce((sum, v) => sum + v, 0) / nullDistribution.length;
   const nullVariance =
     nullDistribution.reduce((sum, v) => sum + Math.pow(v - nullMean, 2), 0) /
@@ -242,11 +240,21 @@ export function runPermutationTest(
   const nullStdDev = Math.sqrt(nullVariance);
   const zScore = nullStdDev === 0 ? 0 : (originalMetric - nullMean) / nullStdDev;
 
+  // Count how many permutations are BETTER than original (strictly better, not equal)
+  const betterCount = nullDistribution.filter((value) =>
+    isLowerBetter ? value < originalMetric : value > originalMetric,
+  ).length;
+  const pValue = betterCount / config.iterations;
+
+  // Check if result is in the "good" direction AND statistically significant
+  const isInGoodDirection = isLowerBetter ? originalMetric < nullMean : originalMetric > nullMean;
+  const isSignificant = isInGoodDirection && pValue < alpha;
+
   return {
     testId,
     originalMetric,
     pValue,
-    isSignificant: pValue < alpha,
+    isSignificant,
     alpha,
     nullDistribution,
     nullMean,
@@ -261,11 +269,23 @@ export function runPermutationTest(
 export function interpretPermutationTest(result: PermutationTestResult): string {
   const { pValue, alpha, isSignificant, originalMetric, nullMean, zScore } = result;
 
+  // Check if result is worse than random (bad direction)
+  const isWorseThanRandom = originalMetric < nullMean;
+
+  if (isWorseThanRandom) {
+    return (
+      `The result is WORSE than random chance. ` +
+      `The observed metric (${originalMetric.toFixed(4)}) is below the null mean (${nullMean.toFixed(4)}), ` +
+      `indicating the strategy performs worse than randomly shuffled trades. ` +
+      `This suggests the strategy has negative edge.`
+    );
+  }
+
   if (isSignificant) {
     return (
       `The result is statistically significant (p = ${pValue.toFixed(4)} < ${alpha}). ` +
       `The observed metric (${originalMetric.toFixed(4)}) is unlikely to have occurred by chance. ` +
-      `It is ${Math.abs(zScore).toFixed(2)} standard deviations from the null mean (${nullMean.toFixed(4)}).`
+      `It is ${Math.abs(zScore).toFixed(2)} standard deviations above the null mean (${nullMean.toFixed(4)}).`
     );
   } else {
     return (

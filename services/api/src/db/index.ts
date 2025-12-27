@@ -35,6 +35,7 @@ export interface RunRecord {
   readonly requestJson: string;
   readonly summaryJson: string | null;
   readonly errorMessage: string | null;
+  readonly favorite: number;
 }
 
 export interface ArtifactRecord {
@@ -53,6 +54,7 @@ export interface RunSummaryRow {
   readonly summaryJson: string | null;
   readonly errorMessage: string | null;
   readonly requestJson: string;
+  readonly favorite: number;
 }
 
 export interface DatasetRecord {
@@ -128,6 +130,24 @@ export class ApiDatabase {
     );
   }
 
+  public async toggleRunFavorite(runId: string): Promise<boolean> {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+    const newFavorite = run.favorite === 1 ? 0 : 1;
+    await this.db.run(
+      `update runs
+          set favorite = :favorite
+        where run_id = :runId`,
+      {
+        ":runId": runId,
+        ":favorite": newFavorite,
+      },
+    );
+    return newFavorite === 1;
+  }
+
   public async saveRunResult(result: BacktestResult): Promise<void> {
     await this.db.exec("savepoint save_run_result");
     try {
@@ -186,7 +206,8 @@ export class ApiDatabase {
               status,
               summary_json as summaryJson,
               error_message as errorMessage,
-              request_json as requestJson
+              request_json as requestJson,
+              favorite
          from runs
      order by created_at desc`,
     );
@@ -219,7 +240,8 @@ export class ApiDatabase {
               status,
               request_json as requestJson,
               summary_json as summaryJson,
-              error_message as errorMessage
+              error_message as errorMessage,
+              favorite
          from runs
         where run_id = :runId`,
       { ":runId": runId },
@@ -550,6 +572,17 @@ export const createApiDatabase = async (options: ApiDatabaseOptions = {}): Promi
 
   const schema = readFileSync(SCHEMA_PATH, "utf-8");
   await db.exec(schema);
+
+  // Migration: Add favorite column if it doesn't exist
+  try {
+    const tableInfo = await db.all<Array<{ name: string }>>("pragma table_info(runs)");
+    const hasFavoriteColumn = tableInfo.some((col) => col.name === "favorite");
+    if (!hasFavoriteColumn) {
+      await db.exec("alter table runs add column favorite integer not null default 0");
+    }
+  } catch (error) {
+    // Table might not exist yet, which is fine (schema will create it)
+  }
 
   const database = new ApiDatabase(db);
   await database.ensureRiskProfile(DEFAULT_RISK_PROFILE);

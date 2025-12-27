@@ -180,7 +180,7 @@ export function buildRequestSafely(args: BuildArgs): {
     ).map(normalizeSeries);
 
     // For custom strategies, strategyConfig may be undefined
-    let params: unknown = {};
+    let params: Record<string, unknown> = {};
     if (args.strategyConfig) {
       const parsedParams = args.strategyConfig.schema.safeParse(args.strategyValues);
       if (!parsedParams.success) {

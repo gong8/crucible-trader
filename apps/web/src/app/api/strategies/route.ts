@@ -40,6 +40,11 @@ interface Strategy {
   tags?: string[];
   filename: string;
   configSchema?: StrategyMetadata["configSchema"];
+  favorite?: boolean;
+}
+
+interface StrategyMeta {
+  favorite: boolean;
 }
 
 /**
@@ -197,6 +202,19 @@ function nameToFilename(name: string): string {
 }
 
 /**
+ * Read strategy metadata file.
+ */
+async function readStrategyMeta(id: string): Promise<StrategyMeta> {
+  const metaPath = join(STRATEGIES_DIR, `${id}.meta.json`);
+  try {
+    const content = await readFile(metaPath, "utf-8");
+    return JSON.parse(content) as StrategyMeta;
+  } catch {
+    return { favorite: false };
+  }
+}
+
+/**
  * GET /api/strategies
  * List all custom strategies
  */
@@ -227,8 +245,11 @@ export async function GET() {
         console.log(`[API] Parsed metadata for ${filename}:`, JSON.stringify(metadata));
 
         if (metadata && metadata.name) {
+          const id = filenameToId(filename);
+          const meta = await readStrategyMeta(id);
+
           const strategy = {
-            id: filenameToId(filename),
+            id,
             name: metadata.name,
             description: metadata.description || "No description",
             type: "custom" as const,
@@ -237,6 +258,7 @@ export async function GET() {
             tags: metadata.tags,
             filename,
             configSchema: metadata.configSchema,
+            favorite: meta.favorite,
           };
           strategies.push(strategy);
           console.log(`[API] ✓ Added strategy: ${metadata.name}`);

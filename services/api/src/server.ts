@@ -102,6 +102,7 @@ export const createFastifyServer = async (
         summary,
         strategy,
         symbol,
+        favorite: row.favorite === 1,
       };
     });
   };
@@ -151,6 +152,7 @@ export const createFastifyServer = async (
     getRiskProfile,
     saveDataset: (record) => database.upsertDataset(record),
     findDatasetRecord: (args) => database.findDataset(args),
+    toggleRunFavorite: (runId) => database.toggleRunFavorite(runId),
     queue,
   });
 

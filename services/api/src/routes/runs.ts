@@ -58,6 +58,7 @@ interface RunsRouteDeps {
     | undefined
   >;
   readonly queue: JobQueue;
+  readonly toggleRunFavorite: (runId: string) => Promise<boolean>;
 }
 
 interface RunParams {
@@ -76,6 +77,7 @@ export interface RunSummary {
   readonly summary?: Record<string, number>;
   readonly strategy?: string;
   readonly symbol?: string;
+  readonly favorite?: boolean;
 }
 
 interface ArtifactParams {
@@ -378,6 +380,24 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       }
     },
   );
+
+  app.post(
+    "/api/runs/:id/favorite",
+    async (
+      request: FastifyRequest<{ Params: RunParams }>,
+      reply: FastifyReply,
+    ): Promise<FastifyReply> => {
+      const runId = request.params.id;
+      try {
+        const isFavorite = await deps.toggleRunFavorite(runId);
+        return reply.send({ favorite: isFavorite });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to toggle favorite";
+        request.log.error({ err: error, runId }, "failed to toggle run favorite");
+        return reply.code(500).send({ message });
+      }
+    },
+  );
 };
 
 const resolveArtifactPath = (
@@ -492,6 +512,7 @@ const mergeRunSummaries = (dbRuns: RunSummary[], manifestRuns: RunSummary[]): Ru
         summary: manifest.summary ?? existing.summary,
         strategy: manifest.strategy ?? existing.strategy,
         symbol: manifest.symbol ?? existing.symbol,
+        favorite: manifest.favorite ?? existing.favorite,
       });
     } else {
       merged.set(manifest.runId, manifest);

@@ -13,6 +13,7 @@ interface RunListItem {
   summary?: Record<string, number>;
   strategy?: string;
   symbol?: string;
+  favorite?: boolean;
 }
 
 export default function RunsPage(): JSX.Element {
@@ -26,6 +27,7 @@ export default function RunsPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [strategyFilter, setStrategyFilter] = useState<string>("all");
   const [symbolFilter, setSymbolFilter] = useState<string>("all");
+  const [favoritesFilter, setFavoritesFilter] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("date-desc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
@@ -99,6 +101,22 @@ export default function RunsPage(): JSX.Element {
     }
   }, [fetchRuns]);
 
+  const handleToggleFavorite = useCallback(async (runId: string) => {
+    try {
+      const response = await fetch(apiRoute(`/api/runs/${runId}/favorite`), {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`status ${response.status}`);
+      }
+      const { favorite } = (await response.json()) as { favorite: boolean };
+      setRuns((prev) => prev.map((run) => (run.runId === runId ? { ...run, favorite } : run)));
+    } catch (err) {
+      console.error("toggle favorite failed", err);
+    }
+  }, []);
+
   // Extract unique strategies and symbols for filter dropdowns
   const uniqueStrategies = Array.from(new Set(runs.map((r) => r.strategy).filter(Boolean)));
   const uniqueSymbols = Array.from(new Set(runs.map((r) => r.symbol).filter(Boolean)));
@@ -121,7 +139,10 @@ export default function RunsPage(): JSX.Element {
       // Symbol filter
       const matchesSymbol = symbolFilter === "all" || run.symbol === symbolFilter;
 
-      return matchesSearch && matchesStatus && matchesStrategy && matchesSymbol;
+      // Favorites filter
+      const matchesFavorites = !favoritesFilter || run.favorite === true;
+
+      return matchesSearch && matchesStatus && matchesStrategy && matchesSymbol && matchesFavorites;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -155,7 +176,7 @@ export default function RunsPage(): JSX.Element {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, strategyFilter, symbolFilter, sortBy]);
+  }, [searchQuery, statusFilter, strategyFilter, symbolFilter, favoritesFilter, sortBy]);
 
   return (
     <div style={{ display: "grid", gap: "2rem" }}>
@@ -176,17 +197,29 @@ export default function RunsPage(): JSX.Element {
               All backtests forged through the crucible
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={resetting}
-            className="btn-secondary"
-            style={{
-              opacity: resetting ? 0.5 : 1,
-            }}
-          >
-            {resetting ? "Resetting..." : "Reset Runs"}
-          </button>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => setFavoritesFilter(!favoritesFilter)}
+              className={favoritesFilter ? "btn-primary" : "btn-secondary"}
+              style={{
+                padding: "0.75rem 1.25rem",
+              }}
+            >
+              {favoritesFilter ? "★ Favorites" : "☆ All Runs"}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={resetting}
+              className="btn-secondary"
+              style={{
+                opacity: resetting ? 0.5 : 1,
+              }}
+            >
+              {resetting ? "Resetting..." : "Reset Runs"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -358,6 +391,28 @@ export default function RunsPage(): JSX.Element {
                 overflow: "hidden",
               }}
             >
+              {/* Favorite Star */}
+              <button
+                type="button"
+                onClick={() => handleToggleFavorite(run.runId)}
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  left: "1rem",
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  cursor: "pointer",
+                  padding: "0",
+                  lineHeight: "1",
+                  color: run.favorite ? "var(--ember-orange)" : "var(--steel-400)",
+                  transition: "color 0.2s ease",
+                }}
+                title={run.favorite ? "Remove from favorites" : "Add to favorites"}
+              >
+                {run.favorite ? "★" : "☆"}
+              </button>
+
               {/* Status Badge */}
               {run.status ? (
                 <div
@@ -386,7 +441,7 @@ export default function RunsPage(): JSX.Element {
               ) : null}
 
               {/* Run Info */}
-              <div>
+              <div style={{ paddingTop: "2.5rem" }}>
                 <h3
                   style={{
                     fontSize: "1.1rem",
