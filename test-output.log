@@ -1,35 +1,47 @@
 Scope: 11 of 12 workspace projects
-packages/metrics test$ node --loader ts-node/esm --test test/metrics.test.ts
 packages/logger test$ node --loader ts-node/esm --test test/logger.test.ts
-packages/report test$ node --loader ts-node/esm --test test/report.test.ts
+packages/metrics test$ node --loader ts-node/esm --test test/metrics.test.ts
 packages/risk test$ node --loader ts-node/esm --test test/risk.test.ts
-packages/report test: (node:41685) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
-packages/report test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
-packages/report test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/report test: (node:41685) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-packages/report test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/logger test: (node:41683) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
-packages/logger test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
-packages/logger test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/logger test: (node:41683) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-packages/logger test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/metrics test: (node:41684) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
-packages/metrics test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
-packages/metrics test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/metrics test: (node:41684) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-packages/metrics test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/risk test: (node:41686) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/report test$ node --loader ts-node/esm --test test/report.test.ts
+packages/risk test: (node:52095) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/risk test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/risk test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/risk test: (node:41686) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/risk test: (node:52095) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/risk test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/report test: ✔ createReportManifest returns a report manifest with title (0.528667ms)
-packages/report test: ✔ createReportManifest returns expected placeholder title (0.0715ms)
-packages/report test: ✔ createReportManifest returns readonly structure (0.0635ms)
-packages/report test: ✔ createReportManifest returns new object on each call (0.450375ms)
-packages/report test: ✔ report manifest has correct interface structure (0.070084ms)
-packages/report test: ✔ report manifest title is non-empty (0.050792ms)
-packages/report test: ✔ report manifest title contains expected keywords (0.070583ms)
+packages/metrics test: (node:52097) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/metrics test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+packages/metrics test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/metrics test: (node:52097) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/metrics test: (Use `node --trace-deprecation ...` to show where the warning was created)
+packages/logger test: (node:52096) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/logger test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+packages/logger test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/logger test: (node:52096) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/logger test: (Use `node --trace-deprecation ...` to show where the warning was created)
+packages/report test: (node:52094) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/report test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+packages/report test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/report test: (node:52094) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/report test: (Use `node --trace-deprecation ...` to show where the warning was created)
+packages/report test: ✔ createReportManifest returns a report manifest with title (0.548084ms)
+packages/report test: ✔ createReportManifest returns expected placeholder title (0.072166ms)
+packages/risk test: ✔ createDefaultRiskLimits returns expected default values (0.620167ms)
+packages/risk test: ✔ createDefaultRiskLimits returns readonly object structure (0.109708ms)
+packages/risk test: ✔ createDefaultRiskLimits returns new object on each call (0.467083ms)
+packages/risk test: ✔ default risk limits are positive numbers (0.073583ms)
+packages/risk test: ✔ default risk limits are within reasonable ranges (0.077ms)
+packages/risk test: ✔ default risk limits have expected property types (0.094833ms)
+packages/risk test: ✔ maxDailyLossPct default allows for reasonable drawdown (0.055542ms)
+packages/risk test: ✔ maxPositionPct default prevents over-concentration (0.047666ms)
+packages/risk test: ✔ orderCap default provides reasonable trade sizing (0.061625ms)
+packages/risk test: ✔ killSwitchDrawdownPct default protects against catastrophic losses (0.145166ms)
+packages/risk test: ✔ cooldownMinutes default allows for recovery period (0.053291ms)
+packages/risk test: ✔ risk limits are consistent with each other (0.045333ms)
+packages/report test: ✔ createReportManifest returns readonly structure (0.064833ms)
+packages/report test: ✔ createReportManifest returns new object on each call (0.460209ms)
+packages/report test: ✔ report manifest has correct interface structure (0.239583ms)
+packages/report test: ✔ report manifest title is non-empty (0.086667ms)
+packages/report test: ✔ report manifest title contains expected keywords (0.08425ms)
 packages/report test: ℹ tests 7
 packages/report test: ℹ suites 0
 packages/report test: ℹ pass 7
@@ -37,95 +49,7 @@ packages/report test: ℹ fail 0
 packages/report test: ℹ cancelled 0
 packages/report test: ℹ skipped 0
 packages/report test: ℹ todo 0
-packages/report test: ℹ duration_ms 694.446416
-packages/report test: Done
-packages/sdk test$ node --loader ts-node/esm --test test/sdk-validation.test.ts test/strategies.test.ts test/strategy-config.test.ts
-packages/logger test: ✔ createLogger returns a logger with the correct module name (0.657416ms)
-packages/logger test: ✔ logger.log writes JSON formatted output to stdout (3.077167ms)
-packages/logger test: ✔ logger.debug calls log with debug level (0.295209ms)
-packages/logger test: ✔ logger.info calls log with info level (0.309416ms)
-packages/logger test: ✔ logger.warn calls log with warn level (0.253708ms)
-packages/logger test: ✔ logger.error writes to stderr and uses error level (0.20875ms)
-packages/logger test: ✔ logger includes runId in output when provided (0.176709ms)
-packages/logger test: ✔ logger excludes runId when not a string (2.322541ms)
-packages/logger test: ✔ logger handles empty metadata (0.671791ms)
-packages/logger test: ✔ logger handles complex metadata (0.756541ms)
-packages/logger test: ✔ logger timestamp is in ISO format (0.171208ms)
-packages/logger test: ✔ multiple loggers with different modules don't interfere (0.127708ms)
-packages/metrics test: ✔ calculateReturns computes sequential percentage returns (1.939625ms)
-packages/metrics test: ✔ calculateReturns returns empty array for empty input (0.111334ms)
-packages/metrics test: ✔ calculateReturns returns empty array for single point (0.079583ms)
-packages/metrics test: ✔ calculateReturns handles equity of zero gracefully (0.061042ms)
-packages/metrics test: ✔ calculateReturns handles negative equity (0.064584ms)
-packages/metrics test: ✔ calculateReturns computes returns for all positive equity (0.075667ms)
-packages/metrics test: ✔ calculateReturns handles flat equity curve (0.068ms)
-packages/metrics test: ✔ calculateSharpe returns zero when variance is zero (0.128209ms)
-packages/metrics test: ✔ calculateSharpe returns zero for empty points (0.053541ms)
-packages/metrics test: ✔ calculateSharpe returns zero for single point (0.100041ms)
-packages/metrics test: ✔ calculateSharpe computes value for increasing equity (0.124417ms)
-packages/metrics test: ✔ calculateSharpe handles flat equity curve (0.125125ms)
-packages/metrics test: ✔ calculateSharpe with custom risk-free rate (0.067958ms)
-packages/metrics test: ✔ calculateSharpe handles volatile equity curve (0.04975ms)
-packages/metrics test: ✔ calculateSortino accounts for downside deviation (0.090708ms)
-packages/metrics test: ✔ calculateSortino returns zero for empty points (0.036709ms)
-packages/metrics test: ✔ calculateSortino returns zero when no downside (0.039208ms)
-packages/metrics test: ✔ calculateSortino handles all negative returns (0.037333ms)
-packages/metrics test: ✔ calculateSortino with custom risk-free rate (0.037625ms)
-packages/risk test: ✔ createDefaultRiskLimits returns expected default values (0.59725ms)
-packages/risk test: ✔ createDefaultRiskLimits returns readonly object structure (0.104334ms)
-packages/risk test: ✔ createDefaultRiskLimits returns new object on each call (0.466583ms)
-packages/risk test: ✔ default risk limits are positive numbers (0.06775ms)
-packages/risk test: ✔ default risk limits are within reasonable ranges (0.077958ms)
-packages/risk test: ✔ default risk limits have expected property types (0.082958ms)
-packages/risk test: ✔ maxDailyLossPct default allows for reasonable drawdown (0.061083ms)
-packages/risk test: ✔ maxPositionPct default prevents over-concentration (0.046ms)
-packages/risk test: ✔ orderCap default provides reasonable trade sizing (0.054375ms)
-packages/risk test: ✔ killSwitchDrawdownPct default protects against catastrophic losses (0.089042ms)
-packages/risk test: ✔ cooldownMinutes default allows for recovery period (0.055959ms)
-packages/metrics test: ✔ calculateSortino handles mixed positive and negative returns (0.038ms)
-packages/metrics test: ✔ calculateMaxDrawdown identifies largest drop (0.066708ms)
-packages/metrics test: ✔ calculateMaxDrawdown returns zero for empty points (0.044ms)
-packages/metrics test: ✔ calculateMaxDrawdown returns zero for single point (0.038625ms)
-packages/metrics test: ✔ calculateMaxDrawdown returns zero for always increasing equity (0.04375ms)
-packages/metrics test: ✔ calculateMaxDrawdown handles severe drawdown (0.073708ms)
-packages/metrics test: ✔ calculateMaxDrawdown handles multiple drawdowns (0.054333ms)
-packages/metrics test: ✔ calculateMaxDrawdown handles equity going to zero (0.039375ms)
-packages/metrics test: ✔ calculateCagr handles chronological data (0.070166ms)
-packages/metrics test: ✔ calculateCagr returns zero for empty points (0.048ms)
-packages/metrics test: ✔ calculateCagr returns zero for single point (0.039458ms)
-packages/metrics test: ✔ calculateCagr computes positive value for growth (0.049ms)
-packages/metrics test: ✔ calculateCagr computes negative value for loss (0.042417ms)
-packages/metrics test: ✔ calculateCagr handles zero starting equity (0.034208ms)
-packages/metrics test: ✔ calculateCagr handles negative equity (0.039166ms)
-packages/metrics test: ✔ calculateCagr handles invalid timestamps (0.038875ms)
-packages/metrics test: ✔ calculateCagr handles same start and end time (0.041708ms)
-packages/metrics test: ✔ calculateCagr handles multi-year period (0.036542ms)
-packages/metrics test: ✔ calculateMetricsSummary aggregates metrics (0.091292ms)
-packages/metrics test: ✔ calculateMetricsSummary returns zeros for empty points (0.041167ms)
-packages/metrics test: ✔ calculateMetricsSummary computes totalPnl correctly (0.045042ms)
-packages/metrics test: ✔ calculateMetricsSummary computes totalReturn correctly (0.070042ms)
-packages/metrics test: ✔ calculateMetricsSummary handles negative returns (0.057917ms)
-packages/metrics test: ✔ calculateMetricsSummary handles zero starting equity (0.1895ms)
-packages/metrics test: ✔ calculateMetricsSummary all metrics are finite (0.110584ms)
-packages/metrics test: ✔ calculateMetricsSummary handles large equity values (0.074167ms)
-packages/risk test: ✔ risk limits are consistent with each other (0.051208ms)
-packages/logger test: ℹ tests 12
-packages/logger test: ℹ suites 0
-packages/logger test: ℹ pass 12
-packages/logger test: ℹ fail 0
-packages/logger test: ℹ cancelled 0
-packages/logger test: ℹ skipped 0
-packages/logger test: ℹ todo 0
-packages/logger test: ℹ duration_ms 782.681792
-packages/logger test: Done
-packages/metrics test: ℹ tests 45
-packages/metrics test: ℹ suites 0
-packages/metrics test: ℹ pass 45
-packages/metrics test: ℹ fail 0
-packages/metrics test: ℹ cancelled 0
-packages/metrics test: ℹ skipped 0
-packages/metrics test: ℹ todo 0
-packages/metrics test: ℹ duration_ms 799.462666
+packages/report test: ℹ duration_ms 665.705584
 packages/risk test: ℹ tests 12
 packages/risk test: ℹ suites 0
 packages/risk test: ℹ pass 12
@@ -133,58 +57,134 @@ packages/risk test: ℹ fail 0
 packages/risk test: ℹ cancelled 0
 packages/risk test: ℹ skipped 0
 packages/risk test: ℹ todo 0
-packages/risk test: ℹ duration_ms 796.281667
-packages/metrics test: Done
+packages/risk test: ℹ duration_ms 665.583709
+packages/report test: Done
 packages/risk test: Done
-packages/sdk test: (node:41790) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/sdk test$ node --loader ts-node/esm --test test/sdk-validation.test.ts test/strategies.test.ts test/strategy-config.test.ts
+packages/logger test: ✔ createLogger returns a logger with the correct module name (0.607125ms)
+packages/logger test: ✔ logger.log writes JSON formatted output to stdout (2.671083ms)
+packages/logger test: ✔ logger.debug calls log with debug level (0.257167ms)
+packages/logger test: ✔ logger.info calls log with info level (0.191208ms)
+packages/logger test: ✔ logger.warn calls log with warn level (0.166167ms)
+packages/logger test: ✔ logger.error writes to stderr and uses error level (0.183417ms)
+packages/logger test: ✔ logger includes runId in output when provided (0.164583ms)
+packages/logger test: ✔ logger excludes runId when not a string (0.90225ms)
+packages/logger test: ✔ logger handles empty metadata (0.1775ms)
+packages/logger test: ✔ logger handles complex metadata (1.073667ms)
+packages/logger test: ✔ logger timestamp is in ISO format (0.783042ms)
+packages/logger test: ✔ multiple loggers with different modules don't interfere (0.165125ms)
+packages/logger test: ℹ tests 12
+packages/logger test: ℹ suites 0
+packages/logger test: ℹ pass 12
+packages/logger test: ℹ fail 0
+packages/logger test: ℹ cancelled 0
+packages/logger test: ℹ skipped 0
+packages/logger test: ℹ todo 0
+packages/logger test: ℹ duration_ms 716.24025
+packages/logger test: Done
+packages/metrics test: ✔ calculateReturns computes sequential percentage returns (1.485541ms)
+packages/metrics test: ✔ calculateReturns returns empty array for empty input (0.086417ms)
+packages/metrics test: ✔ calculateReturns returns empty array for single point (0.073958ms)
+packages/metrics test: ✔ calculateReturns handles equity of zero gracefully (0.060458ms)
+packages/metrics test: ✔ calculateReturns handles negative equity (0.0595ms)
+packages/metrics test: ✔ calculateReturns computes returns for all positive equity (0.06525ms)
+packages/metrics test: ✔ calculateReturns handles flat equity curve (0.073208ms)
+packages/metrics test: ✔ calculateSharpe returns zero when variance is zero (0.141958ms)
+packages/metrics test: ✔ calculateSharpe returns zero for empty points (0.058208ms)
+packages/metrics test: ✔ calculateSharpe returns zero for single point (0.0955ms)
+packages/metrics test: ✔ calculateSharpe computes value for increasing equity (0.072958ms)
+packages/metrics test: ✔ calculateSharpe handles flat equity curve (0.061209ms)
+packages/metrics test: ✔ calculateSharpe with custom risk-free rate (0.039041ms)
+packages/metrics test: ✔ calculateSharpe handles volatile equity curve (0.041083ms)
+packages/metrics test: ✔ calculateSortino accounts for downside deviation (0.128917ms)
+packages/metrics test: ✔ calculateSortino returns zero for empty points (0.041916ms)
+packages/metrics test: ✔ calculateSortino returns zero when no downside (0.03725ms)
+packages/metrics test: ✔ calculateSortino handles all negative returns (0.036958ms)
+packages/metrics test: ✔ calculateSortino with custom risk-free rate (0.038667ms)
+packages/metrics test: ✔ calculateSortino handles mixed positive and negative returns (0.035792ms)
+packages/metrics test: ✔ calculateMaxDrawdown identifies largest drop (0.064959ms)
+packages/metrics test: ✔ calculateMaxDrawdown returns zero for empty points (0.033666ms)
+packages/metrics test: ✔ calculateMaxDrawdown returns zero for single point (0.032333ms)
+packages/metrics test: ✔ calculateMaxDrawdown returns zero for always increasing equity (0.034042ms)
+packages/metrics test: ✔ calculateMaxDrawdown handles severe drawdown (0.046333ms)
+packages/metrics test: ✔ calculateMaxDrawdown handles multiple drawdowns (0.04125ms)
+packages/metrics test: ✔ calculateMaxDrawdown handles equity going to zero (0.033291ms)
+packages/metrics test: ✔ calculateCagr handles chronological data (0.062083ms)
+packages/metrics test: ✔ calculateCagr returns zero for empty points (0.037584ms)
+packages/metrics test: ✔ calculateCagr returns zero for single point (0.030875ms)
+packages/metrics test: ✔ calculateCagr computes positive value for growth (0.053167ms)
+packages/metrics test: ✔ calculateCagr computes negative value for loss (0.046292ms)
+packages/metrics test: ✔ calculateCagr handles zero starting equity (0.032875ms)
+packages/metrics test: ✔ calculateCagr handles negative equity (0.041666ms)
+packages/metrics test: ✔ calculateCagr handles invalid timestamps (0.034667ms)
+packages/metrics test: ✔ calculateCagr handles same start and end time (0.038875ms)
+packages/metrics test: ✔ calculateCagr handles multi-year period (0.03625ms)
+packages/metrics test: ✔ calculateMetricsSummary aggregates metrics (0.085666ms)
+packages/metrics test: ✔ calculateMetricsSummary returns zeros for empty points (0.038959ms)
+packages/metrics test: ✔ calculateMetricsSummary computes totalPnl correctly (0.042166ms)
+packages/metrics test: ✔ calculateMetricsSummary computes totalReturn correctly (0.095667ms)
+packages/metrics test: ✔ calculateMetricsSummary handles negative returns (0.10875ms)
+packages/metrics test: ✔ calculateMetricsSummary handles zero starting equity (0.053875ms)
+packages/metrics test: ✔ calculateMetricsSummary all metrics are finite (0.074709ms)
+packages/metrics test: ✔ calculateMetricsSummary handles large equity values (0.049625ms)
+packages/metrics test: ℹ tests 45
+packages/metrics test: ℹ suites 0
+packages/metrics test: ℹ pass 45
+packages/metrics test: ℹ fail 0
+packages/metrics test: ℹ cancelled 0
+packages/metrics test: ℹ skipped 0
+packages/metrics test: ℹ todo 0
+packages/metrics test: ℹ duration_ms 760.827209
+packages/metrics test: Done
+packages/sdk test: (node:52128) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/sdk test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/sdk test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/sdk test: (node:41790) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/sdk test: (node:52128) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/sdk test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/sdk test: ✔ DataRequestSchema validates valid request (1.254458ms)
-packages/sdk test: ✔ DataRequestSchema rejects invalid source (0.3895ms)
-packages/sdk test: ✔ DataRequestSchema rejects empty symbol (0.12825ms)
-packages/sdk test: ✔ DataRequestSchema rejects invalid timeframe (0.09675ms)
-packages/sdk test: ✔ DataRequestSchema accepts all valid sources (0.161583ms)
-packages/sdk test: ✔ DataRequestSchema accepts all valid timeframes (0.117459ms)
-packages/sdk test: ✔ DataRequestSchema makes adjusted optional (0.063083ms)
-packages/sdk test: ✔ DataRequestSchema rejects non-boolean adjusted (0.078041ms)
-packages/sdk test: ✔ BacktestRequestSchema validates valid request (0.461084ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects empty runName (0.224208ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects empty data array (0.094875ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects negative fees (0.23625ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects non-positive initialCash (0.171083ms)
-packages/sdk test: ✔ BacktestRequestSchema accepts optional seed (0.116792ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects non-integer seed (0.113875ms)
-packages/sdk test: ✔ BacktestRequestSchema accepts valid metrics array (0.10575ms)
-packages/sdk test: ✔ BacktestRequestSchema rejects invalid metrics (0.174167ms)
-packages/sdk test: ✔ BacktestResultSchema validates valid result (0.121875ms)
-packages/sdk test: ✔ BacktestResultSchema rejects empty runId (0.072083ms)
-packages/sdk test: ✔ BacktestResultSchema makes reportMd optional (0.046625ms)
-packages/sdk test: ✔ RiskProfileSchema validates valid profile (0.052208ms)
-packages/sdk test: ✔ RiskProfileSchema rejects negative percentages (0.050292ms)
-packages/sdk test: ✔ RiskProfileSchema rejects negative cooldown (0.062834ms)
-packages/sdk test: ✔ RiskProfileSchema rejects non-integer cooldown (0.052334ms)
-packages/sdk test: ✔ assertValid returns parsed data for valid input (0.504666ms)
-packages/sdk test: ✔ assertValid throws Error for invalid input (0.3325ms)
-packages/sdk test: ✔ assertValid error message includes field path (0.085292ms)
-packages/sdk test: ✔ assertValid uses default label when not provided (0.107584ms)
-packages/sdk test: (node:41791) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/sdk test: ✔ DataRequestSchema validates valid request (1.2675ms)
+packages/sdk test: ✔ DataRequestSchema rejects invalid source (0.396917ms)
+packages/sdk test: ✔ DataRequestSchema rejects empty symbol (0.126541ms)
+packages/sdk test: ✔ DataRequestSchema rejects invalid timeframe (0.094875ms)
+packages/sdk test: ✔ DataRequestSchema accepts all valid sources (0.154666ms)
+packages/sdk test: ✔ DataRequestSchema accepts all valid timeframes (0.113625ms)
+packages/sdk test: ✔ DataRequestSchema makes adjusted optional (0.062125ms)
+packages/sdk test: ✔ DataRequestSchema rejects non-boolean adjusted (0.079084ms)
+packages/sdk test: ✔ BacktestRequestSchema validates valid request (0.356042ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects empty runName (0.153125ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects empty data array (0.084209ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects negative fees (0.114959ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects non-positive initialCash (0.088417ms)
+packages/sdk test: ✔ BacktestRequestSchema accepts optional seed (0.098083ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects non-integer seed (0.097708ms)
+packages/sdk test: ✔ BacktestRequestSchema accepts valid metrics array (0.491041ms)
+packages/sdk test: ✔ BacktestRequestSchema rejects invalid metrics (0.1385ms)
+packages/sdk test: ✔ BacktestResultSchema validates valid result (0.10725ms)
+packages/sdk test: ✔ BacktestResultSchema rejects empty runId (0.069292ms)
+packages/sdk test: ✔ BacktestResultSchema makes reportMd optional (0.059625ms)
+packages/sdk test: ✔ RiskProfileSchema validates valid profile (0.052541ms)
+packages/sdk test: ✔ RiskProfileSchema rejects negative percentages (0.050916ms)
+packages/sdk test: ✔ RiskProfileSchema rejects negative cooldown (0.046208ms)
+packages/sdk test: ✔ RiskProfileSchema rejects non-integer cooldown (0.048583ms)
+packages/sdk test: ✔ assertValid returns parsed data for valid input (0.482583ms)
+packages/sdk test: ✔ assertValid throws Error for invalid input (0.334833ms)
+packages/sdk test: ✔ assertValid error message includes field path (0.08575ms)
+packages/sdk test: ✔ assertValid uses default label when not provided (0.109875ms)
+packages/sdk test: (node:52129) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/sdk test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/sdk test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/sdk test: (node:41791) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/sdk test: (node:52129) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/sdk test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/sdk test: ✔ sma crossover emits buy and sell signals on crossovers (2.2945ms)
-packages/sdk test: ✔ momentum strategy reacts to sustained moves (0.30575ms)
-packages/sdk test: ✔ mean reversion strategy triggers on z-score extremes (0.240209ms)
-packages/sdk test: ✔ breakout strategy emits signals on range breaks (0.282333ms)
-packages/sdk test: (node:41793) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/sdk test: ✔ sma crossover emits buy and sell signals on crossovers (2.377ms)
+packages/sdk test: ✔ momentum strategy reacts to sustained moves (0.246209ms)
+packages/sdk test: ✔ mean reversion strategy triggers on z-score extremes (0.222917ms)
+packages/sdk test: ✔ breakout strategy emits signals on range breaks (0.265833ms)
+packages/sdk test: (node:52130) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/sdk test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/sdk test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/sdk test: (node:41793) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/sdk test: (node:52130) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/sdk test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/sdk test: ✔ all strategy defaults satisfy their schemas (1.182041ms)
-packages/sdk test: ✔ invalid SMA crossover params throw schema errors (0.198333ms)
+packages/sdk test: ✔ all strategy defaults satisfy their schemas (1.170917ms)
+packages/sdk test: ✔ invalid SMA crossover params throw schema errors (0.196833ms)
 packages/sdk test: ℹ tests 34
 packages/sdk test: ℹ suites 0
 packages/sdk test: ℹ pass 34
@@ -192,52 +192,55 @@ packages/sdk test: ℹ fail 0
 packages/sdk test: ℹ cancelled 0
 packages/sdk test: ℹ skipped 0
 packages/sdk test: ℹ todo 0
-packages/sdk test: ℹ duration_ms 931.74275
+packages/sdk test: ℹ duration_ms 880.342875
 packages/sdk test: Done
 apps/web test$ TS_NODE_COMPILER_OPTIONS='{"jsx":"react-jsx","allowImportingTsExtensions":true}' node --loader ts-node/esm --test test/api.test.ts test/new-run-helpers.test.ts test/date-range.test.ts test/strategy-controls.test.tsx
 packages/data test$ node --loader ts-node/esm --test test/csv-source.test.ts test/data-sources-errors.test.ts test/internal-utils.test.ts test/polygon-source.test.ts test/tiingo-source.test.ts
 packages/stats test$ node --loader ts-node/esm --test test/bootstrap.test.ts test/permutation.test.ts
-packages/stats test: (node:41904) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/stats test: (node:52206) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/stats test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/stats test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/stats test: (node:41904) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/stats test: (node:52206) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/stats test: (Use `node --trace-deprecation ...` to show where the warning was created)
-apps/web test: (node:41900) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
-apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
-apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
-apps/web test: (node:41900) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/data test: (node:41899) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/data test: (node:52205) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/data test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/data test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/data test: (node:41899) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/data test: (node:52205) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/data test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/stats test: ✔ runBootstrap returns valid structure (2.223459ms)
-packages/stats test: ✔ runBootstrap is reproducible with same seed (0.744167ms)
-packages/stats test: ✔ runBootstrap handles sharpe ratio (0.213375ms)
-packages/stats test: ✔ runBootstrap handles sortino ratio (0.293833ms)
-packages/stats test: ✔ runBootstrap handles total return (0.188208ms)
-packages/stats test: ✔ runBootstrap handles max drawdown (0.247583ms)
-packages/stats test: ✔ runBootstrap confidence interval contains point estimate with high probability (5.233791ms)
-packages/stats test: ✔ runBootstrap wider confidence level produces wider intervals (2.11525ms)
-packages/stats test: ✔ runBootstrap handles std_dev metric (0.538875ms)
-packages/stats test: ✔ runBootstrap throws on empty equity (1.063791ms)
-packages/stats test: ✔ interpretBootstrap produces readable output (0.568334ms)
-packages/stats test: ✔ interpretBootstrap handles different metrics (0.179958ms)
-packages/stats test: (node:41908) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+apps/web test: (node:52207) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:52207) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
+packages/stats test: ✔ runBootstrap returns valid structure (2.273416ms)
+packages/stats test: ✔ runBootstrap is reproducible with same seed (0.8075ms)
+packages/stats test: ✔ runBootstrap handles sharpe ratio (0.217833ms)
+packages/stats test: ✔ runBootstrap handles sortino ratio (0.250708ms)
+packages/stats test: ✔ runBootstrap handles total return (0.157667ms)
+packages/stats test: ✔ runBootstrap handles max drawdown (0.219958ms)
+packages/stats test: ✔ runBootstrap confidence interval contains point estimate with high probability (12.37025ms)
+packages/stats test: ✔ runBootstrap wider confidence level produces wider intervals (1.500625ms)
+packages/stats test: ✔ runBootstrap handles std_dev metric (0.211791ms)
+packages/stats test: ✔ runBootstrap throws on empty equity (0.317125ms)
+packages/stats test: ✔ interpretBootstrap produces readable output (0.105084ms)
+packages/stats test: ✔ interpretBootstrap handles different metrics (0.056833ms)
+packages/data test: ▶ CsvSource loads, dedupes, sorts, and caches bars
+packages/data test:   ✔ Cache invalidates after dataset change (3.151709ms)
+packages/data test: ✔ CsvSource loads, dedupes, sorts, and caches bars (21.520834ms)
+packages/stats test: (node:52210) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/stats test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/stats test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/stats test: (node:41908) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/stats test: (node:52210) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/stats test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/stats test: ✔ runPermutationTest returns valid structure (3.181041ms)
-packages/stats test: ✔ runPermutationTest is reproducible with same seed (1.117875ms)
-packages/stats test: ✔ runPermutationTest handles profitable strategy (0.429833ms)
-packages/stats test: ✔ runPermutationTest handles losing strategy (0.1725ms)
-packages/stats test: ✔ runPermutationTest handles max drawdown metric (0.173542ms)
-packages/stats test: ✔ runPermutationTest handles mixed wins and losses (0.31225ms)
-packages/stats test: ✔ interpretPermutationTest produces readable output for significant result (0.140208ms)
-packages/stats test: ✔ interpretPermutationTest produces readable output for non-significant result (0.069625ms)
-packages/stats test: ✔ runPermutationTest defaults alpha to 0.05 when not provided (0.081209ms)
+packages/stats test: ✔ runPermutationTest returns valid structure (2.662291ms)
+packages/stats test: ✔ runPermutationTest is reproducible with same seed (0.776375ms)
+packages/stats test: ✔ runPermutationTest handles profitable strategy (0.353375ms)
+packages/stats test: ✔ runPermutationTest handles losing strategy (0.25575ms)
+packages/stats test: ✔ runPermutationTest handles max drawdown metric (0.231416ms)
+packages/stats test: ✔ runPermutationTest handles mixed wins and losses (0.380208ms)
+packages/stats test: ✔ interpretPermutationTest produces readable output for significant result (0.119708ms)
+packages/stats test: ✔ interpretPermutationTest produces readable output for non-significant result (0.065875ms)
+packages/stats test: ✔ runPermutationTest defaults alpha to 0.05 when not provided (0.082916ms)
 packages/stats test: ℹ tests 21
 packages/stats test: ℹ suites 0
 packages/stats test: ℹ pass 21
@@ -245,107 +248,95 @@ packages/stats test: ℹ fail 0
 packages/stats test: ℹ cancelled 0
 packages/stats test: ℹ skipped 0
 packages/stats test: ℹ todo 0
-packages/stats test: ℹ duration_ms 2048.894084
+packages/stats test: ℹ duration_ms 1968.564917
 packages/stats test: Done
-packages/data test: ▶ CsvSource loads, dedupes, sorts, and caches bars
-packages/data test:   ✔ Cache invalidates after dataset change (2.569375ms)
-packages/data test: ✔ CsvSource loads, dedupes, sorts, and caches bars (10.7605ms)
-packages/data test: (node:41902) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/data test: (node:52209) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/data test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/data test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/data test: (node:41902) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/data test: (node:52209) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/data test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/data test: ✔ CsvSource throws descriptive error when file doesn't exist (4.492834ms)
-apps/web test: ✔ apiRoute normalizes paths and uses default base (38.064167ms)
-apps/web test: ✔ apiRoute respects NEXT_PUBLIC_API_BASE_URL override (10.053458ms)
-packages/data test: ✔ CsvSource handles malformed CSV gracefully (69.698167ms)
-packages/data test: ✔ CsvSource handles empty CSV file (8.443125ms)
-packages/data test: ✔ CsvSource handles CSV with only headers (4.486834ms)
-packages/data test: ✔ CsvSource handles missing required columns (3.148667ms)
-packages/data test: ✔ TiingoSource throws error when API key is missing (0.677583ms)
-packages/data test: ✔ TiingoSource requires start and end dates (0.122291ms)
-packages/data test: ✔ TiingoSource handles HTTP errors gracefully (2.561666ms)
-packages/data test: ✔ TiingoSource handles malformed JSON response (2.600917ms)
-packages/data test: ✔ TiingoSource handles empty response array (2.574167ms)
-packages/data test: ✔ TiingoSource handles non-array response (1.26225ms)
-packages/data test: ✔ PolygonSource throws error when API key is missing (0.234542ms)
-packages/data test: ✔ PolygonSource requires start and end dates (0.082042ms)
-apps/web test: (node:41901) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
-apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
-apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
-apps/web test: (node:41901) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
-apps/web test: ✔ computeAvailableRange picks tiingo range when available (0.798ms)
-apps/web test: ✔ computeAvailableRange aggregates auto range from remote sources (0.596458ms)
-apps/web test: ✔ computeAvailableRange falls back to csv coverage when remote missing (0.0885ms)
-apps/web test: ✔ computeAvailableRange returns null when no dataset exists (0.062458ms)
-packages/data test: ✔ PolygonSource handles HTTP errors (0.953333ms)
-packages/data test: ✔ PolygonSource handles missing results in response (4.006125ms)
-packages/data test: ✔ PolygonSource filters out bars with missing data (4.287083ms)
-packages/data test: ✔ PolygonSource handles invalid timestamp formats (2.814416ms)
-packages/data test: (node:41903) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/data test: ✔ CsvSource throws descriptive error when file doesn't exist (7.671917ms)
+packages/data test: ✔ CsvSource handles malformed CSV gracefully (7.840958ms)
+packages/data test: ✔ CsvSource handles empty CSV file (5.944417ms)
+packages/data test: ✔ CsvSource handles CSV with only headers (5.156291ms)
+packages/data test: ✔ CsvSource handles missing required columns (5.2305ms)
+packages/data test: ✔ TiingoSource throws error when API key is missing (0.767583ms)
+packages/data test: ✔ TiingoSource requires start and end dates (0.131208ms)
+packages/data test: ✔ TiingoSource handles HTTP errors gracefully (3.292042ms)
+packages/data test: ✔ TiingoSource handles malformed JSON response (1.056625ms)
+packages/data test: ✔ TiingoSource handles empty response array (3.796625ms)
+packages/data test: ✔ TiingoSource handles non-array response (1.7295ms)
+packages/data test: ✔ PolygonSource throws error when API key is missing (0.284167ms)
+packages/data test: ✔ PolygonSource requires start and end dates (0.083792ms)
+packages/data test: ✔ PolygonSource handles HTTP errors (1.731417ms)
+packages/data test: ✔ PolygonSource handles missing results in response (1.44325ms)
+packages/data test: ✔ PolygonSource filters out bars with missing data (3.419917ms)
+packages/data test: ✔ PolygonSource handles invalid timestamp formats (2.368542ms)
+apps/web test: ✔ apiRoute normalizes paths and uses default base (31.298042ms)
+apps/web test: ✔ apiRoute respects NEXT_PUBLIC_API_BASE_URL override (3.4055ms)
+packages/data test: (node:52212) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/data test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/data test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/data test: (node:41903) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/data test: (node:52212) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/data test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/data test: ✔ slugify converts uppercase to lowercase (2.210125ms)
-packages/data test: ✔ slugify replaces spaces with underscores (0.134ms)
-packages/data test: ✔ slugify replaces special characters with underscores (0.072416ms)
-packages/data test: ✔ slugify removes leading and trailing underscores (0.366458ms)
-packages/data test: ✔ slugify collapses consecutive special characters (0.181ms)
-packages/data test: ✔ slugify handles empty string (0.119375ms)
-packages/data test: ✔ slugify handles numeric strings (0.128875ms)
-packages/data test: ✔ slugify handles mixed alphanumeric (0.138708ms)
-packages/data test: ✔ slugify handles unicode characters (0.212833ms)
-packages/data test: ✔ sanitizeBar returns valid bar unchanged (1.333542ms)
-packages/data test: ✔ sanitizeBar returns null for null input (0.161166ms)
-packages/data test: ✔ sanitizeBar returns null for undefined input (0.098875ms)
-packages/data test: ✔ sanitizeBar returns null when timestamp is missing (0.141042ms)
-packages/data test: ✔ sanitizeBar returns null when timestamp is not a string (0.093458ms)
-packages/data test: ✔ sanitizeBar returns null when open is missing (0.113167ms)
-packages/data test: ✔ sanitizeBar returns null when open is not a number (0.088208ms)
-packages/data test: ✔ sanitizeBar returns null when high is missing (0.086542ms)
-packages/data test: ✔ sanitizeBar returns null when low is missing (0.086458ms)
-packages/data test: ✔ sanitizeBar returns null when close is missing (0.086333ms)
-packages/data test: ✔ sanitizeBar returns null when volume is missing (0.09675ms)
-packages/data test: ✔ sanitizeBar accepts bar with zero volume (0.103792ms)
-packages/data test: ✔ sanitizeBar accepts bar with negative prices (edge case) (0.101416ms)
-packages/data test: ✔ sanitizeBar filters out extra properties (0.190541ms)
-packages/data test: ✔ filterBarsForRequest includes bars within range (0.236125ms)
-packages/data test: ✔ filterBarsForRequest excludes bars before start (0.130875ms)
-packages/data test: ✔ filterBarsForRequest excludes bars after end (0.142208ms)
-packages/data test: ✔ filterBarsForRequest includes bars at exact boundaries (0.210958ms)
-packages/data test: ✔ filterBarsForRequest returns empty array when no bars match (0.07475ms)
-packages/data test: ✔ filterBarsForRequest excludes bars with invalid timestamps (0.064542ms)
-packages/data test: ✔ filterBarsForRequest handles empty bar array (0.062833ms)
-packages/data test: ✔ filterBarsForRequest handles missing start date (0.043584ms)
-packages/data test: ✔ filterBarsForRequest handles missing end date (0.057125ms)
-packages/data test: ✔ sortBarsChronologically sorts bars in ascending order (0.073208ms)
-packages/data test: ✔ sortBarsChronologically handles already sorted bars (0.050875ms)
-packages/data test: ✔ sortBarsChronologically handles empty array (0.040042ms)
-packages/data test: ✔ sortBarsChronologically handles single bar (0.051917ms)
-packages/data test: ✔ sortBarsChronologically handles bars with same timestamp (0.042792ms)
-packages/data test: ✔ sortBarsChronologically returns a new array (0.057ms)
-packages/data test: ✔ sortBarsChronologically does not mutate original array (0.047083ms)
-packages/data test: ✔ sortBarsChronologically handles bars with invalid timestamps (0.049333ms)
-packages/data test: ✔ sortBarsChronologically handles intraday timestamps correctly (0.048875ms)
-packages/data test: (node:41905) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/data test: ✔ slugify converts uppercase to lowercase (0.847833ms)
+packages/data test: ✔ slugify replaces spaces with underscores (0.0865ms)
+packages/data test: ✔ slugify replaces special characters with underscores (0.070166ms)
+packages/data test: ✔ slugify removes leading and trailing underscores (0.9205ms)
+packages/data test: ✔ slugify collapses consecutive special characters (0.078959ms)
+packages/data test: ✔ slugify handles empty string (0.052916ms)
+packages/data test: ✔ slugify handles numeric strings (0.058375ms)
+packages/data test: ✔ slugify handles mixed alphanumeric (0.060791ms)
+packages/data test: ✔ slugify handles unicode characters (0.063708ms)
+packages/data test: ✔ sanitizeBar returns valid bar unchanged (0.586083ms)
+packages/data test: ✔ sanitizeBar returns null for null input (0.072083ms)
+packages/data test: ✔ sanitizeBar returns null for undefined input (0.049083ms)
+packages/data test: ✔ sanitizeBar returns null when timestamp is missing (0.061291ms)
+packages/data test: ✔ sanitizeBar returns null when timestamp is not a string (0.051875ms)
+packages/data test: ✔ sanitizeBar returns null when open is missing (0.055333ms)
+packages/data test: ✔ sanitizeBar returns null when open is not a number (0.051625ms)
+packages/data test: ✔ sanitizeBar returns null when high is missing (0.044334ms)
+packages/data test: ✔ sanitizeBar returns null when low is missing (0.043458ms)
+packages/data test: ✔ sanitizeBar returns null when close is missing (0.041792ms)
+packages/data test: ✔ sanitizeBar returns null when volume is missing (0.042ms)
+packages/data test: ✔ sanitizeBar accepts bar with zero volume (0.051833ms)
+packages/data test: ✔ sanitizeBar accepts bar with negative prices (edge case) (0.050292ms)
+packages/data test: ✔ sanitizeBar filters out extra properties (0.1025ms)
+packages/data test: ✔ filterBarsForRequest includes bars within range (0.11425ms)
+packages/data test: ✔ filterBarsForRequest excludes bars before start (0.065083ms)
+packages/data test: ✔ filterBarsForRequest excludes bars after end (0.061125ms)
+packages/data test: ✔ filterBarsForRequest includes bars at exact boundaries (0.05875ms)
+packages/data test: ✔ filterBarsForRequest returns empty array when no bars match (0.052958ms)
+packages/data test: ✔ filterBarsForRequest excludes bars with invalid timestamps (0.051208ms)
+packages/data test: ✔ filterBarsForRequest handles empty bar array (0.052709ms)
+packages/data test: ✔ filterBarsForRequest handles missing start date (0.0505ms)
+packages/data test: ✔ filterBarsForRequest handles missing end date (0.054833ms)
+packages/data test: ✔ sortBarsChronologically sorts bars in ascending order (0.0795ms)
+packages/data test: ✔ sortBarsChronologically handles already sorted bars (0.059042ms)
+packages/data test: ✔ sortBarsChronologically handles empty array (0.049792ms)
+packages/data test: ✔ sortBarsChronologically handles single bar (0.062583ms)
+packages/data test: ✔ sortBarsChronologically handles bars with same timestamp (0.053958ms)
+packages/data test: ✔ sortBarsChronologically returns a new array (0.066542ms)
+packages/data test: ✔ sortBarsChronologically does not mutate original array (0.0635ms)
+packages/data test: ✔ sortBarsChronologically handles bars with invalid timestamps (0.054291ms)
+packages/data test: ✔ sortBarsChronologically handles intraday timestamps correctly (0.0585ms)
+packages/data test: (node:52213) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/data test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/data test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/data test: (node:41905) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/data test: (node:52213) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/data test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/data test: ✔ PolygonSource fetches, caches, and filters aggregates (26.461083ms)
-packages/data test: (node:41906) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+packages/data test: ✔ PolygonSource fetches, caches, and filters aggregates (10.374709ms)
+packages/data test: (node:52215) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 packages/data test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 packages/data test: (Use `node --trace-warnings ...` to show where the warning was created)
-packages/data test: (node:41906) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+packages/data test: (node:52215) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 packages/data test: (Use `node --trace-deprecation ...` to show where the warning was created)
-packages/data test: ✔ TiingoSource fetches, caches, and filters bars (13.270666ms)
-packages/data test: ✔ TiingoSource clamps future end dates before requesting data (5.421875ms)
-packages/data test: ✔ TiingoSource skips HTTP requests when entire range is in the future (0.802166ms)
-packages/data test: ✔ TiingoSource retries with an earlier end date after Tiingo rejects the range (1.883083ms)
-packages/data test: ✔ TiingoSource splits long requests into multiple chunks (3.361667ms)
-packages/data test: ✔ TiingoSource retries after rate limit by waiting before reissuing the same chunk (1.362375ms)
+packages/data test: ✔ TiingoSource fetches, caches, and filters bars (14.226542ms)
+packages/data test: ✔ TiingoSource clamps future end dates before requesting data (8.123833ms)
+packages/data test: ✔ TiingoSource skips HTTP requests when entire range is in the future (0.974667ms)
+packages/data test: ✔ TiingoSource retries with an earlier end date after Tiingo rejects the range (2.127375ms)
+packages/data test: ✔ TiingoSource splits long requests into multiple chunks (4.302625ms)
+packages/data test: ✔ TiingoSource retries after rate limit by waiting before reissuing the same chunk (2.332542ms)
 packages/data test: ℹ tests 67
 packages/data test: ℹ suites 0
 packages/data test: ℹ pass 67
@@ -353,36 +344,45 @@ packages/data test: ℹ fail 0
 packages/data test: ℹ cancelled 0
 packages/data test: ℹ skipped 0
 packages/data test: ℹ todo 0
-packages/data test: ℹ duration_ms 2449.135208
+packages/data test: ℹ duration_ms 2144.596209
 packages/data test: Done
-apps/web test: (node:41907) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+apps/web test: (node:52208) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
-apps/web test: (node:41907) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+apps/web test: (node:52208) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
-apps/web test: ✔ generateRunName slugs strings and lowercases (0.922917ms)
-apps/web test: ✔ buildDatasetOverride returns undefined when flag or dataset missing (0.110833ms)
-apps/web test: ✔ buildDatasetOverride maps dataset fields when provided (1.205167ms)
-apps/web test: ✔ buildDatasetOverride falls back to current date when dataset is missing range (0.15375ms)
-apps/web test: ✔ buildRequestSafely returns a fully typed BacktestRequest (1.316375ms)
-apps/web test: ✔ buildRequestSafely omits metrics when list is empty (0.123708ms)
-apps/web test: ✔ buildRequestSafely surfaces strategy validation errors (0.54925ms)
-apps/web test: ✔ buildRequestSafely handles optional seed and numeric coercion (0.133333ms)
-apps/web test: ✔ buildRequestSafely surfaces errors for missing run name (0.199666ms)
-apps/web test: ✔ buildRequestSafely requires non-empty symbol (0.141834ms)
-apps/web test: ✔ buildRequestSafely validates timeframe values (0.090625ms)
-apps/web test: ✔ buildRequestSafely validates date format and ordering (0.093708ms)
-apps/web test: ✔ buildRequestSafely rejects negative or invalid numeric fields (0.100959ms)
-apps/web test: ✔ buildRequestSafely applies dataset override when present (0.152292ms)
-apps/web test: ✔ buildRequestSafely validates dataset override contents (0.084375ms)
-apps/web test: (node:41909) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+apps/web test: ✔ computeAvailableRange picks tiingo range when available (0.697708ms)
+apps/web test: ✔ computeAvailableRange aggregates auto range from remote sources (0.567792ms)
+apps/web test: ✔ computeAvailableRange falls back to csv coverage when remote missing (0.088375ms)
+apps/web test: ✔ computeAvailableRange returns null when no dataset exists (0.061625ms)
+apps/web test: (node:52211) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
 apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
-apps/web test: (node:41909) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+apps/web test: (node:52211) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
-apps/web test: ✔ mapZodIssues maps field errors to a lookup object (0.922625ms)
-apps/web test: ✔ StrategyControls renders inputs with expected defaults (55.237958ms)
-apps/web test: ✔ StrategyControls surfaces field errors next to the input (3.178166ms)
+apps/web test: ✔ generateRunName slugs strings and lowercases (0.773625ms)
+apps/web test: ✔ buildDatasetOverride returns undefined when flag or dataset missing (0.103208ms)
+apps/web test: ✔ buildDatasetOverride maps dataset fields when provided (1.250916ms)
+apps/web test: ✔ buildDatasetOverride falls back to current date when dataset is missing range (0.165333ms)
+apps/web test: ✔ buildRequestSafely returns a fully typed BacktestRequest (1.345334ms)
+apps/web test: ✔ buildRequestSafely omits metrics when list is empty (0.146708ms)
+apps/web test: ✔ buildRequestSafely surfaces strategy validation errors (0.431542ms)
+apps/web test: ✔ buildRequestSafely handles optional seed and numeric coercion (0.116208ms)
+apps/web test: ✔ buildRequestSafely surfaces errors for missing run name (0.168583ms)
+apps/web test: ✔ buildRequestSafely requires non-empty symbol (0.191708ms)
+apps/web test: ✔ buildRequestSafely validates timeframe values (0.088ms)
+apps/web test: ✔ buildRequestSafely validates date format and ordering (0.111334ms)
+apps/web test: ✔ buildRequestSafely rejects negative or invalid numeric fields (0.182375ms)
+apps/web test: ✔ buildRequestSafely applies dataset override when present (0.152125ms)
+apps/web test: ✔ buildRequestSafely validates dataset override contents (0.094458ms)
+apps/web test: (node:52214) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+apps/web test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:52214) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+apps/web test: (Use `node --trace-deprecation ...` to show where the warning was created)
+apps/web test: ✔ mapZodIssues maps field errors to a lookup object (0.914459ms)
+apps/web test: ✔ StrategyControls renders inputs with expected defaults (56.22875ms)
+apps/web test: ✔ StrategyControls surfaces field errors next to the input (3.064083ms)
 apps/web test: ℹ tests 24
 apps/web test: ℹ suites 0
 apps/web test: ℹ pass 24
@@ -390,7 +390,7 @@ apps/web test: ℹ fail 0
 apps/web test: ℹ cancelled 0
 apps/web test: ℹ skipped 0
 apps/web test: ℹ todo 0
-apps/web test: ℹ duration_ms 3815.218166
+apps/web test: ℹ duration_ms 3489.236
 apps/web test: Done
 packages/engine test$ tsc -p tsconfig.test.json && node --test dist-test/test/engine.test.js dist-test/test/engine-integration.test.js
 packages/engine test: [customStrategyLoader] Loading custom strategies from: /Users/gong/Programming/Projects/crucible-trader/packages/storage/strategies/custom
@@ -419,8 +419,8 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Custom strategies loaded
-packages/engine test: ✔ runBacktest fails when data source file is missing (6.944ms)
-packages/engine test: ✔ runBacktest fails with empty data array (0.682042ms)
+packages/engine test: ✔ runBacktest fails when data source file is missing (5.372333ms)
+packages/engine test: ✔ runBacktest fails with empty data array (0.581709ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "nonexistent_strategy"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -429,7 +429,7 @@ packages/engine test:   'mean_reversion',
 packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
-packages/engine test: ✖ runBacktest fails with unknown strategy (6.055167ms)
+packages/engine test: ✔ runBacktest fails with unknown strategy (4.106292ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "sma_crossover"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -439,7 +439,7 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest validates strategy parameters (3.488667ms)
+packages/engine test: ✔ runBacktest validates strategy parameters (2.679875ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "sma_crossover"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -458,9 +458,9 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest generates deterministic results with same seed (50.455125ms)
-packages/engine test: ✔ runBacktest handles zero initial cash (1.183416ms)
-packages/engine test: ✔ runBacktest handles negative costs (1.090625ms)
+packages/engine test: ✔ runBacktest generates deterministic results with same seed (52.268084ms)
+packages/engine test: ✔ runBacktest handles zero initial cash (1.232833ms)
+packages/engine test: ✔ runBacktest handles negative costs (0.959166ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "sma_crossover"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -470,7 +470,7 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest creates all required artifacts (22.800125ms)
+packages/engine test: ✔ runBacktest creates all required artifacts (22.289583ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "sma_crossover"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -480,8 +480,8 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest enforces risk limits - kill switch on drawdown (24.277417ms)
-packages/engine test: ✔ runBacktest handles invalid date ranges (0.546458ms)
+packages/engine test: ✔ runBacktest enforces risk limits - kill switch on drawdown (23.550625ms)
+packages/engine test: ✔ runBacktest handles invalid date ranges (0.560333ms)
 packages/engine test: [engine] Attempting to instantiate strategy: "sma_crossover"
 packages/engine test: [engine] Available strategies: [
 packages/engine test:   'sma_crossover',
@@ -491,7 +491,7 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest validates all metric keys are recognized (19.799375ms)
+packages/engine test: ✔ runBacktest validates all metric keys are recognized (19.307584ms)
 packages/engine test: [customStrategyLoader] Loading custom strategies from: /Users/gong/Programming/Projects/crucible-trader/packages/storage/strategies/custom
 packages/engine test: [engine] Waiting for custom strategies to load...
 packages/engine test: [customStrategyLoader] Could not load custom strategies: Error: ENOENT: no such file or directory, scandir '/Users/gong/Programming/Projects/crucible-trader/packages/storage/strategies/custom'
@@ -524,52 +524,150 @@ packages/engine test:   'breakout',
 packages/engine test:   'chaos_trader'
 packages/engine test: ]
 packages/engine test: [engine] Found strategy module for "sma_crossover"
-packages/engine test: ✔ runBacktest executes SMA crossover strategy successfully (36.761375ms)
+packages/engine test: ✔ runBacktest executes SMA crossover strategy successfully (34.607917ms)
 packages/engine test: ℹ tests 12
 packages/engine test: ℹ suites 0
-packages/engine test: ℹ pass 11
-packages/engine test: ℹ fail 1
+packages/engine test: ℹ pass 12
+packages/engine test: ℹ fail 0
 packages/engine test: ℹ cancelled 0
 packages/engine test: ℹ skipped 0
 packages/engine test: ℹ todo 0
-packages/engine test: ℹ duration_ms 374.725042
-packages/engine test: ✖ failing tests:
-packages/engine test: test at dist-test/test/engine-integration.test.js:77:1
-packages/engine test: ✖ runBacktest fails with unknown strategy (6.055167ms)
-packages/engine test:   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
-packages/engine test:   + actual - expected
-packages/engine test:   
-packages/engine test:     Comparison {
-packages/engine test:   +   message: 'Strategy not found: "nonexistent_strategy"\n' +
-packages/engine test:   +     'Available strategies: sma_crossover, momentum, mean_reversion, breakout, chaos_trader\n' +
-packages/engine test:   +     'Did you mean one of these? Check spelling and case sensitivity.'
-packages/engine test:   -   message: /Unknown strategy/
-packages/engine test:     }
-packages/engine test:   
-packages/engine test:       at async TestContext.<anonymous> (file:///Users/gong/Programming/Projects/crucible-trader/packages/engine/dist-test/test/engine-integration.test.js:97:5)
-packages/engine test:       at async Test.run (node:internal/test_runner/test:1113:7)
-packages/engine test:       at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
-packages/engine test:     generatedMessage: true,
-packages/engine test:     code: 'ERR_ASSERTION',
-packages/engine test:     actual: Error: Strategy not found: "nonexistent_strategy"
-packages/engine test:     Available strategies: sma_crossover, momentum, mean_reversion, breakout, chaos_trader
-packages/engine test:     Did you mean one of these? Check spelling and case sensitivity.
-packages/engine test:         at instantiateStrategy (file:///Users/gong/Programming/Projects/crucible-trader/packages/engine/dist-test/src/engine.js:210:15)
-packages/engine test:         at runBacktest (file:///Users/gong/Programming/Projects/crucible-trader/packages/engine/dist-test/src/engine.js:137:22)
-packages/engine test:         at async assert.rejects.message (file:///Users/gong/Programming/Projects/crucible-trader/packages/engine/dist-test/test/engine-integration.test.js:98:9)
-packages/engine test:         at async waitForActual (node:assert:646:5)
-packages/engine test:         at async strict.rejects (node:assert:769:25)
-packages/engine test:         at async TestContext.<anonymous> (file:///Users/gong/Programming/Projects/crucible-trader/packages/engine/dist-test/test/engine-integration.test.js:97:5)
-packages/engine test:         at async Test.run (node:internal/test_runner/test:1113:7)
-packages/engine test:         at async Test.processPendingSubtests (node:internal/test_runner/test:788:7),
-packages/engine test:     expected: { message: /Unknown strategy/ },
-packages/engine test:     operator: 'rejects',
-packages/engine test:     diff: 'simple'
-packages/engine test:   }
-packages/engine test: Failed
-/Users/gong/Programming/Projects/crucible-trader/packages/engine:
- ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @crucible-trader/engine@0.0.1 test: `tsc -p tsconfig.test.json && node --test dist-test/test/engine.test.js dist-test/test/engine-integration.test.js`
-Exit status 1
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     Detailed output saved to test-output.log
-
- ELIFECYCLE  Test failed. See above for more details.
+packages/engine test: ℹ duration_ms 334.90325
+packages/engine test: Done
+services/api test$ pnpm run build && node --loader ts-node/esm --test src/db/index.test.ts test/queue.test.ts test/dataset-ensurer.test.ts && node test/runs.e2e.test.js
+services/api test: > @crucible-trader/api@0.0.1 build /Users/gong/Programming/Projects/crucible-trader/services/api
+services/api test: > tsc -p .
+services/api test: (node:52416) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+services/api test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+services/api test: (Use `node --trace-warnings ...` to show where the warning was created)
+services/api test: (node:52416) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+services/api test: (Use `node --trace-deprecation ...` to show where the warning was created)
+services/api test: ✔ insertRun persists metadata and listRuns returns it (59.765208ms)
+services/api test: ✔ saveRunResult stores summary and artifacts for later retrieval (3.130625ms)
+services/api test: ✔ reset clears runs and artifacts tables (2.311417ms)
+services/api test: ✔ upsertDataset persists metadata (1.836125ms)
+services/api test: ✔ risk profiles can be stored and retrieved (2.250333ms)
+services/api test: ✔ stat tests can be stored and retrieved (1.731959ms)
+services/api test: (node:52417) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+services/api test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+services/api test: (Use `node --trace-warnings ...` to show where the warning was created)
+services/api test: (node:52417) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+services/api test: (Use `node --trace-deprecation ...` to show where the warning was created)
+services/api test: ✔ clampDataRequestRange truncates future end dates (2.143417ms)
+services/api test: ✔ clampDataRequestRange snaps start to clamped end when entire range is future (0.178292ms)
+services/api test: ✔ clampDataRequestRange returns original reference when range already valid (0.078417ms)
+services/api test: (node:52418) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+services/api test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+services/api test: (Use `node --trace-warnings ...` to show where the warning was created)
+services/api test: (node:52418) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+services/api test: (Use `node --trace-deprecation ...` to show where the warning was created)
+services/api test: ✔ JobQueue can be instantiated with database (4.089542ms)
+services/api test: ✔ JobQueue accepts custom poll interval (1.132084ms)
+services/api test: ✔ JobQueue.onJob registers handler and starts polling (203.241125ms)
+services/api test: ✔ JobQueue processes queued jobs (224.5115ms)
+services/api test: ✔ JobQueue.stop stops polling (275.297958ms)
+services/api test: ✔ JobQueue updates job status to processing (74.500417ms)
+services/api test: ✔ JobQueue handles handler errors gracefully (104.295416ms)
+services/api test: ✔ JobQueue handles invalid JSON in requestJson (102.384083ms)
+services/api test: ✔ JobQueue supports multiple handlers (101.964834ms)
+services/api test: ✔ JobQueue.enqueue triggers immediate poll (1.75725ms)
+services/api test: ✔ JobQueue does not process same job twice (201.718375ms)
+services/api test: ✔ JobQueue ignores jobs with status other than queued (153.851834ms)
+services/api test: ✔ JobQueue processes jobs in order (325.585917ms)
+services/api test: ℹ tests 22
+services/api test: ℹ suites 0
+services/api test: ℹ pass 22
+services/api test: ℹ fail 0
+services/api test: ℹ cancelled 0
+services/api test: ℹ skipped 0
+services/api test: ℹ todo 0
+services/api test: ℹ duration_ms 2897.832708
+services/api test: [customStrategyLoader] Loading custom strategies from: /Users/gong/Programming/Projects/crucible-trader/storage/strategies/custom
+services/api test: [customStrategyLoader] Found files: [
+services/api test:   '.gitkeep',
+services/api test:   'README.md',
+services/api test:   'coil-pulse-reverter.ts',
+services/api test:   'simple-sma-crossover.meta.json',
+services/api test:   'simple-sma-crossover.ts',
+services/api test:   'tsconfig.json'
+services/api test: ]
+services/api test: [customStrategyLoader] Strategy files to load: [ 'coil-pulse-reverter.ts', 'simple-sma-crossover.ts' ]
+services/api test: [customStrategyLoader] ✓ Loaded custom strategy: coil-pulse-reverter (coil-pulse-reverter.ts)
+services/api test: [customStrategyLoader] ✓ Loaded custom strategy: Simple SMA Crossover (simple-sma-crossover.ts)
+services/api test: [customStrategyLoader] Successfully loaded 2 custom strategies: [ 'coil-pulse-reverter', 'Simple SMA Crossover' ]
+services/api test: [engine] Registering 2 custom strategies into STRATEGY_REGISTRY
+services/api test: [engine] Total strategies registered: [
+services/api test:   'sma_crossover',
+services/api test:   'momentum',
+services/api test:   'mean_reversion',
+services/api test:   'breakout',
+services/api test:   'chaos_trader',
+services/api test:   'coil-pulse-reverter',
+services/api test:   'Simple SMA Crossover'
+services/api test: ]
+services/api test: [engine] Attempting to instantiate strategy: "sma_crossover"
+services/api test: [engine] Available strategies: [
+services/api test:   'sma_crossover',
+services/api test:   'momentum',
+services/api test:   'mean_reversion',
+services/api test:   'breakout',
+services/api test:   'chaos_trader',
+services/api test:   'coil-pulse-reverter',
+services/api test:   'Simple SMA Crossover'
+services/api test: ]
+services/api test: [engine] Found strategy module for "sma_crossover"
+services/api test: ✔ POST /api/runs executes a backtest end-to-end (76.781833ms)
+services/api test: ℹ tests 1
+services/api test: ℹ suites 0
+services/api test: ℹ pass 1
+services/api test: ℹ fail 0
+services/api test: ℹ cancelled 0
+services/api test: ℹ skipped 0
+services/api test: ℹ todo 0
+services/api test: ℹ duration_ms 79.669708
+services/api test: Done
+services/backtest-worker test$ CRUCIBLE_WORKER_AUTOSTART=false node --loader ts-node/esm --test test/backtest-worker.test.ts
+services/backtest-worker test: (node:52615) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+services/backtest-worker test: --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+services/backtest-worker test: (Use `node --trace-warnings ...` to show where the warning was created)
+services/backtest-worker test: (node:52615) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+services/backtest-worker test: (Use `node --trace-deprecation ...` to show where the warning was created)
+services/backtest-worker test: [customStrategyLoader] Loading custom strategies from: /Users/gong/Programming/Projects/crucible-trader/storage/strategies/custom
+services/backtest-worker test: [dotenv@17.2.3] injecting env (2) from ../../.env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+services/backtest-worker test: [dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+services/backtest-worker test: [customStrategyLoader] Found files: [
+services/backtest-worker test:   '.gitkeep',
+services/backtest-worker test:   'README.md',
+services/backtest-worker test:   'coil-pulse-reverter.ts',
+services/backtest-worker test:   'simple-sma-crossover.meta.json',
+services/backtest-worker test:   'simple-sma-crossover.ts',
+services/backtest-worker test:   'tsconfig.json'
+services/backtest-worker test: ]
+services/backtest-worker test: [customStrategyLoader] Strategy files to load: [ 'coil-pulse-reverter.ts', 'simple-sma-crossover.ts' ]
+services/backtest-worker test: [customStrategyLoader] ✓ Loaded custom strategy: coil-pulse-reverter (coil-pulse-reverter.ts)
+services/backtest-worker test: [customStrategyLoader] ✓ Loaded custom strategy: Simple SMA Crossover (simple-sma-crossover.ts)
+services/backtest-worker test: [customStrategyLoader] Successfully loaded 2 custom strategies: [ 'coil-pulse-reverter', 'Simple SMA Crossover' ]
+services/backtest-worker test: [engine] Registering 2 custom strategies into STRATEGY_REGISTRY
+services/backtest-worker test: [engine] Total strategies registered: [
+services/backtest-worker test:   'sma_crossover',
+services/backtest-worker test:   'momentum',
+services/backtest-worker test:   'mean_reversion',
+services/backtest-worker test:   'breakout',
+services/backtest-worker test:   'chaos_trader',
+services/backtest-worker test:   'coil-pulse-reverter',
+services/backtest-worker test:   'Simple SMA Crossover'
+services/backtest-worker test: ]
+services/backtest-worker test: ✔ createManifestWriter writes manifest with defaults and dataset metadata (10.328375ms)
+services/backtest-worker test: ✔ createManifestWriter keeps explicit report path and metadata (5.502708ms)
+services/backtest-worker test: ✔ createJobHandler processes job successfully and persists result (2.301209ms)
+services/backtest-worker test: ✔ createJobHandler skips risk profile lookup when not provided (0.175584ms)
+services/backtest-worker test: ✔ createJobHandler marks runs as failed when runBacktest throws (1.161958ms)
+services/backtest-worker test: ℹ tests 5
+services/backtest-worker test: ℹ suites 0
+services/backtest-worker test: ℹ pass 5
+services/backtest-worker test: ℹ fail 0
+services/backtest-worker test: ℹ cancelled 0
+services/backtest-worker test: ℹ skipped 0
+services/backtest-worker test: ℹ todo 0
+services/backtest-worker test: ℹ duration_ms 933.759541
+services/backtest-worker test: Done

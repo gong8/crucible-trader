@@ -115,7 +115,7 @@ test("runBacktest fails with unknown strategy", async (t) => {
       await runBacktest(request);
     },
     {
-      message: /Unknown strategy/,
+      message: /Strategy not found/,
     },
   );
 });
