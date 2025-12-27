@@ -40,19 +40,23 @@ export default function OptimizePage(): JSX.Element {
   const [strategyName, setStrategyName] = useState<StrategyKey>("sma_crossover");
   const [paramGrid, setParamGrid] = useState<Record<string, ParamGridValue>>({});
   const [objective, setObjective] = useState("sharpe");
-  const [minTrades, setMinTrades] = useState(10);
-  const [maxDrawdown, setMaxDrawdown] = useState(-0.3);
+  const [minTrades, setMinTrades] = useState<number | "">(10);
+  const [maxDrawdown, setMaxDrawdown] = useState<number | "">(-0.3);
   const [enableWalkForward, setEnableWalkForward] = useState(false);
-  const [inSampleMonths, setInSampleMonths] = useState(12);
-  const [outSampleMonths, setOutSampleMonths] = useState(3);
+  const [inSampleMonths, setInSampleMonths] = useState<number | "">(12);
+  const [outSampleMonths, setOutSampleMonths] = useState<number | "">(3);
   const [symbol, setSymbol] = useState("AAPL");
   const [startDate, setStartDate] = useState("2020-01-01");
   const [endDate, setEndDate] = useState("2024-12-31");
-  const [initialCash, setInitialCash] = useState(100000);
+  const [initialCash, setInitialCash] = useState<number | "">(100000);
   const [jobName, setJobName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [jobs, setJobs] = useState<OptimizationJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [jobDetails, setJobDetails] = useState<
     | (OptimizationJob & {
         allResults?: CombinationResult[];
@@ -132,11 +136,11 @@ export default function OptimizePage(): JSX.Element {
     }
   };
 
-  const updateDiscreteValue = (paramKey: string, index: number, value: number): void => {
+  const updateDiscreteValue = (paramKey: string, index: number, value: number | ""): void => {
     const current = paramGrid[paramKey];
     if (current?.type === "discrete" && current.discrete) {
       const updated = [...current.discrete];
-      updated[index] = value;
+      updated[index] = value === "" ? 0 : value;
       setParamGrid({
         ...paramGrid,
         [paramKey]: {
@@ -186,7 +190,7 @@ export default function OptimizePage(): JSX.Element {
     });
   };
 
-  const updateRange = (paramKey: string, field: keyof ParamRange, value: number): void => {
+  const updateRange = (paramKey: string, field: keyof ParamRange, value: number | ""): void => {
     const current = paramGrid[paramKey];
     if (current?.type === "range" && current.range) {
       setParamGrid({
@@ -195,7 +199,7 @@ export default function OptimizePage(): JSX.Element {
           ...current,
           range: {
             ...current.range,
-            [field]: value,
+            [field]: value === "" ? 0 : value,
           },
         },
       });
@@ -218,16 +222,47 @@ export default function OptimizePage(): JSX.Element {
 
   const handleSubmit = async (): Promise<void> => {
     setSubmitting(true);
+    setNotification(null);
+
     try {
-      // Convert param grid to API format
+      // Validate inputs
+      if (!symbol || symbol.trim() === "") {
+        setNotification({ type: "error", message: "Symbol is required" });
+        setSubmitting(false);
+        return;
+      }
+
+      if (!startDate || !endDate) {
+        setNotification({ type: "error", message: "Start and end dates are required" });
+        setSubmitting(false);
+        return;
+      }
+
+      // Convert param grid to API format and validate
       const apiParamGrid: Record<string, number[] | ParamRange> = {};
+      let hasValidParams = false;
+
       Object.entries(paramGrid).forEach(([key, value]) => {
-        if (value.type === "discrete" && value.discrete) {
+        if (value.type === "discrete" && value.discrete && value.discrete.length > 0) {
           apiParamGrid[key] = value.discrete;
+          hasValidParams = true;
         } else if (value.type === "range" && value.range) {
-          apiParamGrid[key] = value.range;
+          const { min, max, step } = value.range;
+          if (max > min && step > 0) {
+            apiParamGrid[key] = value.range;
+            hasValidParams = true;
+          }
         }
       });
+
+      if (!hasValidParams) {
+        setNotification({
+          type: "error",
+          message: "At least one valid parameter must be configured for optimization",
+        });
+        setSubmitting(false);
+        return;
+      }
 
       const request = {
         name: jobName || `Optimize ${strategyName} - ${new Date().toLocaleString()}`,
@@ -247,7 +282,7 @@ export default function OptimizePage(): JSX.Element {
             feeBps: 1,
             slippageBps: 2,
           },
-          initialCash,
+          initialCash: initialCash === "" ? 100000 : initialCash,
           seed: 42,
         },
         strategy: {
@@ -256,13 +291,13 @@ export default function OptimizePage(): JSX.Element {
         paramGrid: apiParamGrid,
         objective,
         constraints: {
-          minTrades,
-          maxDrawdown,
+          minTrades: minTrades === "" ? 10 : minTrades,
+          maxDrawdown: maxDrawdown === "" ? -0.3 : maxDrawdown,
         },
         ...(enableWalkForward && {
           walkForward: {
-            inSampleMonths,
-            outSampleMonths,
+            inSampleMonths: inSampleMonths === "" ? 12 : inSampleMonths,
+            outSampleMonths: outSampleMonths === "" ? 3 : outSampleMonths,
             anchored: false,
           },
         }),
@@ -276,14 +311,23 @@ export default function OptimizePage(): JSX.Element {
 
       if (response.ok) {
         const data = await response.json();
-        alert(`Optimization job created: ${data.optId}`);
+        setNotification({
+          type: "success",
+          message: `Optimization job created: ${data.optId}`,
+        });
         setSelectedJob(data.optId);
       } else {
-        const error = await response.json();
-        alert(`Failed to create optimization: ${error.error}`);
+        const errorData = await response.json();
+        setNotification({
+          type: "error",
+          message: errorData.message || errorData.error || "Failed to create optimization",
+        });
       }
     } catch (error) {
-      alert(`Error: ${error}`);
+      setNotification({
+        type: "error",
+        message: error instanceof Error ? error.message : "An unexpected error occurred",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -376,7 +420,15 @@ export default function OptimizePage(): JSX.Element {
                 <input
                   type="number"
                   value={initialCash}
-                  onChange={(e) => setInitialCash(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setInitialCash(val === "" ? "" : Number(val));
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      setInitialCash(100000);
+                    }
+                  }}
                   step="1000"
                 />
               </label>
@@ -458,9 +510,10 @@ export default function OptimizePage(): JSX.Element {
                           <input
                             type="number"
                             value={value}
-                            onChange={(e) =>
-                              updateDiscreteValue(field.key, idx, Number(e.target.value))
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateDiscreteValue(field.key, idx, val === "" ? "" : Number(val));
+                            }}
                             step={field.step}
                             style={{ flex: 1 }}
                           />
@@ -502,7 +555,10 @@ export default function OptimizePage(): JSX.Element {
                         <input
                           type="number"
                           value={gridValue.range.min}
-                          onChange={(e) => updateRange(field.key, "min", Number(e.target.value))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateRange(field.key, "min", val === "" ? "" : Number(val));
+                          }}
                           step={field.step}
                         />
                       </label>
@@ -511,7 +567,10 @@ export default function OptimizePage(): JSX.Element {
                         <input
                           type="number"
                           value={gridValue.range.max}
-                          onChange={(e) => updateRange(field.key, "max", Number(e.target.value))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateRange(field.key, "max", val === "" ? "" : Number(val));
+                          }}
                           step={field.step}
                         />
                       </label>
@@ -520,7 +579,10 @@ export default function OptimizePage(): JSX.Element {
                         <input
                           type="number"
                           value={gridValue.range.step}
-                          onChange={(e) => updateRange(field.key, "step", Number(e.target.value))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateRange(field.key, "step", val === "" ? "" : Number(val));
+                          }}
                           step={field.step}
                         />
                       </label>
@@ -573,7 +635,15 @@ export default function OptimizePage(): JSX.Element {
                 <input
                   type="number"
                   value={minTrades}
-                  onChange={(e) => setMinTrades(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMinTrades(val === "" ? "" : Number(val));
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      setMinTrades(10);
+                    }
+                  }}
                 />
               </label>
 
@@ -582,7 +652,15 @@ export default function OptimizePage(): JSX.Element {
                 <input
                   type="number"
                   value={maxDrawdown}
-                  onChange={(e) => setMaxDrawdown(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMaxDrawdown(val === "" ? "" : Number(val));
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      setMaxDrawdown(-0.3);
+                    }
+                  }}
                   step="0.01"
                   max="0"
                 />
@@ -620,7 +698,15 @@ export default function OptimizePage(): JSX.Element {
                     <input
                       type="number"
                       value={inSampleMonths}
-                      onChange={(e) => setInSampleMonths(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setInSampleMonths(val === "" ? "" : Number(val));
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value === "") {
+                          setInSampleMonths(12);
+                        }
+                      }}
                       min="1"
                     />
                   </label>
@@ -629,7 +715,15 @@ export default function OptimizePage(): JSX.Element {
                     <input
                       type="number"
                       value={outSampleMonths}
-                      onChange={(e) => setOutSampleMonths(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOutSampleMonths(val === "" ? "" : Number(val));
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value === "") {
+                          setOutSampleMonths(3);
+                        }
+                      }}
                       min="1"
                     />
                   </label>
@@ -656,6 +750,40 @@ export default function OptimizePage(): JSX.Element {
           >
             {submitting ? "Submitting..." : "Start Optimization"}
           </button>
+
+          {notification && (
+            <div
+              style={{
+                padding: "1rem 1.5rem",
+                marginTop: "1rem",
+                borderRadius: "4px",
+                border: `1px solid ${notification.type === "error" ? "var(--danger-red)" : "var(--success-green)"}`,
+                background:
+                  notification.type === "error"
+                    ? "rgba(239, 68, 68, 0.1)"
+                    : "rgba(16, 185, 129, 0.1)",
+                color: notification.type === "error" ? "var(--danger-red)" : "var(--success-green)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "inherit",
+                  fontSize: "1.2rem",
+                  cursor: "pointer",
+                  padding: "0 0.5rem",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Results Panel */}

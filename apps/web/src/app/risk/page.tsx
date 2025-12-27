@@ -96,9 +96,10 @@ export default function RiskPage(): JSX.Element {
               type="number"
               step="0.01"
               value={form.maxDailyLossPct}
-              onChange={(event) =>
-                setForm({ ...form, maxDailyLossPct: Number(event.currentTarget.value) })
-              }
+              onChange={(event) => {
+                const val = event.currentTarget.value;
+                setForm({ ...form, maxDailyLossPct: val === "" ? 0 : Number(val) });
+              }}
             />
           </label>
           <label>
@@ -107,9 +108,10 @@ export default function RiskPage(): JSX.Element {
               type="number"
               step="0.01"
               value={form.maxPositionPct}
-              onChange={(event) =>
-                setForm({ ...form, maxPositionPct: Number(event.currentTarget.value) })
-              }
+              onChange={(event) => {
+                const val = event.currentTarget.value;
+                setForm({ ...form, maxPositionPct: val === "" ? 0 : Number(val) });
+              }}
             />
           </label>
           <label>
@@ -118,9 +120,10 @@ export default function RiskPage(): JSX.Element {
               type="number"
               step="0.01"
               value={form.perOrderCapPct}
-              onChange={(event) =>
-                setForm({ ...form, perOrderCapPct: Number(event.currentTarget.value) })
-              }
+              onChange={(event) => {
+                const val = event.currentTarget.value;
+                setForm({ ...form, perOrderCapPct: val === "" ? 0 : Number(val) });
+              }}
             />
           </label>
           <label>
@@ -129,9 +132,10 @@ export default function RiskPage(): JSX.Element {
               type="number"
               step="0.01"
               value={form.globalDDKillPct}
-              onChange={(event) =>
-                setForm({ ...form, globalDDKillPct: Number(event.currentTarget.value) })
-              }
+              onChange={(event) => {
+                const val = event.currentTarget.value;
+                setForm({ ...form, globalDDKillPct: val === "" ? 0 : Number(val) });
+              }}
             />
           </label>
           <label>
@@ -139,9 +143,10 @@ export default function RiskPage(): JSX.Element {
             <input
               type="number"
               value={form.cooldownMinutes}
-              onChange={(event) =>
-                setForm({ ...form, cooldownMinutes: Number(event.currentTarget.value) })
-              }
+              onChange={(event) => {
+                const val = event.currentTarget.value;
+                setForm({ ...form, cooldownMinutes: val === "" ? 0 : Number(val) });
+              }}
             />
           </label>
         </div>
