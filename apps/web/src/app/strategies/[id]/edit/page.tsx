@@ -21,8 +21,7 @@ export default function EditStrategyPage() {
   useEffect(() => {
     async function loadStrategy() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-        const response = await fetch(`${apiUrl}/api/strategies/${strategyId}`);
+        const response = await fetch(`/api/strategies/${strategyId}`);
 
         if (!response.ok) {
           throw new Error("Strategy not found");
@@ -62,8 +61,7 @@ export default function EditStrategyPage() {
     setSaving(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/strategies/${strategyId}`, {
+      const response = await fetch(`/api/strategies/${strategyId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -96,8 +94,7 @@ export default function EditStrategyPage() {
     setDeleting(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/strategies/${strategyId}`, {
+      const response = await fetch(`/api/strategies/${strategyId}`, {
         method: "DELETE",
       });
 
@@ -106,6 +103,7 @@ export default function EditStrategyPage() {
       }
 
       router.push("/strategies");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete strategy");
       setDeleting(false);
@@ -117,78 +115,175 @@ export default function EditStrategyPage() {
       return;
     }
     router.push("/strategies");
+    router.refresh();
   };
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading strategy...</p>
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--graphite-500)",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              border: "3px solid var(--graphite-200)",
+              borderTop: "3px solid var(--ember-orange)",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 1rem",
+            }}
+          ></div>
+          <p
+            style={{
+              color: "var(--steel-300)",
+              fontSize: "0.85rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            LOADING STRATEGY...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--graphite-500)",
+      }}
+    >
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex justify-between items-center">
+      <div
+        style={{
+          borderBottom: "2px solid var(--graphite-100)",
+          background: "var(--graphite-400)",
+          padding: "1.5rem 2rem",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: "1rem",
+          }}
+        >
           <div>
-            <h1 className="text-2xl font-bold">Edit Strategy</h1>
-            <p className="text-gray-600 text-sm mt-1">
-              ID: <code className="bg-gray-100 px-2 py-1 rounded">{strategyId}</code>
+            <h1
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 800,
+                color: "var(--steel-100)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "0.5rem",
+              }}
+            >
+              EDIT STRATEGY
+            </h1>
+            <p
+              style={{
+                color: "var(--steel-400)",
+                fontSize: "0.75rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              ID: {strategyId}
               {hasChanges && (
-                <span className="ml-2 text-orange-600 font-medium">● Unsaved changes</span>
+                <span
+                  style={{
+                    marginLeft: "1rem",
+                    color: "var(--spark-yellow)",
+                    fontWeight: 600,
+                  }}
+                >
+                  ● UNSAVED CHANGES
+                </span>
               )}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div style={{ display: "flex", gap: "0.75rem" }}>
             <button
               onClick={handleDeleteStrategy}
               disabled={deleting}
-              className="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="btn-secondary"
+              style={{
+                borderColor: "var(--danger-red)",
+                color: "var(--danger-red)",
+              }}
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleting ? "DELETING..." : "DELETE"}
             </button>
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-            >
-              Cancel
+            <button onClick={handleCancel} className="btn-secondary">
+              CANCEL
             </button>
             <button
               onClick={handleSaveStrategy}
               disabled={saving || !hasChanges}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "SAVING..." : "SAVE CHANGES"}
             </button>
           </div>
         </div>
 
         {/* Error Messages */}
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-            <strong>Error:</strong> {error}
+          <div
+            className="alert"
+            style={{
+              marginTop: "1rem",
+              borderLeft: "4px solid var(--danger-red)",
+              background: "rgba(239, 68, 68, 0.1)",
+              color: "var(--danger-red)",
+            }}
+          >
+            <strong>ERROR:</strong> {error}
           </div>
         )}
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden">
+      <div style={{ flex: 1, overflow: "hidden" }}>
         <StrategyEditor initialCode={code} onChange={handleCodeChange} />
       </div>
 
-      {/* Status Bar */}
-      <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 text-sm text-gray-600">
+      {/* Footer */}
+      <div
+        style={{
+          borderTop: "2px solid var(--graphite-100)",
+          background: "var(--graphite-400)",
+          padding: "0.75rem 2rem",
+          fontSize: "0.7rem",
+          color: "var(--steel-400)",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+        }}
+      >
         {hasChanges ? (
-          <span className="text-orange-600 font-medium">
-            ● You have unsaved changes. Press Ctrl+S (Cmd+S) to save.
+          <span style={{ color: "var(--spark-yellow)", fontWeight: 600 }}>
+            ● YOU HAVE UNSAVED CHANGES. PRESS CTRL+S (CMD+S) TO SAVE.
           </span>
         ) : (
-          <span className="text-green-600">✓ All changes saved</span>
+          <span style={{ color: "var(--success-green)" }}>✓ ALL CHANGES SAVED</span>
         )}
       </div>
     </div>

@@ -1,11 +1,28 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { createJiti } from "jiti";
 
 const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = join(MODULE_DIR, "..", "..", "..");
 const CUSTOM_STRATEGIES_DIR = join(REPO_ROOT, "storage", "strategies", "custom");
+
+// Create jiti instance for loading TypeScript files
+const jiti = createJiti(MODULE_DIR, {
+  interopDefault: true,
+});
+
+interface StrategySignal {
+  side: "buy" | "sell";
+  timestamp: string;
+  reason: string;
+  strength?: number;
+}
+
+interface StrategyContext {
+  symbol: string;
+}
 
 interface CustomStrategyModule {
   metadata: {
@@ -16,7 +33,9 @@ interface CustomStrategyModule {
     tags?: string[];
   };
   createStrategy: (config: unknown) => {
-    onBar: (bar: unknown, index: number, bars: ReadonlyArray<unknown>) => "buy" | "sell" | null;
+    onInit?: (context: StrategyContext) => void;
+    onBar: (context: StrategyContext, bar: unknown) => StrategySignal | null;
+    onStop?: (context: StrategyContext) => StrategySignal | null;
   };
 }
 
@@ -24,7 +43,9 @@ interface StrategyRegistration {
   name: string;
   schema: z.ZodType<unknown>;
   factory: (params: unknown) => {
-    onBar: (bar: unknown, index: number, bars: ReadonlyArray<unknown>) => "buy" | "sell" | null;
+    onInit?: (context: StrategyContext) => void;
+    onBar: (context: StrategyContext, bar: unknown) => StrategySignal | null;
+    onStop?: (context: StrategyContext) => StrategySignal | null;
   };
 }
 
@@ -36,20 +57,25 @@ interface StrategyRegistration {
 export async function loadCustomStrategies(): Promise<Record<string, StrategyRegistration>> {
   const customStrategies: Record<string, StrategyRegistration> = {};
 
+  console.log(`[customStrategyLoader] Loading custom strategies from: ${CUSTOM_STRATEGIES_DIR}`);
+
   try {
     // Read all .ts files in the custom strategies directory
     const files = await readdir(CUSTOM_STRATEGIES_DIR);
+    console.log(`[customStrategyLoader] Found files:`, files);
+
     const strategyFiles = files.filter(
       (f) => f.endsWith(".ts") && !f.includes(".test.") && !f.includes("README"),
     );
 
+    console.log(`[customStrategyLoader] Strategy files to load:`, strategyFiles);
+
     for (const filename of strategyFiles) {
       try {
         const filePath = join(CUSTOM_STRATEGIES_DIR, filename);
-        const fileUrl = pathToFileURL(filePath).href;
 
-        // Dynamically import the strategy module
-        const module = (await import(fileUrl)) as CustomStrategyModule;
+        // Use jiti to import TypeScript files directly
+        const module = jiti(filePath) as CustomStrategyModule;
 
         if (!module.metadata || !module.createStrategy) {
           console.warn(`Skipping ${filename}: missing required exports (metadata, createStrategy)`);
@@ -71,16 +97,22 @@ export async function loadCustomStrategies(): Promise<Record<string, StrategyReg
           },
         };
 
-        console.log(`Loaded custom strategy: ${strategyName} (${filename})`);
+        console.log(
+          `[customStrategyLoader] ✓ Loaded custom strategy: ${strategyName} (${filename})`,
+        );
       } catch (error) {
-        console.error(`Failed to load strategy from ${filename}:`, error);
+        console.error(`[customStrategyLoader] ✗ Failed to load strategy from ${filename}:`, error);
       }
     }
 
+    console.log(
+      `[customStrategyLoader] Successfully loaded ${Object.keys(customStrategies).length} custom strategies:`,
+      Object.keys(customStrategies),
+    );
     return customStrategies;
   } catch (error) {
     // Directory might not exist or other error
-    console.warn("Could not load custom strategies:", error);
+    console.warn("[customStrategyLoader] Could not load custom strategies:", error);
     return {};
   }
 }

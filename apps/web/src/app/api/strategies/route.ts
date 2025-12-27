@@ -32,21 +32,23 @@ interface Strategy {
 function extractMetadata(code: string): Partial<StrategyMetadata> | null {
   try {
     // Match: export const metadata = { ... }
-    const metadataMatch = code.match(/export\s+const\s+metadata\s*=\s*\{([^}]+)\}/s);
+    // Use lazy matching and handle nested braces
+    const metadataMatch = code.match(/export\s+const\s+metadata\s*=\s*\{([\s\S]*?)\};/);
 
     if (!metadataMatch || !metadataMatch[1]) {
+      console.log("[API] Failed to extract metadata object");
       return null;
     }
 
     const metadataContent = metadataMatch[1];
     const metadata: Partial<StrategyMetadata> = {};
 
-    // Extract individual fields
+    // Extract individual fields - handle multi-line strings with \s* for whitespace/newlines
     const nameMatch = metadataContent.match(/name:\s*["']([^"']+)["']/);
-    const descMatch = metadataContent.match(/description:\s*["']([^"']+)["']/);
+    const descMatch = metadataContent.match(/description:\s*["']([^"']+)["']/s);
     const versionMatch = metadataContent.match(/version:\s*["']([^"']+)["']/);
     const authorMatch = metadataContent.match(/author:\s*["']([^"']+)["']/);
-    const tagsMatch = metadataContent.match(/tags:\s*\[([^\]]+)\]/);
+    const tagsMatch = metadataContent.match(/tags:\s*\[([\s\S]*?)\]/);
 
     if (nameMatch?.[1]) metadata.name = nameMatch[1];
     if (descMatch?.[1]) metadata.description = descMatch[1];
@@ -86,12 +88,17 @@ function nameToFilename(name: string): string {
  */
 export async function GET() {
   try {
+    console.log(`[API] Loading strategies from: ${STRATEGIES_DIR}`);
+
     // Ensure directory exists
     await mkdir(STRATEGIES_DIR, { recursive: true });
 
     // Read all .ts files in the directory
     const files = await readdir(STRATEGIES_DIR);
+    console.log(`[API] Found files:`, files);
+
     const strategyFiles = files.filter((f) => f.endsWith(".ts") && f !== "README.md");
+    console.log(`[API] Strategy files to parse:`, strategyFiles);
 
     const strategies: Strategy[] = [];
 
@@ -101,23 +108,30 @@ export async function GET() {
         const code = await readFile(filePath, "utf-8");
         const metadata = extractMetadata(code);
 
+        console.log(`[API] Parsed metadata for ${filename}:`, metadata);
+
         if (metadata && metadata.name) {
-          strategies.push({
+          const strategy = {
             id: filenameToId(filename),
             name: metadata.name,
             description: metadata.description || "No description",
-            type: "custom",
+            type: "custom" as const,
             version: metadata.version,
             author: metadata.author,
             tags: metadata.tags,
             filename,
-          });
+          };
+          strategies.push(strategy);
+          console.log(`[API] ✓ Added strategy: ${metadata.name}`);
+        } else {
+          console.log(`[API] ✗ Skipped ${filename}: missing metadata or name`);
         }
       } catch (error) {
-        console.error(`Error reading strategy ${filename}:`, error);
+        console.error(`[API] ✗ Error reading strategy ${filename}:`, error);
       }
     }
 
+    console.log(`[API] Returning ${strategies.length} strategies`);
     return NextResponse.json(strategies);
   } catch (error) {
     console.error("Error listing strategies:", error);

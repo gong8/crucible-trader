@@ -67,7 +67,16 @@ const useRunDetail = (runId: string | undefined): RunDetailState => {
           credentials: "include",
         });
         if (!response.ok) {
-          throw new Error(`status ${response.status}`);
+          let errorMessage = `HTTP ${response.status}`;
+          try {
+            const errorData = (await response.json()) as { message?: string };
+            if (errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch {
+            // If parsing JSON fails, use the generic error
+          }
+          throw new Error(errorMessage);
         }
         const payload = (await response.json()) as RunDetailResponse;
         if (!cancelled) {

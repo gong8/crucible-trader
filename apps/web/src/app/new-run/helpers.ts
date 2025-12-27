@@ -135,7 +135,7 @@ export interface BuildArgs {
   end: string;
   adjusted: boolean;
   strategyName: StrategyKey;
-  strategyConfig: StrategyConfig;
+  strategyConfig: StrategyConfig | undefined;
   strategyValues: Record<string, number>;
   feeBps: string;
   slippageBps: string;
@@ -179,11 +179,16 @@ export function buildRequestSafely(args: BuildArgs): {
       ]
     ).map(normalizeSeries);
 
-    const parsedParams = args.strategyConfig.schema.safeParse(args.strategyValues);
-    if (!parsedParams.success) {
-      const issue = parsedParams.error.issues[0];
-      const message = issue?.message ?? "invalid strategy params";
-      return { request: null, error: `strategy params error: ${message}` };
+    // For custom strategies, strategyConfig may be undefined
+    let params: unknown = {};
+    if (args.strategyConfig) {
+      const parsedParams = args.strategyConfig.schema.safeParse(args.strategyValues);
+      if (!parsedParams.success) {
+        const issue = parsedParams.error.issues[0];
+        const message = issue?.message ?? "invalid strategy params";
+        return { request: null, error: `strategy params error: ${message}` };
+      }
+      params = parsedParams.data;
     }
 
     const request: BacktestRequest = {
@@ -191,7 +196,7 @@ export function buildRequestSafely(args: BuildArgs): {
       data: normalizedSeries,
       strategy: {
         name: args.strategyName,
-        params: parsedParams.data,
+        params,
       },
       costs: {
         feeBps,

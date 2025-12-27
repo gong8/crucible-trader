@@ -12,7 +12,7 @@ interface Strategy {
 
 const PRESET_STRATEGIES: Strategy[] = [
   {
-    id: "sma-crossover",
+    id: "sma_crossover",
     name: "SMA Crossover",
     description: "Simple Moving Average crossover strategy",
     type: "preset",
@@ -24,7 +24,7 @@ const PRESET_STRATEGIES: Strategy[] = [
     type: "preset",
   },
   {
-    id: "mean-reversion",
+    id: "mean_reversion",
     name: "Mean Reversion",
     description: "Z-score based mean reversion strategy",
     type: "preset",
@@ -35,12 +35,19 @@ const PRESET_STRATEGIES: Strategy[] = [
     description: "Range breakout strategy",
     type: "preset",
   },
+  {
+    id: "chaos_trader",
+    name: "Chaos Trader",
+    description: "Chaotic breakout strategy with dynamic risk",
+    type: "preset",
+  },
 ];
 
 async function getCustomStrategies(): Promise<Strategy[]> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-    const response = await fetch(`${apiUrl}/api/strategies`, {
+    // Server-side fetch needs full URL (port 3001 for dev, or use env var)
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+    const response = await fetch(`${baseUrl}/api/strategies`, {
       cache: "no-store",
     });
 

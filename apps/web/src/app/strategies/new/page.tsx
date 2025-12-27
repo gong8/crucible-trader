@@ -76,8 +76,8 @@ export default function NewStrategyPage() {
     setSaving(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/strategies`, {
+      // Use relative URL since API routes are in the same Next.js app
+      const response = await fetch("/api/strategies", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +94,9 @@ export default function NewStrategyPage() {
       }
 
       await response.json();
+      // Refresh the strategies page to show the new strategy
       router.push("/strategies");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save strategy");
     } finally {

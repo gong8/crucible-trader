@@ -117,6 +117,9 @@ importers:
       "@crucible-trader/sdk":
         specifier: workspace:*
         version: link:../sdk
+      jiti:
+        specifier: ^2.6.1
+        version: 2.6.1
       parquetjs:
         specifier: 0.11.2
         version: 0.11.2
@@ -3100,6 +3103,14 @@ packages:
       {
         integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==,
       }
+
+  /jiti@2.6.1:
+    resolution:
+      {
+        integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==,
+      }
+    hasBin: true
+    dev: false
 
   /js-tokens@4.0.0:
     resolution:

@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+
+// Force dynamic rendering to support useSearchParams
+export const dynamic = "force-dynamic";
 
 import type {
   DataSource,
@@ -16,6 +20,12 @@ import { StrategyControls, mapZodIssues } from "./StrategyControls";
 import type { DatasetRecord } from "./helpers";
 import { buildDatasetOverride, buildRequestSafely, generateRunName } from "./helpers";
 import { computeAvailableRange, type CoverageRange } from "./date-range";
+
+interface CustomStrategy {
+  id: string;
+  name: string;
+  description: string;
+}
 
 const metricOptions: MetricKey[] = [
   "sharpe",
@@ -52,8 +62,10 @@ interface SubmissionState {
   runId?: string;
 }
 
-export default function NewRunPage(): JSX.Element {
+function NewRunPageContent(): JSX.Element {
+  const searchParams = useSearchParams();
   const initialRange = useMemo(() => createInitialRange(), []);
+  const [customStrategies, setCustomStrategies] = useState<CustomStrategy[]>([]);
   const [autoNameEnabled, setAutoNameEnabled] = useState(true);
   const [runName, setRunName] = useState("sma_aapl_auto");
   const [useExistingDataset, setUseExistingDataset] = useState(false);
@@ -84,12 +96,16 @@ export default function NewRunPage(): JSX.Element {
   const [datesLocked, setDatesLocked] = useState(false);
   const dateInputsDisabled = useExistingDataset; // Only disable when using existing dataset
 
-  const selectedStrategy: StrategyConfig = strategyConfigs[strategyName];
+  const selectedStrategy: StrategyConfig | undefined = strategyConfigs[strategyName];
 
   useEffect(() => {
-    setStrategyValues({ ...strategyConfigs[strategyName].defaults });
+    if (selectedStrategy) {
+      setStrategyValues({ ...selectedStrategy.defaults });
+    } else {
+      setStrategyValues({});
+    }
     setStrategyErrors({});
-  }, [strategyName]);
+  }, [strategyName, selectedStrategy]);
 
   useEffect(() => {
     if (autoNameEnabled) {
@@ -98,6 +114,10 @@ export default function NewRunPage(): JSX.Element {
   }, [autoNameEnabled, strategyName, symbol, timeframe]);
 
   useEffect(() => {
+    if (!selectedStrategy) {
+      setStrategyErrors({});
+      return;
+    }
     const parsed = selectedStrategy.schema.safeParse(strategyValues);
     if (parsed.success) {
       setStrategyErrors({});
@@ -125,6 +145,27 @@ export default function NewRunPage(): JSX.Element {
       }),
     );
   }, [datasets, symbol, timeframe, dataSource]);
+
+  // Load custom strategies from API
+  useEffect(() => {
+    const loadCustomStrategies = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/strategies", {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          console.warn("Failed to load custom strategies");
+          return;
+        }
+        const payload = (await response.json()) as CustomStrategy[];
+        console.log("[new-run] Loaded custom strategies:", payload);
+        setCustomStrategies(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.error("Error loading custom strategies:", error);
+      }
+    };
+    void loadCustomStrategies();
+  }, []);
 
   useEffect(() => {
     const loadDatasets = async (): Promise<void> => {
@@ -165,6 +206,15 @@ export default function NewRunPage(): JSX.Element {
       setSelectedDatasetId(datasets[0]?.id ?? null);
     }
   }, [useExistingDataset, datasets, selectedDatasetId]);
+
+  // Auto-select strategy from query parameter
+  useEffect(() => {
+    const strategyParam = searchParams?.get("strategy");
+    if (strategyParam) {
+      console.log("[new-run] Auto-selecting strategy from query param:", strategyParam);
+      setStrategyName(strategyParam as StrategyKey);
+    }
+  }, [searchParams]);
 
   const requestPreview = useMemo(() => {
     const { request, error } = buildRequestSafely({
@@ -556,21 +606,46 @@ export default function NewRunPage(): JSX.Element {
                   }
                   style={{ fontWeight: "600" }}
                 >
+                  {/* Built-in strategies */}
                   {strategyList.map((strategy) => (
                     <option key={strategy.key} value={strategy.key}>
                       {strategy.title} — {strategy.description}
                     </option>
                   ))}
+                  {/* Custom strategies */}
+                  {customStrategies.length > 0 && (
+                    <optgroup label="CUSTOM STRATEGIES">
+                      {customStrategies.map((strategy) => (
+                        <option key={strategy.id} value={strategy.id}>
+                          {strategy.name} — {strategy.description}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
-              <StrategyControls
-                config={selectedStrategy}
-                values={strategyValues}
-                errors={strategyErrors}
-                onChange={(field, value) => {
-                  setStrategyValues((prev) => ({ ...prev, [field]: value }));
-                }}
-              />
+              {selectedStrategy ? (
+                <StrategyControls
+                  config={selectedStrategy}
+                  values={strategyValues}
+                  errors={strategyErrors}
+                  onChange={(field, value) => {
+                    setStrategyValues((prev) => ({ ...prev, [field]: value }));
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-400)",
+                    borderLeft: "3px solid var(--spark-yellow)",
+                    fontSize: "0.75rem",
+                    color: "var(--steel-200)",
+                  }}
+                >
+                  Custom strategy selected. Configuration is defined in the strategy code.
+                </div>
+              )}
             </div>
           </div>
 
@@ -772,5 +847,13 @@ export default function NewRunPage(): JSX.Element {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewRunPage(): JSX.Element {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewRunPageContent />
+    </Suspense>
   );
 }

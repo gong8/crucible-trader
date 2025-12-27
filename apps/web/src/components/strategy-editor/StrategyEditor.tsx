@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Editor from "@monaco-editor/react";
+import Editor, { type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 
 interface StrategyEditorProps {
@@ -10,7 +10,7 @@ interface StrategyEditorProps {
   readOnly?: boolean;
 }
 
-const DEFAULT_TEMPLATE = `import type { Bar, Signal } from "@crucible-trader/sdk";
+const DEFAULT_TEMPLATE = `import type { StrategyBar, StrategySignal, StrategyContext } from "@crucible-trader/sdk";
 
 export interface StrategyConfig {
   // Add your configuration parameters here
@@ -29,23 +29,52 @@ export const metadata = {
  * Create a strategy instance with the given configuration.
  */
 export function createStrategy(config: StrategyConfig) {
-  // Initialize any state here
+  // Track state between bars
+  const bars: StrategyBar[] = [];
 
   return {
     /**
-     * Called for each bar in the backtest.
+     * Called once before the backtest starts.
      */
-    onBar(bar: Bar, index: number, bars: ReadonlyArray<Bar>): Signal | null {
+    onInit(context: StrategyContext): void {
+      console.log(\`Strategy initialized for symbol: \${context.symbol}\`);
+    },
+
+    /**
+     * Called for each bar in the backtest.
+     * @param context - Strategy context with symbol info
+     * @param bar - Current price bar
+     * @returns Signal object or null
+     */
+    onBar(context: StrategyContext, bar: StrategyBar): StrategySignal | null {
+      // Store bars for indicator calculations
+      bars.push(bar);
+
       // Not enough data yet
-      if (index < config.period) {
+      if (bars.length < config.period) {
         return null;
       }
 
       // TODO: Implement your strategy logic here
-      // 1. Calculate indicators
+      // 1. Calculate indicators using bars array
       // 2. Generate buy/sell signals
-      // 3. Return 'buy', 'sell', or null
+      // 3. Return signal object with side, timestamp, and reason
 
+      // Example signal (replace with your logic):
+      // return {
+      //   side: "buy",
+      //   timestamp: bar.timestamp,
+      //   reason: "Your entry reason here"
+      // };
+
+      return null;
+    },
+
+    /**
+     * Called once at the end of the backtest.
+     */
+    onStop(context: StrategyContext): StrategySignal | null {
+      // Optional: Return exit signal to close any open positions
       return null;
     },
   };
@@ -66,6 +95,69 @@ export default function StrategyEditor({
     onChange?.(newCode);
   };
 
+  const handleBeforeMount = (monaco: Monaco) => {
+    // Disable JavaScript validation (we only want TypeScript)
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true,
+    });
+
+    // Configure TypeScript compiler options
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.ESNext,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      allowJs: false,
+      strict: false,
+      typeRoots: ["node_modules/@types"],
+    });
+
+    // Enable TypeScript diagnostics
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+    });
+
+    // Add type definitions for @crucible-trader/sdk
+    const sdkTypes = `
+declare module "@crucible-trader/sdk" {
+  export interface StrategyBar {
+    readonly timestamp: string;
+    readonly open: number;
+    readonly high: number;
+    readonly low: number;
+    readonly close: number;
+    readonly volume: number;
+  }
+
+  export interface StrategySignal {
+    readonly side: "buy" | "sell";
+    readonly timestamp: string;
+    readonly reason: string;
+    readonly strength?: number;
+  }
+
+  export interface StrategyContext {
+    readonly symbol: string;
+  }
+
+  export interface Strategy {
+    onInit?(context: StrategyContext): void;
+    onBar(context: StrategyContext, bar: StrategyBar): StrategySignal | null;
+    onStop?(context: StrategyContext): StrategySignal | null;
+  }
+}
+`;
+    monaco.languages.typescript.typescriptDefaults.addExtraLib(
+      sdkTypes,
+      "file:///node_modules/@crucible-trader/sdk/index.d.ts",
+    );
+  };
+
   const handleEditorMount = (editor: editor.IStandaloneCodeEditor) => {
     editor.updateOptions({
       fontSize: 13,
@@ -76,6 +168,7 @@ export default function StrategyEditor({
       formatOnPaste: true,
       formatOnType: true,
       fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+      fixedOverflowWidgets: true, // Keep tooltips/widgets within editor bounds
     });
 
     editor.addCommand(2097 | 49, () => {
@@ -112,11 +205,14 @@ export default function StrategyEditor({
       <div style={{ flex: 1 }}>
         <Editor
           height="100%"
+          language="typescript"
           defaultLanguage="typescript"
           value={code}
           onChange={handleEditorChange}
+          beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
           theme={theme}
+          path="strategy.tsx"
           options={{
             readOnly,
             minimap: { enabled: true },
@@ -129,6 +225,7 @@ export default function StrategyEditor({
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
             fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+            fixedOverflowWidgets: true,
           }}
           loading={
             <div

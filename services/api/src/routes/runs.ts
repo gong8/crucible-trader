@@ -126,7 +126,14 @@ export const registerRunsRoutes = (app: FastifyInstance, deps: RunsRouteDeps): v
       request: FastifyRequest<{ Body: unknown }>,
       reply: FastifyReply,
     ): Promise<FastifyReply> => {
-      const payload = assertValid(BacktestRequestSchema, request.body, "BacktestRequest");
+      let payload: BacktestRequest;
+      try {
+        payload = assertValid(BacktestRequestSchema, request.body, "BacktestRequest");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid request format";
+        request.log.error({ err: error, body: request.body }, "Request validation failed");
+        return reply.code(400).send({ message });
+      }
 
       const runId = deps.generateRunId(payload);
       const queuedSummary: RunSummary = {

@@ -65,12 +65,16 @@ const STRATEGY_REGISTRY: Record<string, StrategyModule> = {
 let customStrategiesLoaded = false;
 const customStrategiesPromise = loadCustomStrategies()
   .then((customStrategies) => {
+    console.log(
+      `[engine] Registering ${Object.keys(customStrategies).length} custom strategies into STRATEGY_REGISTRY`,
+    );
     Object.assign(STRATEGY_REGISTRY, customStrategies);
     customStrategiesLoaded = true;
+    console.log(`[engine] Total strategies registered:`, Object.keys(STRATEGY_REGISTRY));
     return customStrategies;
   })
   .catch((error) => {
-    console.error("Failed to load custom strategies:", error);
+    console.error("[engine] Failed to load custom strategies:", error);
     return {};
   });
 
@@ -149,7 +153,9 @@ export async function runBacktest(
 ): Promise<BacktestResult> {
   // Ensure custom strategies are loaded
   if (!customStrategiesLoaded) {
+    console.log("[engine] Waiting for custom strategies to load...");
     await customStrategiesPromise;
+    console.log("[engine] Custom strategies loaded");
   }
 
   // Validate request structure and constraints
@@ -258,10 +264,22 @@ export async function runBacktest(
 }
 
 const instantiateStrategy = (request: BacktestRequest) => {
-  const module = STRATEGY_REGISTRY[request.strategy.name];
+  const requestedName = request.strategy.name;
+  const availableStrategies = Object.keys(STRATEGY_REGISTRY);
+
+  console.log(`[engine] Attempting to instantiate strategy: "${requestedName}"`);
+  console.log(`[engine] Available strategies:`, availableStrategies);
+
+  const module = STRATEGY_REGISTRY[requestedName];
   if (!module) {
-    throw new Error(`Unknown strategy "${request.strategy.name}"`);
+    throw new Error(
+      `Strategy not found: "${requestedName}"\n` +
+        `Available strategies: ${availableStrategies.join(", ")}\n` +
+        `Did you mean one of these? Check spelling and case sensitivity.`,
+    );
   }
+
+  console.log(`[engine] Found strategy module for "${requestedName}"`);
   const params = module.schema.parse(request.strategy.params);
   const strategy = module.factory(params as never);
   return strategy;
