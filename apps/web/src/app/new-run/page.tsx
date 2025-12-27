@@ -236,6 +236,9 @@ function NewRunPageContent(): JSX.Element {
   }, [searchParams]);
 
   const requestPreview = useMemo(() => {
+    // For custom strategies, use the actual name instead of the ID
+    const actualStrategyName = selectedCustomStrategy ? selectedCustomStrategy.name : strategyName;
+
     const { request, error } = buildRequestSafely({
       runName,
       dataSource,
@@ -244,7 +247,7 @@ function NewRunPageContent(): JSX.Element {
       start,
       end,
       adjusted,
-      strategyName,
+      strategyName: actualStrategyName,
       strategyConfig: selectedStrategy,
       strategyValues,
       feeBps,
@@ -271,6 +274,7 @@ function NewRunPageContent(): JSX.Element {
     adjusted,
     strategyName,
     selectedStrategy,
+    selectedCustomStrategy,
     strategyValues,
     feeBps,
     slippageBps,
@@ -292,6 +296,9 @@ function NewRunPageContent(): JSX.Element {
     event.preventDefault();
     setSubmission({ status: "idle", message: null });
 
+    // For custom strategies, use the actual name instead of the ID
+    const actualStrategyName = selectedCustomStrategy ? selectedCustomStrategy.name : strategyName;
+
     const { request, error } = buildRequestSafely({
       runName,
       dataSource,
@@ -300,7 +307,7 @@ function NewRunPageContent(): JSX.Element {
       start,
       end,
       adjusted,
-      strategyName,
+      strategyName: actualStrategyName,
       strategyConfig: selectedStrategy,
       strategyValues,
       feeBps,

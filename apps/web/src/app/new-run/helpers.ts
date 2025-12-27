@@ -134,7 +134,7 @@ export interface BuildArgs {
   start: string;
   end: string;
   adjusted: boolean;
-  strategyName: StrategyKey;
+  strategyName: StrategyKey | string; // Allow custom strategy names
   strategyConfig: StrategyConfig | undefined;
   strategyValues: Record<string, number>;
   feeBps: string;
