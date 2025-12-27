@@ -20,6 +20,21 @@ export default function NewStrategyPage(): JSX.Element {
   const [mode, setMode] = useState<StrategyMode | null>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const active = mode !== null;
+    window.dispatchEvent(new CustomEvent("crucible:workspace-mode", { detail: { active } }));
+    return () => {
+      if (active) {
+        window.dispatchEvent(
+          new CustomEvent("crucible:workspace-mode", { detail: { active: false } }),
+        );
+      }
+    };
+  }, [mode]);
+
+  useEffect(() => {
     const handleSave = (): void => {
       void handleSaveStrategy();
     };

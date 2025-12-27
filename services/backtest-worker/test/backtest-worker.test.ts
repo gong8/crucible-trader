@@ -7,6 +7,7 @@ import test from "node:test";
 import type { BacktestRequest, BacktestResult, RiskProfile } from "@crucible-trader/sdk";
 import type { Logger } from "@crucible-trader/logger";
 import { createJobHandler, createManifestWriter } from "../src/index.js";
+import type { ManifestPayload, ManifestWriter } from "../src/index.js";
 import type { QueueJob } from "../../api/dist/queue.js";
 import type { RunBacktestOptions } from "@crucible-trader/engine";
 
@@ -107,9 +108,13 @@ test("createManifestWriter writes manifest with defaults and dataset metadata", 
   });
   const result = baseResult({ runId: "run-abc", diagnostics: { seed: 7 } });
 
-  await writer(result, undefined, [
-    { symbol: "AAPL", timeframe: "1d", source: "csv", start: "2024-01-01", end: "2024-05-01" },
-  ]);
+  await writer({
+    kind: "success",
+    result,
+    datasets: [
+      { symbol: "AAPL", timeframe: "1d", source: "csv", start: "2024-01-01", end: "2024-05-01" },
+    ],
+  });
 
   const manifestPath = join(tempDir, "run-abc", "manifest.json");
   const manifestJson = JSON.parse(await readFile(manifestPath, "utf-8"));
@@ -153,18 +158,48 @@ test("createManifestWriter keeps explicit report path and metadata", async (t) =
     },
   });
 
-  await writer(
+  await writer({
+    kind: "success",
     result,
-    { name: "Custom Run", createdAt: "2024-01-01T00:00:00.000Z", status: "archived" },
-    [],
-  );
+    metadata: { name: "Custom Run", createdAt: "2024-01-01T00:00:00.000Z", status: "completed" },
+    datasets: [],
+  });
 
   const manifestPath = join(tempDir, "run-has-report", "manifest.json");
   const manifestJson = JSON.parse(await readFile(manifestPath, "utf-8"));
 
   assert.equal(manifestJson.artifacts.reportMd, "/custom/report.md");
   assert.equal(manifestJson.metadata.name, "Custom Run");
-  assert.equal(manifestJson.metadata.status, "archived");
+  assert.equal(manifestJson.metadata.status, "completed");
+});
+
+test("createManifestWriter records failure manifests with error metadata", async (t) => {
+  const tempDir = await mkdtemp(join(tmpdir(), "worker-manifest-"));
+  t.after(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const writer = createManifestWriter({
+    runsDir: tempDir,
+    now: () => new Date("2024-06-01T12:00:00Z"),
+  });
+
+  await writer({
+    kind: "failure",
+    runId: "run-failed",
+    error: "strategy compile crash",
+    metadata: { name: "Broken Run" },
+    datasets: [{ symbol: "MSFT", timeframe: "1d", source: "csv" }],
+  });
+
+  const manifestPath = join(tempDir, "run-failed", "manifest.json");
+  const manifestJson = JSON.parse(await readFile(manifestPath, "utf-8"));
+  assert.equal(manifestJson.runId, "run-failed");
+  assert.equal(manifestJson.metadata.status, "failed");
+  assert.equal(manifestJson.metadata.error, "strategy compile crash");
+  assert.equal(Array.isArray(manifestJson.datasets) && manifestJson.datasets.length, 1);
+  assert.equal(manifestJson.summary, undefined);
+  assert.equal(manifestJson.artifacts, undefined);
 });
 
 test("createJobHandler processes job successfully and persists result", async () => {
@@ -189,9 +224,9 @@ test("createJobHandler processes job successfully and persists result", async ()
     },
   };
 
-  const manifestCalls: unknown[] = [];
-  const writeManifest = async (...args: unknown[]) => {
-    manifestCalls.push(args);
+  const manifestCalls: ManifestPayload[] = [];
+  const writeManifest: ManifestWriter = async (payload) => {
+    manifestCalls.push(payload);
   };
 
   const backtestCalls: Array<{ request: BacktestRequest; options?: RunBacktestOptions }> = [];
@@ -222,17 +257,17 @@ test("createJobHandler processes job successfully and persists result", async ()
   assert.deepEqual(backtestCalls[0]?.options?.riskProfile, resolvedProfile);
 
   assert.equal(manifestCalls.length, 1);
-  const [, metadata, datasets] = manifestCalls[0] as [
-    BacktestResult,
-    { name: string; createdAt: string; status: string },
-    Array<Record<string, unknown>>,
-  ];
-  assert.deepEqual(metadata, {
+  const manifestPayload = manifestCalls[0];
+  assert.equal(manifestPayload.kind, "success");
+  if (manifestPayload.kind !== "success") {
+    throw new Error("expected success payload");
+  }
+  assert.deepEqual(manifestPayload.metadata, {
     name: "test_run",
     createdAt: "2024-02-01T12:34:56.000Z",
     status: "completed",
   });
-  assert.deepEqual(datasets, [
+  assert.deepEqual(manifestPayload.datasets, [
     {
       symbol: "AAPL",
       timeframe: "1d",
@@ -298,6 +333,7 @@ test("createJobHandler marks runs as failed when runBacktest throws", async () =
     },
   };
 
+  const failureManifests: ManifestPayload[] = [];
   const { logger, errorMessages } = createTestLogger();
   const handler = createJobHandler({
     database,
@@ -305,8 +341,8 @@ test("createJobHandler marks runs as failed when runBacktest throws", async () =
       throw new Error("engine failure");
     }) as RunBacktestMock,
     logger,
-    writeManifest: async () => {
-      throw new Error("should not write manifest on failure");
+    writeManifest: async (payload) => {
+      failureManifests.push(payload);
     },
   });
 
@@ -316,4 +352,12 @@ test("createJobHandler marks runs as failed when runBacktest throws", async () =
     { runId: "run-error", status: "failed", errorMessage: "engine failure" },
   ]);
   assert.equal(errorMessages.length, 1);
+  assert.equal(failureManifests.length, 1);
+  const failurePayload = failureManifests[0];
+  assert.equal(failurePayload.kind, "failure");
+  if (failurePayload.kind !== "failure") {
+    throw new Error("expected failure payload");
+  }
+  assert.equal(failurePayload.runId, "run-error");
+  assert.equal(failurePayload.error, "engine failure");
 });

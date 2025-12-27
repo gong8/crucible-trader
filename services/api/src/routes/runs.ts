@@ -430,7 +430,7 @@ const loadManifest = async (runId: string): Promise<ManifestShape | null> => {
 
 const loadManifestResult = async (runId: string): Promise<BacktestResult | null> => {
   const manifest = await loadManifest(runId);
-  if (!manifest) {
+  if (!manifest || !manifest.artifacts || manifest.metadata?.status === "failed") {
     return null;
   }
 
@@ -449,6 +449,7 @@ interface ManifestMetadata {
   readonly name?: string;
   readonly createdAt?: string;
   readonly status?: string;
+  readonly error?: string;
 }
 
 const listManifestSummaries = async (): Promise<RunSummary[]> => {
@@ -534,7 +535,7 @@ const resetRunStorage = async (): Promise<void> => {
 interface ManifestShape {
   readonly runId: string;
   readonly summary?: Record<string, number>;
-  readonly artifacts: BacktestResult["artifacts"];
+  readonly artifacts?: BacktestResult["artifacts"];
   readonly engine?: {
     readonly version?: string;
     readonly seed?: number;

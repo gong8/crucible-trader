@@ -152,7 +152,10 @@ export function StrategyLLMPanel({
   };
 
   return (
-    <section className="card" style={{ display: "grid", gap: "1rem" }}>
+    <section
+      className="card"
+      style={{ display: "grid", gap: "1rem", minWidth: 0, width: "100%", boxSizing: "border-box" }}
+    >
       <header>
         <h3 style={{ fontSize: "1rem", color: "var(--ember-orange)", marginBottom: "0.25rem" }}>
           Strategy LLM Assistant
@@ -163,11 +166,12 @@ export function StrategyLLMPanel({
       </header>
 
       <div style={{ display: "grid", gap: "0.75rem" }}>
-        <label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
           Provider
           <select
             value={provider}
             onChange={(event) => setProvider(event.currentTarget.value as LLMProvider)}
+            style={{ width: "100%" }}
           >
             {llmProviders.map((entry) => (
               <option key={entry} value={entry}>
@@ -181,21 +185,22 @@ export function StrategyLLMPanel({
             provider docs
           </a>
         </div>
-        <label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
           API Token (kept local to this request)
           <input
             type="password"
             value={token}
             onChange={(event) => setToken(event.currentTarget.value)}
+            style={{ width: "100%" }}
           />
         </label>
-        <label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
           Model
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <select
               value={modelOverride}
               onChange={(event) => setModelOverride(event.currentTarget.value)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
               disabled={modelOptions.length === 0}
             >
               <option value="" disabled>
@@ -207,7 +212,12 @@ export function StrategyLLMPanel({
                 </option>
               ))}
             </select>
-            <button type="button" className="btn-secondary" onClick={handleLoadModels}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleLoadModels}
+              style={{ flexShrink: 0 }}
+            >
               Load Models
             </button>
           </div>
@@ -228,13 +238,14 @@ export function StrategyLLMPanel({
             {modelStatus.message}
           </div>
         ) : null}
-        <label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
           Prompt
           <textarea
             value={prompt}
             onChange={(event) => setPrompt(event.currentTarget.value)}
             placeholder="Describe your edge, indicators, risk rules..."
             rows={4}
+            style={{ width: "100%", resize: "vertical" }}
           />
         </label>
         <button
@@ -270,6 +281,7 @@ export function StrategyLLMPanel({
             justifyContent: "space-between",
             gap: "1rem",
             alignItems: "flex-start",
+            flexWrap: "wrap",
             marginBottom: "0.5rem",
           }}
         >
@@ -307,6 +319,8 @@ export function StrategyLLMPanel({
             lineHeight: "1.4",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            maxWidth: "100%",
             border: "1px solid var(--graphite-100)",
           }}
         >
@@ -332,6 +346,10 @@ export function StrategyLLMPanel({
               overflow: "auto",
               fontSize: "0.7rem",
               lineHeight: "1.4",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              maxWidth: "100%",
             }}
           >
             {lastSnippet}

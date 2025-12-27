@@ -1,13 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const HIDDEN_PATTERNS: RegExp[] = [/^\/strategies\/new/, /^\/strategies\/[^/]+\/edit/];
+const EDIT_PATTERNS: RegExp[] = [/^\/strategies\/[^/]+\/edit/];
+const WORKSPACE_EVENT = "crucible:workspace-mode";
 
 export function NavBar(): JSX.Element | null {
   const pathname = usePathname();
-  if (pathname && HIDDEN_PATTERNS.some((pattern) => pattern.test(pathname))) {
+  const [workspaceActive, setWorkspaceActive] = useState(false);
+
+  useEffect(() => {
+    const handleWorkspaceToggle = (event: Event): void => {
+      const detail = (event as CustomEvent<{ active?: boolean }>).detail;
+      setWorkspaceActive(Boolean(detail?.active));
+    };
+    window.addEventListener(WORKSPACE_EVENT, handleWorkspaceToggle as EventListener);
+    return () => {
+      window.removeEventListener(WORKSPACE_EVENT, handleWorkspaceToggle as EventListener);
+    };
+  }, []);
+
+  const isStrategyNew = pathname === "/strategies/new";
+  const hideForStrategyNew = isStrategyNew && workspaceActive;
+  const hideForEdit = pathname ? EDIT_PATTERNS.some((pattern) => pattern.test(pathname)) : false;
+
+  if (hideForStrategyNew || hideForEdit) {
     return null;
   }
 

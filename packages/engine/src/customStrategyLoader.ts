@@ -1,11 +1,25 @@
 import { readdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { createJiti } from "jiti";
 
 const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
-const REPO_ROOT = join(MODULE_DIR, "..", "..", "..");
+
+const locateRepoRoot = (): string => {
+  let current = MODULE_DIR;
+  while (!existsSync(join(current, "pnpm-workspace.yaml"))) {
+    const parent = join(current, "..");
+    if (parent === current) {
+      return join(MODULE_DIR, "..", "..", "..");
+    }
+    current = parent;
+  }
+  return current;
+};
+
+const REPO_ROOT = locateRepoRoot();
 const CUSTOM_STRATEGIES_DIR = join(REPO_ROOT, "storage", "strategies", "custom");
 
 // Create jiti instance for loading TypeScript files

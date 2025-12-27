@@ -161,11 +161,18 @@ const useChartData = (result: RunDetailResponse | null): ChartData | null => {
           value: Number(row.close ?? 0),
         }));
 
+        const equityStart = equitySeries[0]?.time ?? null;
+        const equityEnd = equitySeries[equitySeries.length - 1]?.time ?? null;
+        const alignedPrice =
+          equityStart !== null && equityEnd !== null
+            ? priceSeries.filter((point) => point.time >= equityStart && point.time <= equityEnd)
+            : priceSeries;
+
         if (!cancelled) {
           setData({
             equity: equitySeries,
             markers,
-            price: priceSeries.length ? priceSeries : undefined,
+            price: alignedPrice.length ? alignedPrice : undefined,
           });
         }
       } catch (error) {
@@ -329,6 +336,23 @@ const createMockMarkers = (equity: Array<{ time: number; value: number }>): Trad
   ];
 };
 
+const formatDateRangeValue = (timestamp: number | null, fallback?: string): string => {
+  if (timestamp !== null) {
+    return formatIsoDisplay(new Date(timestamp * 1000));
+  }
+  if (fallback) {
+    const parsed = Date.parse(fallback);
+    if (Number.isFinite(parsed)) {
+      return formatIsoDisplay(new Date(parsed));
+    }
+  }
+  return "unknown";
+};
+
+const formatIsoDisplay = (date: Date): string => {
+  return date.toISOString().split("T")[0];
+};
+
 const toUnix = (value: unknown): number => {
   if (typeof value === "number") {
     return value;
@@ -357,6 +381,12 @@ export default function RunDetailPage(): JSX.Element {
   } = useStatTests(params?.runId);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [runningTest, setRunningTest] = useState<string | null>(null);
+
+  const requestedSeries = result?.request?.data[0];
+  const processedStart = chartData?.equity?.[0]?.time ?? null;
+  const processedEnd = chartData?.equity?.[chartData.equity.length - 1]?.time ?? null;
+  const startLabel = formatDateRangeValue(processedStart, requestedSeries?.start);
+  const endLabel = formatDateRangeValue(processedEnd, requestedSeries?.end);
 
   return (
     <div style={{ display: "grid", gap: "2rem" }}>
@@ -579,6 +609,34 @@ export default function RunDetailPage(): JSX.Element {
                   </div>
                   <div style={{ fontSize: "1rem", fontWeight: "600" }}>
                     {result.request?.data[0]?.timeframe ?? "unknown"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--graphite-500)",
+                    borderLeft: "3px solid var(--ember-dim)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "var(--steel-400)",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    DATA RANGE
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "0.35rem",
+                      fontSize: "0.9rem",
+                      fontWeight: "600",
+                    }}
+                  >
+                    <div>Start: {startLabel}</div>
+                    <div>End:&nbsp;&nbsp;{endLabel}</div>
                   </div>
                 </div>
               </div>
