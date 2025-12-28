@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: dark;
-  
+
   /* CRUCIBLE FORGE PALETTE */
   --graphite-50: #3a3d45;
   --graphite-100: #2a2d35;
@@ -10,20 +10,34 @@
   --graphite-300: #181b21;
   --graphite-400: #13161b;
   --graphite-500: #0d0f13;
-  
+
   --ember-orange: #ff6b35;
   --ember-glow: #ff8c5a;
   --ember-dim: #d4522a;
-  
+
   --steel-100: #a8b2c4;
   --steel-200: #8892a6;
   --steel-300: #6b7280;
   --steel-400: #4a5160;
-  
+
   --spark-yellow: #ffd23f;
   --success-green: #10b981;
+  --success-green-dark: #059669;
   --danger-red: #ef4444;
-  
+
+  /* TYPOGRAPHY */
+  --font-mono: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* SPACING SCALE */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 0.75rem;   /* 12px */
+  --space-lg: 1rem;      /* 16px */
+  --space-xl: 1.5rem;    /* 24px */
+  --space-2xl: 2rem;     /* 32px */
+  --space-3xl: 3rem;     /* 48px */
+
   /* GRID SYSTEM */
   --grid-pattern: repeating-linear-gradient(
     0deg,
@@ -508,6 +522,24 @@ pre {
   border-color: var(--ember-orange);
   color: var(--ember-orange);
   box-shadow: 0 0 16px rgba(255, 107, 53, 0.2);
+}
+
+.btn-danger {
+  padding: 0.65rem 1.5rem;
+  background: transparent;
+  color: var(--danger-red);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 2px solid var(--danger-red);
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: var(--danger-red);
+  color: var(--graphite-500);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
 }
 
 /* UTILITIES */

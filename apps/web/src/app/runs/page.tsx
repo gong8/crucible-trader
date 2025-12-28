@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { apiRoute } from "../../lib/api";
+import { Alert } from "../../components";
 
 interface RunListItem {
   runId: string;
@@ -336,16 +337,7 @@ export default function RunsPage(): JSX.Element {
           </div>
         </div>
       ) : error ? (
-        <div
-          className="alert"
-          style={{
-            borderLeft: "4px solid var(--danger-red)",
-            background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
-            color: "var(--danger-red)",
-          }}
-        >
-          Error: {error}
-        </div>
+        <Alert type="error">Error: {error}</Alert>
       ) : runs.length === 0 ? (
         <div
           className="card"

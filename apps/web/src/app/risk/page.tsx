@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { RiskProfile } from "@crucible-trader/sdk";
 
 import { apiRoute } from "../../lib/api";
+import { Alert } from "../../components";
 
 export default function RiskPage(): JSX.Element {
   const [profiles, setProfiles] = useState<RiskProfile[]>([]);
@@ -64,7 +65,7 @@ export default function RiskPage(): JSX.Element {
     <section className="grid" aria-label="risk profiles" style={{ gap: "1rem" }}>
       <header className="grid" style={{ gap: "0.5rem" }}>
         <h1 className="section-title">risk profiles</h1>
-        <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--steel-200)", fontSize: "0.9rem" }}>
           configure per-run guardrails used by the engine.
         </p>
       </header>
@@ -155,23 +156,28 @@ export default function RiskPage(): JSX.Element {
           onClick={() => {
             void handleSubmit();
           }}
-          style={{
-            padding: "0.5rem 0.75rem",
-            borderRadius: "0.5rem",
-            border: "1px solid #f97316",
-            background: "#f97316",
-            color: "#0f172a",
-            cursor: "pointer",
-          }}
+          className="btn-primary"
         >
           save profile
         </button>
-        {status ? <div className="alert">{status}</div> : null}
+        {status ? (
+          <Alert
+            type={
+              status.includes("unable") || status.includes("failed")
+                ? "error"
+                : status.includes("saved")
+                  ? "success"
+                  : "warning"
+            }
+          >
+            {status}
+          </Alert>
+        ) : null}
       </div>
 
       <div className="grid" style={{ gap: "0.75rem" }}>
         {profiles.length === 0 ? (
-          <div className="alert">no profiles saved yet.</div>
+          <Alert type="warning">no profiles saved yet.</Alert>
         ) : (
           profiles.map((profile) => (
             <article key={profile.id} className="card" aria-label={`profile ${profile.id}`}>
@@ -183,9 +189,9 @@ export default function RiskPage(): JSX.Element {
                 }}
               >
                 <strong>{profile.name}</strong>
-                <span style={{ color: "#38bdf8" }}>{profile.id}</span>
+                <span style={{ color: "var(--ember-orange)" }}>{profile.id}</span>
               </header>
-              <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.5rem" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--steel-200)", marginTop: "0.5rem" }}>
                 max position {toPercent(profile.maxPositionPct)} · kill switch{" "}
                 {toPercent(profile.globalDDKillPct)}
               </p>

@@ -16,6 +16,7 @@ import type {
 } from "@crucible-trader/sdk";
 import { strategyConfigs, strategyList } from "@crucible-trader/sdk";
 import { apiRoute } from "../../lib/api";
+import { Alert } from "../../components";
 import { StrategyControls, mapZodIssues } from "./StrategyControls";
 import type { DatasetRecord } from "./helpers";
 import { buildDatasetOverride, buildRequestSafely, generateRunName } from "./helpers";
@@ -545,9 +546,9 @@ function NewRunPageContent(): JSX.Element {
                     </select>
                   </label>
                 ) : (
-                  <div className="alert">
+                  <Alert type="warning">
                     No datasets available. Register one under the datasets tab.
-                  </div>
+                  </Alert>
                 )
               ) : (
                 <>
@@ -877,28 +878,12 @@ function NewRunPageContent(): JSX.Element {
 
           {/* Submission Status */}
           {submission.status === "success" ? (
-            <div
-              className="alert"
-              style={{
-                borderLeft: "4px solid var(--success-green)",
-                background: "linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)",
-                color: "var(--success-green)",
-              }}
-            >
+            <Alert type="success">
               Run queued: <strong>{submission.runId}</strong>
-            </div>
+            </Alert>
           ) : null}
           {submission.status === "error" && submission.message ? (
-            <div
-              className="alert"
-              style={{
-                borderLeft: "4px solid var(--danger-red)",
-                background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
-                color: "var(--danger-red)",
-              }}
-            >
-              Error: {submission.message}
-            </div>
+            <Alert type="error">Error: {submission.message}</Alert>
           ) : null}
         </form>
 

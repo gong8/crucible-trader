@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 import type { BacktestRequest, BacktestResult } from "@crucible-trader/sdk";
 
 import { apiRoute } from "../../../lib/api";
+import { Alert } from "../../../components";
 
 const LightweightChart = dynamic(() => import("../../../components/lightweight-chart"), {
   ssr: false,
@@ -474,18 +475,7 @@ export default function RunDetailPage(): JSX.Element {
           </div>
         </div>
       ) : null}
-      {error ? (
-        <div
-          className="alert"
-          style={{
-            borderLeft: "4px solid var(--danger-red)",
-            background: "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)",
-            color: "var(--danger-red)",
-          }}
-        >
-          Error: {error}
-        </div>
-      ) : null}
+      {error ? <Alert type="error">Error: {error}</Alert> : null}
 
       {/* TAB NAVIGATION */}
       {result ? (
@@ -658,7 +648,7 @@ export default function RunDetailPage(): JSX.Element {
                   <LightweightChart equity={chartData.equity} markers={chartData.markers} />
                 </div>
               ) : (
-                <div className="alert">Chart data unavailable</div>
+                <Alert type="warning">Chart data unavailable</Alert>
               )}
             </div>
           ) : null}
@@ -710,7 +700,7 @@ export default function RunDetailPage(): JSX.Element {
                   ) : null}
                 </div>
               ) : (
-                <div className="alert">Chart data unavailable</div>
+                <Alert type="warning">Chart data unavailable</Alert>
               )}
             </div>
           ) : null}
@@ -1043,7 +1033,7 @@ export default function RunDetailPage(): JSX.Element {
               </div>
             </div>
           ) : activeTab === "trades" && trades && trades.length === 0 ? (
-            <div className="alert">No trades executed in this run</div>
+            <Alert type="warning">No trades executed in this run</Alert>
           ) : null}
 
           {/* STATS TAB */}
@@ -1170,16 +1160,9 @@ export default function RunDetailPage(): JSX.Element {
                   Loading statistical tests...
                 </div>
               ) : statTests.length === 0 ? (
-                <div
-                  className="alert"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, rgba(255, 210, 63, 0.1) 0%, transparent 100%)",
-                    borderLeft: "4px solid var(--spark-yellow)",
-                  }}
-                >
+                <Alert type="warning">
                   No statistical tests run yet. Click a button above to run your first test.
-                </div>
+                </Alert>
               ) : (
                 <div style={{ display: "grid", gap: "1.5rem" }}>
                   {statTests.map((test) => (

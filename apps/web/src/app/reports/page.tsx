@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { apiRoute } from "../../lib/api";
+import { Alert } from "../../components";
 
 interface RunSummary {
   readonly runId: string;
@@ -38,13 +39,13 @@ export default function ReportsPage(): JSX.Element {
     <section className="grid" aria-label="reports" style={{ gap: "1rem" }}>
       <header className="grid" style={{ gap: "0.5rem" }}>
         <h1 className="section-title">reports</h1>
-        <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--steel-200)", fontSize: "0.9rem" }}>
           inspect run metrics and download markdown manifests.
         </p>
       </header>
-      {error ? <div className="alert">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
       {runs.length === 0 ? (
-        <div className="alert">no runs recorded yet.</div>
+        <Alert type="warning">no runs recorded yet.</Alert>
       ) : (
         <div className="card" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>

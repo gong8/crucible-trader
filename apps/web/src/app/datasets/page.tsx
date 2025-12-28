@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiRoute } from "../../lib/api";
 import type { DataSource, Timeframe } from "@crucible-trader/sdk";
+import { Alert } from "../../components";
 
 interface DatasetRecord {
   readonly id: number;
@@ -197,10 +198,10 @@ export default function DatasetsPage(): JSX.Element {
     <section className="grid" aria-label="datasets" style={{ gap: "1rem" }}>
       <header className="grid" style={{ gap: "0.5rem" }}>
         <h1 className="section-title">datasets</h1>
-        <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--steel-200)", fontSize: "0.9rem" }}>
           auto mode will reuse cached CSVs or fall back to Tiingo/Polygon as needed.
         </p>
-        <p style={{ color: "#cbd5f5", fontSize: "0.8rem" }}>
+        <p style={{ color: "var(--steel-100)", fontSize: "0.8rem" }}>
           Tip: set <code>TIINGO_API_KEY</code> / <code>POLYGON_API_KEY</code> in <code>.env</code>{" "}
           when fetching remote datasets.
         </p>
@@ -273,10 +274,10 @@ export default function DatasetsPage(): JSX.Element {
               <div
                 style={{
                   padding: "0.75rem",
-                  background: "#1e293b",
-                  borderLeft: "3px solid #fbbf24",
+                  background: "var(--graphite-300)",
+                  borderLeft: "3px solid var(--spark-yellow)",
                   fontSize: "0.75rem",
-                  color: "#cbd5e1",
+                  color: "var(--steel-100)",
                 }}
               >
                 Available Range: {availableRange.start} → {availableRange.end} (
@@ -293,23 +294,28 @@ export default function DatasetsPage(): JSX.Element {
           onClick={() => {
             void handleFetch();
           }}
-          style={{
-            padding: "0.5rem 0.75rem",
-            borderRadius: "0.5rem",
-            border: "1px solid #38bdf8",
-            background: "#0f172a",
-            color: "#38bdf8",
-            cursor: "pointer",
-          }}
+          className="btn-secondary"
         >
           register dataset
         </button>
-        {status ? <div className="alert">{status}</div> : null}
+        {status ? (
+          <Alert
+            type={
+              status.includes("failed") || status.includes("unable")
+                ? "error"
+                : status.includes("registered") || status.includes("removed")
+                  ? "success"
+                  : "warning"
+            }
+          >
+            {status}
+          </Alert>
+        ) : null}
       </div>
 
       <div className="grid" style={{ gap: "0.5rem" }}>
         {datasets.length === 0 ? (
-          <div className="alert">no datasets registered yet.</div>
+          <Alert type="warning">no datasets registered yet.</Alert>
         ) : (
           datasets.map((dataset) => (
             <article key={dataset.id} className="card" aria-label={`dataset ${dataset.symbol}`}>
@@ -324,10 +330,14 @@ export default function DatasetsPage(): JSX.Element {
                   <strong>
                     {dataset.symbol} · {dataset.timeframe}
                   </strong>
-                  <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{dataset.source}</span>
+                  <span style={{ fontSize: "0.8rem", color: "var(--steel-200)" }}>
+                    {dataset.source}
+                  </span>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ color: "#38bdf8", fontSize: "0.9rem" }}>{dataset.rows} rows</span>
+                  <span style={{ color: "var(--ember-orange)", fontSize: "0.9rem" }}>
+                    {dataset.rows} rows
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -338,23 +348,17 @@ export default function DatasetsPage(): JSX.Element {
                         void handleDelete(dataset);
                       }
                     }}
-                    style={{
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.35rem",
-                      border: "1px solid #ef4444",
-                      background: "#0f172a",
-                      color: "#ef4444",
-                      cursor: "pointer",
-                    }}
+                    className="btn-danger"
+                    style={{ padding: "0.25rem 0.5rem" }}
                   >
                     delete
                   </button>
                 </div>
               </header>
-              <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.5rem" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--steel-200)", marginTop: "0.5rem" }}>
                 {dataset.start ?? "unknown"} → {dataset.end ?? "unknown"}
               </p>
-              <p style={{ fontSize: "0.8rem", color: "#64748b" }}>{dataset.path}</p>
+              <p style={{ fontSize: "0.8rem", color: "var(--steel-300)" }}>{dataset.path}</p>
             </article>
           ))
         )}

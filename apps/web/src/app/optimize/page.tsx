@@ -1660,7 +1660,8 @@ function BestParametersCard({
           style={{
             width: "100%",
             padding: "0.75rem",
-            background: "linear-gradient(135deg, var(--success-green) 0%, #059669 100%)",
+            background:
+              "linear-gradient(135deg, var(--success-green) 0%, var(--success-green-dark) 100%)",
             color: "white",
             border: "none",
             borderRadius: "6px",

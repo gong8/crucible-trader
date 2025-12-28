@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import StrategyEditor from "@/components/strategy-editor/StrategyEditor";
+import { Alert } from "@/components";
 
 export default function EditStrategyPage() {
   const router = useRouter();
@@ -322,46 +323,20 @@ export default function EditStrategyPage() {
 
         {/* Error Messages */}
         {error && (
-          <div
-            className="alert"
-            style={{
-              marginTop: "1rem",
-              borderLeft: "4px solid var(--danger-red)",
-              background: "rgba(239, 68, 68, 0.1)",
-              color: "var(--danger-red)",
-            }}
-          >
+          <Alert type="error" style={{ marginTop: "1rem" }}>
             <strong>ERROR:</strong> {error}
-          </div>
+          </Alert>
         )}
 
         {validationSuccess && validationErrors.length === 0 && (
-          <div
-            className="alert"
-            style={{
-              marginTop: "1rem",
-              borderLeft: "4px solid var(--success-green)",
-              background: "rgba(16, 185, 129, 0.1)",
-              color: "var(--success-green)",
-            }}
-          >
+          <Alert type="success" style={{ marginTop: "1rem" }}>
             <strong>✓ VALIDATION PASSED</strong>
             {validationWarnings.length === 0 && <span> - No errors or warnings found.</span>}
-          </div>
+          </Alert>
         )}
 
         {validationErrors.length > 0 && (
-          <div
-            className="alert"
-            style={{
-              marginTop: "1rem",
-              borderLeft: "4px solid var(--danger-red)",
-              background: "rgba(239, 68, 68, 0.1)",
-              color: "var(--danger-red)",
-              maxHeight: "200px",
-              overflow: "auto",
-            }}
-          >
+          <Alert type="error" style={{ marginTop: "1rem", maxHeight: "200px", overflow: "auto" }}>
             <strong>VALIDATION ERRORS ({validationErrors.length}):</strong>
             <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
               {validationErrors.map((err, i) => (
@@ -370,21 +345,11 @@ export default function EditStrategyPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Alert>
         )}
 
         {validationWarnings.length > 0 && (
-          <div
-            className="alert"
-            style={{
-              marginTop: "1rem",
-              borderLeft: "4px solid var(--spark-yellow)",
-              background: "rgba(252, 211, 77, 0.1)",
-              color: "var(--spark-yellow)",
-              maxHeight: "150px",
-              overflow: "auto",
-            }}
-          >
+          <Alert type="warning" style={{ marginTop: "1rem", maxHeight: "150px", overflow: "auto" }}>
             <strong>WARNINGS ({validationWarnings.length}):</strong>
             <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem", fontSize: "0.85rem" }}>
               {validationWarnings.map((warn, i) => (
@@ -393,7 +358,7 @@ export default function EditStrategyPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Alert>
         )}
       </div>
 
