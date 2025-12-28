@@ -366,14 +366,52 @@ export default function OptimizePage(): JSX.Element {
     const field = strategy?.fields.find((f) => f.key === paramKey);
     const customField = selectedCustomStrategy?.configSchema?.[paramKey];
 
+    // Get the default value for smart range calculation
+    const defaultValue = strategy?.defaults[paramKey] ?? customField?.default ?? null;
+    const step = field?.step ?? customField?.step ?? 1;
+
+    let min: number;
+    let max: number;
+
+    if (defaultValue !== null && typeof defaultValue === "number") {
+      // Calculate ±25% range around default value
+      const variation = defaultValue * 0.25;
+      const calculatedMin = defaultValue - variation;
+      const calculatedMax = defaultValue + variation;
+
+      // Round based on step size for better precision
+      const roundToStep = (value: number): number => {
+        if (step >= 1) {
+          // For integer steps, use standard rounding
+          return Math.round(value);
+        } else {
+          // For decimal steps, round to appropriate precision
+          const decimals = Math.max(0, -Math.floor(Math.log10(step)));
+          return Math.round(value * Math.pow(10, decimals)) / Math.pow(10, decimals);
+        }
+      };
+
+      min = roundToStep(Math.max(calculatedMin, field?.min ?? customField?.min ?? 0));
+      max = roundToStep(calculatedMax);
+
+      // Ensure min < max (edge case for very small default values)
+      if (min >= max) {
+        max = min + step;
+      }
+    } else {
+      // Fallback to field min/max or generic defaults
+      min = field?.min ?? customField?.min ?? 1;
+      max = field?.max ?? customField?.max ?? 100;
+    }
+
     setParamGrid({
       ...paramGrid,
       [paramKey]: {
         type: "range",
         range: {
-          min: field?.min ?? customField?.min ?? 1,
-          max: field?.max ?? customField?.max ?? 100,
-          step: field?.step ?? customField?.step ?? 1,
+          min,
+          max,
+          step,
         },
       },
     });
