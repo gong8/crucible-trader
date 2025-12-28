@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import type { Bar, BarsBySymbol, EquityPoint, EngineDiagnostics, TradeFill } from "./types.js";
 import { writeParquetArtifacts, writeReportArtifact } from "./persistence.js";
-import { loadCustomStrategies } from "./customStrategyLoader.js";
+import { loadCustomStrategies, type StrategyRegistration } from "./customStrategyLoader.js";
 
 export interface RunBacktestOptions {
   readonly runId?: string;
@@ -61,22 +61,67 @@ const STRATEGY_REGISTRY: Record<string, StrategyModule> = {
   [strategies.chaosTrader.name]: strategies.chaosTrader,
 };
 
-// Load custom strategies (async initialization)
-let customStrategiesLoaded = false;
-const customStrategiesPromise = loadCustomStrategies()
-  .then((customStrategies) => {
-    console.log(
-      `[engine] Registering ${Object.keys(customStrategies).length} custom strategies into STRATEGY_REGISTRY`,
-    );
-    Object.assign(STRATEGY_REGISTRY, customStrategies);
-    customStrategiesLoaded = true;
-    console.log(`[engine] Total strategies registered:`, Object.keys(STRATEGY_REGISTRY));
-    return customStrategies;
-  })
-  .catch((error) => {
-    console.error("[engine] Failed to load custom strategies:", error);
-    return {};
-  });
+const CUSTOM_STRATEGY_REFRESH_INTERVAL_MS = 10_000;
+const registeredCustomStrategyNames = new Set<string>();
+let customStrategyReloadPromise: Promise<void> | null = null;
+let customStrategiesLoadedAt = 0;
+let customStrategiesLoadedOnce = false;
+
+const registerCustomStrategies = (customStrategies: Record<string, StrategyRegistration>): void => {
+  const incomingNames = new Set(Object.keys(customStrategies));
+
+  // Remove strategies that no longer exist on disk
+  for (const existing of Array.from(registeredCustomStrategyNames)) {
+    if (!incomingNames.has(existing)) {
+      delete STRATEGY_REGISTRY[existing];
+      registeredCustomStrategyNames.delete(existing);
+    }
+  }
+
+  for (const [name, registration] of Object.entries(customStrategies)) {
+    STRATEGY_REGISTRY[name] = registration as unknown as StrategyModule;
+    registeredCustomStrategyNames.add(name);
+  }
+};
+
+const refreshCustomStrategyRegistry = async (): Promise<void> => {
+  const customStrategies = await loadCustomStrategies();
+  console.log(
+    `[engine] Registering ${Object.keys(customStrategies).length} custom strategies into STRATEGY_REGISTRY`,
+  );
+  registerCustomStrategies(customStrategies);
+  customStrategiesLoadedAt = Date.now();
+  customStrategiesLoadedOnce = true;
+  console.log(`[engine] Total strategies registered:`, Object.keys(STRATEGY_REGISTRY));
+};
+
+const queueCustomStrategyRefresh = (): Promise<void> => {
+  if (!customStrategyReloadPromise) {
+    customStrategyReloadPromise = refreshCustomStrategyRegistry()
+      .catch((error) => {
+        console.error("[engine] Failed to load custom strategies:", error);
+      })
+      .finally(() => {
+        customStrategyReloadPromise = null;
+      });
+  }
+  return customStrategyReloadPromise;
+};
+
+const ensureCustomStrategiesFresh = async (): Promise<void> => {
+  const now = Date.now();
+  if (
+    !customStrategiesLoadedOnce ||
+    now - customStrategiesLoadedAt > CUSTOM_STRATEGY_REFRESH_INTERVAL_MS
+  ) {
+    await queueCustomStrategyRefresh();
+  }
+};
+
+export const forceReloadCustomStrategies = async (): Promise<void> => {
+  customStrategiesLoadedAt = 0;
+  await queueCustomStrategyRefresh();
+};
 
 const isBarsBySymbol = (value: unknown): value is BarsBySymbol => {
   if (value === null || typeof value !== "object") {
@@ -151,12 +196,9 @@ export async function runBacktest(
   request: BacktestRequest,
   options: RunBacktestOptions = {},
 ): Promise<BacktestResult> {
-  // Ensure custom strategies are loaded
-  if (!customStrategiesLoaded) {
-    console.log("[engine] Waiting for custom strategies to load...");
-    await customStrategiesPromise;
-    console.log("[engine] Custom strategies loaded");
-  }
+  const startTime = Date.now();
+
+  await ensureCustomStrategiesFresh();
 
   // Validate request structure and constraints
   assertValid(Schemas.BacktestRequest, request, "BacktestRequest");
@@ -191,7 +233,21 @@ export async function runBacktest(
     );
   }
 
-  const strategy = instantiateStrategy(request);
+  let strategy: ReturnType<StrategyModule["factory"]>;
+  try {
+    strategy = instantiateStrategy(request);
+  } catch (error) {
+    if (error instanceof StrategyNotFoundError) {
+      console.warn(
+        `[engine] Strategy "${error.requestedName}" missing from registry. Reloading custom strategies...`,
+      );
+      await forceReloadCustomStrategies();
+      strategy = instantiateStrategy(request);
+    } else {
+      throw error;
+    }
+  }
+
   const riskLimits = resolveRiskLimits(options.riskProfile);
   const simulation = simulateStrategy({
     bars: primaryBars,
@@ -247,6 +303,8 @@ export async function runBacktest(
     riskProfile: options.riskProfile ?? DEFAULT_RISK_PROFILE,
   });
 
+  const executionTimeMs = Date.now() - startTime;
+
   return {
     runId,
     summary,
@@ -260,7 +318,24 @@ export async function runBacktest(
       ...diagnostics,
       notes: "Phase 0 deterministic run",
     },
+    executionTimeMs,
   };
+}
+
+class StrategyNotFoundError extends Error {
+  public readonly requestedName: string;
+  public readonly availableStrategies: string[];
+
+  public constructor(requestedName: string, availableStrategies: string[]) {
+    super(
+      `Strategy not found: "${requestedName}"\n` +
+        `Available strategies: ${availableStrategies.join(", ")}\n` +
+        `Did you mean one of these? Check spelling and case sensitivity.`,
+    );
+    this.name = "StrategyNotFoundError";
+    this.requestedName = requestedName;
+    this.availableStrategies = availableStrategies;
+  }
 }
 
 const instantiateStrategy = (request: BacktestRequest) => {
@@ -272,11 +347,7 @@ const instantiateStrategy = (request: BacktestRequest) => {
 
   const module = STRATEGY_REGISTRY[requestedName];
   if (!module) {
-    throw new Error(
-      `Strategy not found: "${requestedName}"\n` +
-        `Available strategies: ${availableStrategies.join(", ")}\n` +
-        `Did you mean one of these? Check spelling and case sensitivity.`,
-    );
+    throw new StrategyNotFoundError(requestedName, availableStrategies);
   }
 
   console.log(`[engine] Found strategy module for "${requestedName}"`);

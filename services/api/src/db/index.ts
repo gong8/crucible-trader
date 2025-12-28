@@ -36,6 +36,7 @@ export interface RunRecord {
   readonly summaryJson: string | null;
   readonly errorMessage: string | null;
   readonly favorite: number;
+  readonly executionTimeMs: number | null;
 }
 
 export interface ArtifactRecord {
@@ -55,6 +56,7 @@ export interface RunSummaryRow {
   readonly errorMessage: string | null;
   readonly requestJson: string;
   readonly favorite: number;
+  readonly executionTimeMs: number | null;
 }
 
 export interface DatasetRecord {
@@ -154,12 +156,14 @@ export class ApiDatabase {
       await this.db.run(
         `update runs
             set status = :status,
-                summary_json = :summaryJson
+                summary_json = :summaryJson,
+                execution_time_ms = :executionTimeMs
           where run_id = :runId`,
         {
           ":runId": result.runId,
           ":status": "completed",
           ":summaryJson": JSON.stringify(result.summary ?? {}),
+          ":executionTimeMs": result.executionTimeMs ?? null,
         },
       );
 
@@ -601,6 +605,8 @@ export class ApiDatabase {
         resultsJson: string | null;
         walkForwardResultsJson: string | null;
         totalCombinations: number;
+        completedCombinations: number | null;
+        estimatedTimeRemainingMs: number | null;
         baseRequestJson: string;
         createdAt: string;
         completedAt: string | null;
@@ -626,6 +632,8 @@ export class ApiDatabase {
               results_json as resultsJson,
               walk_forward_results_json as walkForwardResultsJson,
               total_combinations as totalCombinations,
+              completed_combinations as completedCombinations,
+              estimated_time_remaining_ms as estimatedTimeRemainingMs,
               base_request_json as baseRequestJson,
               created_at as createdAt,
               completed_at as completedAt,
@@ -675,6 +683,8 @@ export class ApiDatabase {
       walkForwardResultsJson?: string;
       completedAt?: string;
       errorMessage?: string;
+      completedCombinations?: number;
+      estimatedTimeRemainingMs?: number;
     },
   ): Promise<void> {
     const setClauses: string[] = [];
@@ -711,6 +721,14 @@ export class ApiDatabase {
     if (updates.errorMessage !== undefined) {
       setClauses.push("error_message = :errorMessage");
       params[":errorMessage"] = updates.errorMessage;
+    }
+    if (updates.completedCombinations !== undefined) {
+      setClauses.push("completed_combinations = :completedCombinations");
+      params[":completedCombinations"] = updates.completedCombinations;
+    }
+    if (updates.estimatedTimeRemainingMs !== undefined) {
+      setClauses.push("estimated_time_remaining_ms = :estimatedTimeRemainingMs");
+      params[":estimatedTimeRemainingMs"] = updates.estimatedTimeRemainingMs;
     }
 
     if (setClauses.length === 0) {

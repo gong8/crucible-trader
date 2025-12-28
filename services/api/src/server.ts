@@ -15,6 +15,7 @@ import { registerRiskProfileRoutes } from "./routes/risk-profiles.js";
 import { registerRunsRoutes, type RunSummary } from "./routes/runs.js";
 import { registerStatsRoutes } from "./routes/stats.js";
 import { registerOptimizeRoutes } from "./routes/optimize.js";
+import { registerStrategiesRoutes } from "./routes/strategies.js";
 
 type ResultCache = Map<string, BacktestResult>;
 
@@ -210,6 +211,8 @@ export const createFastifyServer = async (
       objective: row.objective as MetricKey,
       status: row.status as "queued" | "running" | "completed" | "failed",
       totalCombinations: row.totalCombinations,
+      completedCombinations: row.completedCombinations ?? undefined,
+      estimatedTimeRemainingMs: row.estimatedTimeRemainingMs ?? undefined,
       bestParams: row.bestParamsJson ? JSON.parse(row.bestParamsJson) : undefined,
       bestScore: row.bestScore ?? undefined,
       bestRobustnessScore: row.bestRobustnessScore ?? undefined,
@@ -260,6 +263,8 @@ export const createFastifyServer = async (
     listOptimizations,
     updateOptimization,
   });
+
+  registerStrategiesRoutes(app);
 
   app.addHook("onClose", async () => {
     if (!databaseProvided) {

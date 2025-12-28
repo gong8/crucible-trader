@@ -158,6 +158,8 @@ export interface BacktestResult {
   };
   /** Diagnostics metadata such as seeds, versions, and invariants. */
   diagnostics: Record<string, unknown>;
+  /** Execution time in milliseconds. */
+  executionTimeMs?: number;
 }
 
 /** Runtime validator for {@link BacktestResult}. */
@@ -171,6 +173,7 @@ export const BacktestResultSchema = z.object({
     reportMd: z.string().min(1).optional(),
   }),
   diagnostics: z.record(z.unknown()),
+  executionTimeMs: z.number().optional(),
 });
 
 /** -----------------------------------------------------------------------
@@ -448,6 +451,10 @@ export interface OptimizationResult {
   objective: MetricKey;
   /** Total parameter combinations tested. */
   totalCombinations: number;
+  /** Number of completed combinations. */
+  completedCombinations?: number;
+  /** Estimated time remaining in milliseconds. */
+  estimatedTimeRemainingMs?: number;
   /** Best parameter set found. */
   bestParams?: Record<string, number>;
   /** Best objective score. */

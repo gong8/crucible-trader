@@ -328,6 +328,18 @@ export async function POST(request: NextRequest) {
     // Write the file
     await writeFile(filePath, code, "utf-8");
 
+    // Trigger hot-reload of custom strategies in the engine
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+      await fetch(`${apiBaseUrl}/api/strategies/reload`, {
+        method: "POST",
+      });
+      console.log("[API] Triggered custom strategies reload");
+    } catch (reloadError) {
+      // Don't fail the request if reload fails - just log it
+      console.warn("[API] Failed to trigger strategies reload:", reloadError);
+    }
+
     return NextResponse.json({
       success: true,
       id: filenameToId(filename),

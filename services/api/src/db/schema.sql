@@ -6,7 +6,8 @@ create table if not exists runs (
   request_json text not null,
   summary_json text,
   error_message text,
-  favorite integer not null default 0
+  favorite integer not null default 0,
+  execution_time_ms integer
 );
 create table if not exists artifacts (
   id integer primary key autoincrement,
@@ -65,6 +66,8 @@ create table if not exists optimizations (
   results_json text,
   walk_forward_results_json text,
   total_combinations integer not null,
+  completed_combinations integer not null default 0,
+  estimated_time_remaining_ms integer,
   base_request_json text not null,
   created_at text default current_timestamp,
   completed_at text,

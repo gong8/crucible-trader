@@ -53,7 +53,7 @@ interface CustomStrategyModule {
   };
 }
 
-interface StrategyRegistration {
+export interface StrategyRegistration {
   name: string;
   schema: z.ZodType<unknown>;
   factory: (params: unknown) => {

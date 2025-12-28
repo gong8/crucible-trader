@@ -257,10 +257,21 @@ export const createOptimizationHandler =
         });
 
         const windowResults = [];
-        for (const window of windows) {
+        const windowExecutionTimes: number[] = [];
+
+        for (let i = 0; i < windows.length; i++) {
+          const window = windows[i];
+          if (!window) {
+            deps.logger.warn("Skipping undefined window", { index: i });
+            continue;
+          }
+
+          const windowStartTime = Date.now();
+
           deps.logger.info("Processing walk-forward window", {
             optId: job.optId,
             windowIndex: window.windowIndex,
+            progress: `${i + 1}/${windows.length}`,
           });
 
           const result = await runWalkForwardWindow(
@@ -274,6 +285,35 @@ export const createOptimizationHandler =
             deps,
           );
           windowResults.push(result);
+
+          // Track execution time
+          const execTime = Date.now() - windowStartTime;
+          windowExecutionTimes.push(execTime);
+
+          // Update progress
+          const avgTime =
+            windowExecutionTimes.reduce((a, b) => a + b, 0) / windowExecutionTimes.length;
+          const remaining = windows.length - (i + 1);
+          const estimatedTimeMs = Math.round(avgTime * remaining);
+
+          await deps.database.updateOptimization(job.optId, {
+            completedCombinations: i + 1,
+            estimatedTimeRemainingMs: estimatedTimeMs,
+          });
+
+          deps.logger.info("Walk-forward progress update", {
+            optId: job.optId,
+            completedWindows: i + 1,
+            totalWindows: windows.length,
+            estimatedRemainingMs: estimatedTimeMs,
+          });
+        }
+
+        // Check if any windows were generated
+        if (windowResults.length === 0) {
+          throw new Error(
+            `No walk-forward windows generated. Date range too short for in-sample (${job.walkForwardConfigJson ? JSON.parse(job.walkForwardConfigJson).inSampleMonths : 12}mo) + out-of-sample (${job.walkForwardConfigJson ? JSON.parse(job.walkForwardConfigJson).outSampleMonths : 3}mo) periods.`,
+          );
         }
 
         // Calculate aggregate OOS metrics
@@ -287,8 +327,9 @@ export const createOptimizationHandler =
           paramCounts.set(key, (paramCounts.get(key) ?? 0) + 1);
         }
 
-        const mostCommonParams = Array.from(paramCounts.entries()).reduce((best, current) =>
-          current[1] > best[1] ? current : best,
+        const mostCommonParams = Array.from(paramCounts.entries()).reduce(
+          (best, current) => (current[1] > best[1] ? current : best),
+          ["", 0] as [string, number],
         );
 
         const bestParams = JSON.parse(mostCommonParams[0]) as Record<string, number>;
@@ -309,6 +350,8 @@ export const createOptimizationHandler =
       } else {
         // Standard grid search without walk-forward
         const allResults: OptimizationCombinationResult[] = [];
+        const executionTimes: number[] = [];
+        const updateInterval = 5; // Update progress every 5 combinations
 
         for (let i = 0; i < combinations.length; i++) {
           const params = combinations[i];
@@ -316,6 +359,8 @@ export const createOptimizationHandler =
             deps.logger.warn("Skipping undefined params", { index: i });
             continue;
           }
+
+          const combStartTime = Date.now();
 
           deps.logger.info("Testing combination", {
             optId: job.optId,
@@ -334,10 +379,34 @@ export const createOptimizationHandler =
               deps,
             );
             allResults.push(result);
+
+            // Track execution time
+            const execTime = Date.now() - combStartTime;
+            executionTimes.push(execTime);
           } catch (error) {
             deps.logger.warn("Combination failed", {
               params,
               error: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          // Update progress periodically
+          if ((i + 1) % updateInterval === 0 || i === combinations.length - 1) {
+            const avgTime = executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length;
+            const remaining = combinations.length - (i + 1);
+            const estimatedTimeMs = Math.round(avgTime * remaining);
+
+            await deps.database.updateOptimization(job.optId, {
+              completedCombinations: i + 1,
+              estimatedTimeRemainingMs: estimatedTimeMs,
+            });
+
+            deps.logger.info("Progress update", {
+              optId: job.optId,
+              completed: i + 1,
+              total: combinations.length,
+              estimatedRemainingMs: estimatedTimeMs,
+              avgTimePerCombinationMs: Math.round(avgTime),
             });
           }
         }

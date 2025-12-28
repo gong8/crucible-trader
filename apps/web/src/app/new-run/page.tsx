@@ -226,12 +226,57 @@ function NewRunPageContent(): JSX.Element {
     }
   }, [useExistingDataset, datasets, selectedDatasetId]);
 
-  // Auto-select strategy from query parameter
+  // Auto-fill form from URL parameters (from optimization results)
   useEffect(() => {
-    const strategyParam = searchParams?.get("strategy");
+    if (!searchParams) return;
+
+    const strategyParam = searchParams.get("strategy");
+    const symbolParam = searchParams.get("symbol");
+    const timeframeParam = searchParams.get("timeframe");
+    const startParam = searchParams.get("start");
+    const endParam = searchParams.get("end");
+    const dataSourceParam = searchParams.get("dataSource");
+    const adjustedParam = searchParams.get("adjusted");
+
+    console.log("[new-run] Loading from URL params:", {
+      strategyParam,
+      symbolParam,
+      timeframeParam,
+      startParam,
+      endParam,
+      dataSourceParam,
+      adjustedParam,
+    });
+
+    // Apply basic parameters
     if (strategyParam) {
-      console.log("[new-run] Auto-selecting strategy from query param:", strategyParam);
+      console.log("[new-run] Setting strategy:", strategyParam);
       setStrategyName(strategyParam as StrategyKey);
+    }
+    if (symbolParam) setSymbol(symbolParam);
+    if (timeframeParam) setTimeframe(timeframeParam as Timeframe);
+    if (startParam) setStart(startParam);
+    if (endParam) setEnd(endParam);
+    if (dataSourceParam) setDataSource(dataSourceParam as DataSource);
+    if (adjustedParam) setAdjusted(adjustedParam === "true");
+
+    // Extract strategy parameters (prefixed with param_)
+    const strategyParams: Record<string, number> = {};
+    searchParams.forEach((value, key) => {
+      if (key.startsWith("param_")) {
+        const paramName = key.replace("param_", "");
+        const numValue = Number(value);
+        if (!Number.isNaN(numValue)) {
+          strategyParams[paramName] = numValue;
+          console.log(`[new-run] Setting strategy param ${paramName} = ${numValue}`);
+        }
+      }
+    });
+
+    // Apply strategy parameters if any were found
+    if (Object.keys(strategyParams).length > 0) {
+      console.log("[new-run] Applying strategy params:", strategyParams);
+      setStrategyValues(strategyParams);
     }
   }, [searchParams]);
 
