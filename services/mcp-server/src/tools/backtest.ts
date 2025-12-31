@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Database as SQLiteDatabase } from "sqlite";
 import type sqlite3 from "sqlite3";
-import { assertValid, BacktestRequestSchema } from "@crucible-trader/sdk";
+import { assertValid, BacktestRequestSchema, type BacktestRequest } from "@crucible-trader/sdk";
+import { runBacktest } from "@crucible-trader/engine";
 import { createMcpLogger } from "../logger.js";
 import { getRepoRoot } from "../db.js";
 import type { RegisterTool } from "../types.js";
@@ -51,18 +52,52 @@ export async function registerBacktestTools(
     },
     async (args) => {
       const request = args.request as Record<string, unknown>;
+      const runId = randomUUID();
 
       try {
-        const runId = randomUUID();
         assertValid(BacktestRequestSchema, request);
+        const backtestRequest = request as unknown as BacktestRequest;
 
+        // Insert initial record
         await db.run(
           `INSERT INTO runs (run_id, name, request_json, status, created_at) 
            VALUES (?, ?, ?, ?, datetime('now'))`,
-          [runId, request.runName as string, JSON.stringify(request), "queued"],
+          [runId, backtestRequest.runName as string, JSON.stringify(request), "running"],
         );
 
-        logger.info("Backtest queued", { runId });
+        logger.info("Executing backtest synchronously", { runId });
+
+        const startTime = Date.now();
+
+        // Execute backtest directly
+        const result = await runBacktest(backtestRequest, { runId });
+        const executionTimeMs = Date.now() - startTime;
+
+        // Update with results
+        await db.run(
+          `UPDATE runs SET status = 'completed', summary_json = ?, execution_time_ms = ? WHERE run_id = ?`,
+          [JSON.stringify(result.summary), executionTimeMs, runId],
+        );
+
+        // Insert artifact records
+        const artifacts = [
+          { kind: "equity", path: result.artifacts.equityParquet },
+          { kind: "trades", path: result.artifacts.tradesParquet },
+          { kind: "bars", path: result.artifacts.barsParquet },
+        ];
+
+        if (result.artifacts.reportMd) {
+          artifacts.push({ kind: "report", path: result.artifacts.reportMd });
+        }
+
+        for (const artifact of artifacts) {
+          await db.run(
+            `INSERT INTO artifacts (run_id, kind, path, checksum) VALUES (?, ?, ?, NULL)`,
+            [runId, artifact.kind, artifact.path],
+          );
+        }
+
+        logger.info("Backtest completed", { runId, executionTimeMs });
 
         return {
           content: [
@@ -71,9 +106,11 @@ export async function registerBacktestTools(
               text: JSON.stringify(
                 {
                   runId,
-                  status: "queued",
+                  status: "completed",
+                  executionTimeMs,
+                  summary: result.summary,
                   message:
-                    "Backtest queued for execution. Use get_backtest_status to check progress.",
+                    "Backtest completed successfully. Use get_backtest_results for full details.",
                 },
                 null,
                 2,
@@ -83,69 +120,88 @@ export async function registerBacktestTools(
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error("Failed to submit backtest", { error: errorMessage });
+        logger.error("Backtest failed", { runId, error: errorMessage });
 
-        // Parse Zod validation errors for specific guidance
-        let specificError = "Validation failed";
+        // Update database with failure status
+        try {
+          await db.run(`UPDATE runs SET status = 'failed', error_message = ? WHERE run_id = ?`, [
+            errorMessage,
+            runId,
+          ]);
+        } catch (dbError) {
+          logger.error("Failed to update run status", { dbError });
+        }
+
+        // Parse errors for specific guidance
+        let specificError = "Backtest failed";
         let actionableHint = "";
 
+        // Validation errors
         if (errorMessage.includes("strategy.params")) {
           specificError = "Missing or invalid strategy.params";
           actionableHint =
             "REQUIRED: strategy.params must be an object. " +
             "For built-in strategies: Call get_strategy_details first to see required parameters. " +
-            "Example: strategy: {name: 'sma_crossover', params: {fastPeriod: 10, slowPeriod: 30}}";
+            "Example: strategy: {name: 'sma_crossover', params: {fastLength: 10, slowLength: 30}}";
         } else if (errorMessage.includes("strategy.name")) {
           specificError = "Missing or invalid strategy.name";
           actionableHint =
             "REQUIRED: strategy.name must be a string. " +
-            "Use list_strategies to see available built-in strategies, or list_custom_strategies for custom ones. " +
-            "Example: strategy: {name: 'sma_crossover', params: {...}}";
+            "Use list_strategies for built-in strategies or list_custom_strategies for custom ones.";
         } else if (errorMessage.includes("data") && errorMessage.includes("array")) {
           specificError = "Invalid data field - must be an array";
           actionableHint =
-            "REQUIRED: data must be an array of data request objects. " +
+            "REQUIRED: data must be an array. " +
             "Example: data: [{source: 'auto', symbol: 'AAPL', timeframe: '1d', start: '2024-01-01', end: '2024-12-01'}]";
         } else if (errorMessage.includes("costs")) {
           specificError = "Missing or invalid costs";
           actionableHint =
             "REQUIRED: costs must have feeBps and slippageBps. " +
-            "Example: costs: {feeBps: 10, slippageBps: 5} (10 basis points fee, 5 basis points slippage)";
-        } else if (errorMessage.includes("initialCash")) {
-          specificError = "Missing or invalid initialCash";
-          actionableHint =
-            "REQUIRED: initialCash must be a positive number. " +
-            "Example: initialCash: 100000 (start with $100,000)";
-        } else if (errorMessage.includes("runName")) {
-          specificError = "Missing or invalid runName";
-          actionableHint =
-            "REQUIRED: runName must be a string. " + "Example: runName: 'SMA Crossover on AAPL'";
-        } else if (errorMessage.includes("source")) {
-          specificError = "Invalid data source";
-          actionableHint =
-            "source must be one of: 'auto', 'csv', 'tiingo', or 'polygon'. " +
-            "Recommended: Use 'auto' to try all sources automatically.";
+            "Example: costs: {feeBps: 10, slippageBps: 5}";
         } else if (errorMessage.includes("timeframe")) {
           specificError = "Invalid timeframe";
           actionableHint =
             "timeframe must be one of: '1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'. " +
-            "Note: Intraday timeframes (1m-1h) require paid API subscriptions. Use '1d' for daily data.";
+            "Note: Intraday timeframes require paid API subscriptions. Use '1d' for daily data.";
+        }
+        // Execution errors
+        else if (errorMessage.includes("No bars loaded")) {
+          specificError = "No data available";
+          actionableHint =
+            "DATA ERROR: No data found for the requested symbol/timeframe/date range. " +
+            "Solutions: (1) Use '1d' timeframe instead of intraday, (2) Verify symbol is valid, " +
+            "(3) Check date range is reasonable, (4) For intraday data, ensure you have paid API subscription.";
+        } else if (
+          errorMessage.includes("Unknown strategy") ||
+          errorMessage.includes("Strategy not found")
+        ) {
+          specificError = "Strategy not found";
+          actionableHint =
+            "STRATEGY ERROR: Strategy name not recognized. " +
+            "Use list_strategies for built-in strategies or list_custom_strategies for custom ones. " +
+            "Ensure you use the exact name without any prefix.";
+        } else if (errorMessage.includes("param") || errorMessage.includes("parameter")) {
+          specificError = "Invalid strategy parameters";
+          actionableHint =
+            "PARAMETER ERROR: Strategy parameters are invalid. " +
+            "Call get_strategy_details (for built-in) or get_custom_strategy_source (for custom) to see required parameters.";
+        } else if (errorMessage.includes("ENOENT") || errorMessage.includes("not found")) {
+          specificError = "File or resource not found";
+          actionableHint =
+            "FILE ERROR: Required file or resource not found. " +
+            "This could be a missing CSV file or custom strategy file.";
         } else {
-          // Generic validation error
+          // Generic error with example
           actionableHint =
             "Common issues:\n" +
-            "1. strategy.params is missing or not an object\n" +
-            "2. data is not an array\n" +
-            "3. costs missing feeBps/slippageBps\n" +
-            "4. Missing required fields: runName, initialCash\n" +
+            "1. Missing strategy.params object\n" +
+            "2. Invalid data source or timeframe\n" +
+            "3. No data available for symbol/date range\n" +
+            "4. Strategy name doesn't match available strategies\n" +
             "Example valid request:\n" +
-            "{\n" +
-            "  runName: 'Test',\n" +
-            "  data: [{source: 'auto', symbol: 'AAPL', timeframe: '1d', start: '2024-01-01', end: '2024-12-01'}],\n" +
-            "  strategy: {name: 'sma_crossover', params: {fastPeriod: 10, slowPeriod: 30}},\n" +
-            "  costs: {feeBps: 10, slippageBps: 5},\n" +
-            "  initialCash: 100000\n" +
-            "}";
+            "{runName: 'Test', data: [{source: 'auto', symbol: 'AAPL', timeframe: '1d', " +
+            "start: '2024-01-01', end: '2024-12-01'}], strategy: {name: 'sma_crossover', " +
+            "params: {fastLength: 10, slowLength: 30}}, costs: {feeBps: 10, slippageBps: 5}, initialCash: 100000}";
         }
 
         return {
@@ -154,6 +210,7 @@ export async function registerBacktestTools(
               type: "text",
               text: JSON.stringify(
                 {
+                  runId,
                   error: specificError,
                   details: errorMessage,
                   fix: actionableHint,
