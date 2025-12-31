@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "crucible-trader": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/crucible-trader/services/mcp-server/dist/index.js"],
+      "env": {
+        "TIINGO_API_KEY": "your-tiingo-api-key-here",
+        "POLYGON_API_KEY": "your-polygon-api-key-here"
+      }
+    }
+  }
+}
