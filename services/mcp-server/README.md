@@ -45,7 +45,15 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 pnpm start
 ```
 
-The server runs on stdio transport and communicates via JSON-RPC.
+The server defaults to stdio transport (Claude Desktop friendly).
+
+For HTTP (Capsule and other MCP HTTP clients):
+
+```bash
+MCP_TRANSPORT=http MCP_PORT=3012 pnpm start
+```
+
+Then use `http://localhost:3012/mcp`.
 
 ## Available Tools
 

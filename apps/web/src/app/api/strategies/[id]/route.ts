@@ -83,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Trigger hot-reload of custom strategies in the engine
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3010";
       await fetch(`${apiBaseUrl}/api/strategies/reload`, {
         method: "POST",
       });
@@ -118,7 +118,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Trigger hot-reload of custom strategies in the engine
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3010";
       await fetch(`${apiBaseUrl}/api/strategies/reload`, {
         method: "POST",
       });

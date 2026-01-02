@@ -57,7 +57,7 @@ export default function StrategiesPage() {
   const fetchCustomStrategies = useCallback(async () => {
     try {
       setLoading(true);
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3011";
       const response = await fetch(`${baseUrl}/api/strategies`, {
         cache: "no-store",
       });
@@ -84,7 +84,7 @@ export default function StrategiesPage() {
     if (!isCustom) return; // Only custom strategies can be favorited
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3011";
       const response = await fetch(`${baseUrl}/api/strategies/${id}/favorite`, {
         method: "POST",
       });

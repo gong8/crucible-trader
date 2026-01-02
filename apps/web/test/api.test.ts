@@ -19,8 +19,8 @@ const importApiModule = async (baseUrl?: string) => {
 
 test("apiRoute normalizes paths and uses default base", async () => {
   const { apiRoute } = await importApiModule(undefined);
-  assert.equal(apiRoute("/api/runs"), "http://localhost:3000/api/runs");
-  assert.equal(apiRoute("api/runs"), "http://localhost:3000/api/runs");
+  assert.equal(apiRoute("/api/runs"), "http://localhost:3010/api/runs");
+  assert.equal(apiRoute("api/runs"), "http://localhost:3010/api/runs");
 });
 
 test("apiRoute respects NEXT_PUBLIC_API_BASE_URL override", async () => {

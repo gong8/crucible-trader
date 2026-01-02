@@ -7,13 +7,19 @@
  * Allows AI assistants to programmatically interact with the Crucible Trader framework.
  */
 
+import { randomUUID } from "node:crypto";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  isInitializeRequest,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+
 import { createMcpLogger } from "./logger.js";
 import { openDatabase } from "./db.js";
 import { registerBacktestTools } from "./tools/backtest.js";
@@ -61,6 +67,7 @@ export function textContent(text: string): CallToolResult {
     ],
   };
 }
+
 const toolRegistry = new Map<string, ToolHandler>();
 
 /**
@@ -88,20 +95,13 @@ export function registerTool(
 ): void {
   toolRegistry.set(name, handler);
   toolMetadata.push({ name, description, inputSchema });
-  logger.info(`Registered tool: ${name}`);
+  logger.info("Registered tool", { name });
 }
 
-/**
- * Main server initialization.
- */
-async function main(): Promise<void> {
-  logger.info("Starting Crucible Trader MCP Server");
+const sessionTransports = new Map<string, StreamableHTTPServerTransport>();
+const sessionServers = new Map<string, Server>();
 
-  // Initialize database
-  const db = await openDatabase();
-  logger.info("Database initialized");
-
-  // Create MCP server
+function createMcpServer(): Server {
   const server = new Server(
     {
       name: "crucible-trader",
@@ -113,16 +113,6 @@ async function main(): Promise<void> {
       },
     },
   );
-
-  // Register all tools
-  await registerBacktestTools(db, registerTool);
-  await registerDataTools(db, registerTool);
-  await registerStrategyTools(db, registerTool);
-  await registerMetricsTools(db, registerTool);
-  await registerOptimizationTools(db, registerTool);
-  await registerTestTools(db, registerTool);
-
-  logger.info(`Registered ${toolRegistry.size} tools`);
 
   // Handle ListTools request
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -138,20 +128,167 @@ async function main(): Promise<void> {
       throw new Error(`Unknown tool: ${name}`);
     }
 
-    logger.info(`Executing tool: ${name}`, { args });
+    logger.info("Executing tool", { name });
 
     try {
       const result = await handler(args ?? {});
-      logger.info(`Tool executed successfully: ${name}`);
+      logger.info("Tool executed successfully", { name });
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Tool execution failed: ${name}`, { error: errorMessage });
+      logger.error("Tool execution failed", { name, error: errorMessage });
       throw error;
     }
   });
 
-  // Start server with stdio transport
+  return server;
+}
+
+async function parseRequestBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : undefined);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+async function startHttpServer(): Promise<void> {
+  const port = Number(process.env.MCP_PORT ?? "3012");
+  const host = process.env.MCP_HOST ?? "127.0.0.1";
+
+  const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok", server: "crucible-trader-mcp" }));
+      return;
+    }
+
+    if (req.url !== "/mcp") {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.writeHead(405, { Allow: "POST", "Content-Type": "text/plain" });
+      res.end("Method Not Allowed");
+      return;
+    }
+
+    let body: unknown;
+    try {
+      body = await parseRequestBody(req);
+    } catch (error) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32700, message: "Parse error" },
+          id: null,
+        }),
+      );
+      return;
+    }
+
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+    try {
+      if (sessionId && sessionTransports.has(sessionId)) {
+        const transport = sessionTransports.get(sessionId)!;
+        await transport.handleRequest(req, res, body);
+        return;
+      }
+
+      if (!sessionId && isInitializeRequest(body)) {
+        const newSessionId = randomUUID();
+        const server = createMcpServer();
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => newSessionId,
+          enableJsonResponse: true,
+          onsessioninitialized: (initializedSessionId: string) => {
+            sessionTransports.set(initializedSessionId, transport);
+            sessionServers.set(initializedSessionId, server);
+          },
+        });
+
+        await server.connect(transport);
+        await transport.handleRequest(req, res, body);
+        return;
+      }
+
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32000, message: "Bad Request: invalid or missing session" },
+          id: null,
+        }),
+      );
+    } catch (error) {
+      logger.error("Error handling MCP request", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            error: { code: -32603, message: "Internal server error" },
+            id: null,
+          }),
+        );
+      }
+    }
+  });
+
+  httpServer.listen(port, host, () => {
+    logger.info("MCP HTTP server listening", { host, port });
+    logger.info("MCP endpoint", { url: `http://localhost:${port}/mcp` });
+  });
+}
+
+/**
+ * Main server initialization.
+ */
+async function main(): Promise<void> {
+  logger.info("Starting Crucible Trader MCP Server");
+
+  // Initialize database
+  const db = await openDatabase();
+  logger.info("Database initialized");
+
+  // Register all tools
+  await registerBacktestTools(db, registerTool);
+  await registerDataTools(db, registerTool);
+  await registerStrategyTools(db, registerTool);
+  await registerMetricsTools(db, registerTool);
+  await registerOptimizationTools(db, registerTool);
+  await registerTestTools(db, registerTool);
+
+  logger.info("Registered tools", { count: toolRegistry.size });
+
+  const transportMode = (process.env.MCP_TRANSPORT ?? "stdio").toLowerCase();
+
+  if (transportMode === "http") {
+    await startHttpServer();
+    return;
+  }
+
+  if (transportMode !== "stdio") {
+    logger.warn("Unknown MCP_TRANSPORT value, defaulting to stdio", { transportMode });
+  }
+
+  const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

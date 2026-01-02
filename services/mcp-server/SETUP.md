@@ -181,7 +181,7 @@ The Crucible Trader MCP server follows the standard MCP protocol and can be used
 
 - **Command**: `node`
 - **Args**: Path to `dist/index.js`
-- **Transport**: stdio (default)
+- **Transport**: stdio (default). For HTTP, set `MCP_TRANSPORT=http` and use `http://localhost:3012/mcp`.
 
 ### Multiple Environments
 
