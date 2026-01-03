@@ -3,13 +3,41 @@
  * Allows querying available datasets and data sources.
  */
 
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Database as SQLiteDatabase } from "sqlite";
 import type sqlite3 from "sqlite3";
 import { getStorageDir } from "../db.js";
 import type { RegisterTool } from "../types.js";
+import { DataRequest } from "@crucible-trader/sdk";
+import { createCsvSource } from "@crucible-trader/data";
 
+const TIMEFRAMES: readonly DataRequest["timeframe"][] = ["1d", "1h", "15m", "1m"];
+const DATASET_DIR = join(getStorageDir(), "datasets");
+
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "_")
+    .replace(/^_+|_+$/gu, "");
+
+const datasetPath = (symbol: string, timeframe: string): string => {
+  const symbolSlug = slugify(symbol);
+  const timeframeSlug = slugify(timeframe);
+  return join(DATASET_DIR, `${symbolSlug}_${timeframeSlug}.csv`);
+};
+
+const DEFAULT_START_DATE = "1970-01-01";
+const formatToday = (): string => new Date().toISOString().slice(0, 10);
+
+async function doesDatasetExist(symbol: string, timeframe: string): Promise<boolean> {
+  try {
+    await stat(datasetPath(symbol, timeframe));
+    return true;
+  } catch {
+    return false;
+  }
+}
 type SqliteInstance = SQLiteDatabase<sqlite3.Database, sqlite3.Statement>;
 
 /**
@@ -218,6 +246,173 @@ export async function registerDataTools(
           {
             type: "text",
             text: JSON.stringify({ timeframes }, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  /**
+   * Check whether data exists for a symbol/timeframe/date range.
+   */
+  registerTool(
+    "check_data_availability",
+    "Check whether data is available for a given symbol, timeframe, and date range. " +
+      "Returns dataset presence along with suggestions (e.g., configure Tiingo/Polygon API keys for intraday).",
+    {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "Stock ticker (e.g., 'MSFT')",
+        },
+        timeframe: {
+          type: "string",
+          enum: TIMEFRAMES,
+          description: "Bar interval (1d, 1h, 15m, 1m)",
+        },
+        start: {
+          type: "string",
+          description: "Inclusive start date (ISO)",
+        },
+        end: {
+          type: "string",
+          description: "Inclusive end date (ISO)",
+        },
+        source: {
+          type: "string",
+          enum: ["csv", "auto"],
+          description: "Optional source hint (defaults to csv files)",
+        },
+      },
+      required: ["symbol", "timeframe"],
+    },
+    async (args) => {
+      const rawSymbol = (args.symbol as string | undefined)?.trim();
+      const rawTimeframe = (args.timeframe as string | undefined)?.trim().toLowerCase();
+
+      if (!rawSymbol || !rawTimeframe) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Missing symbol or timeframe",
+                  fix: "Include both symbol (e.g., 'MSFT') and timeframe ('1d', '1h', '15m', or '1m').",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      if (!TIMEFRAMES.includes(rawTimeframe as DataRequest["timeframe"])) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Unsupported timeframe",
+                  fix: `Supported timeframes: ${TIMEFRAMES.join(", ")}`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      const symbol = rawSymbol.toUpperCase();
+      const timeframe = rawTimeframe as DataRequest["timeframe"];
+      const start = (args.start as string | undefined)?.trim() ?? DEFAULT_START_DATE;
+      const end = (args.end as string | undefined)?.trim() ?? formatToday();
+      const intraday = timeframe !== "1d";
+      const csvRequest: DataRequest = {
+        source: "csv",
+        symbol,
+        timeframe,
+        start,
+        end,
+      };
+
+      const csvSource = createCsvSource();
+      let bars = [] as Awaited<ReturnType<typeof csvSource.loadBars>>;
+      let available = false;
+      let message = "";
+      let reason = "";
+      let suggestion = "";
+
+      try {
+        bars = await csvSource.loadBars(csvRequest);
+        if (bars.length > 0) {
+          available = true;
+          message = "CSV data is available for the requested range.";
+        } else {
+          message =
+            "CSV file exists but contains no bars in the requested range. Try widening the date window.";
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        message = errMsg;
+        if (errMsg.includes("CSV file not found")) {
+          reason = "CSV dataset not present for the requested symbol/timeframe.";
+        } else {
+          reason = errMsg;
+        }
+      }
+
+      const hasTiingoKey = Boolean(process.env.TIINGO_API_KEY);
+      const hasPolygonKey = Boolean(process.env.POLYGON_API_KEY);
+
+      if (!available && intraday && !hasTiingoKey && !hasPolygonKey) {
+        suggestion = [
+          "Intraday data (1m/15m/1h) requires Tiingo or Polygon API credentials.",
+          "Set TIINGO_API_KEY or POLYGON_API_KEY in your .env and restart the MCP server.",
+        ].join(" ");
+      } else if (!available) {
+        suggestion =
+          "Try running check_data_availability for other timeframes (daily data is most reliable) or verify the CSV file exists in storage/datasets.";
+      }
+
+      const alternativeTimeframes = await Promise.all(
+        TIMEFRAMES.map(async (tf) => ({
+          timeframe: tf,
+          available: await doesDatasetExist(symbol, tf),
+        })),
+      );
+
+      const primaryRange =
+        available && bars.length > 0
+          ? { start: bars[0]!.timestamp, end: bars[bars.length - 1]!.timestamp }
+          : undefined;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                symbol,
+                timeframe,
+                start,
+                end,
+                source: "csv",
+                available,
+                rows: bars.length,
+                range: primaryRange,
+                reason: reason || (available ? undefined : "Dataset missing or empty"),
+                message,
+                suggestion,
+                alternatives: alternativeTimeframes,
+              },
+              null,
+              2,
+            ),
           },
         ],
       };

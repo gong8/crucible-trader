@@ -55,6 +55,16 @@ MCP_TRANSPORT=http MCP_PORT=3012 pnpm start
 
 Then use `http://localhost:3012/mcp`.
 
+#### HTTP Flow
+
+1. `POST /mcp` with `Content-Type: application/json`, `Accept: application/json, text/event-stream`, and the JSON-RPC body `{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"capsule","version":"1.0"}},"id":1}`.
+2. Capture the `mcp-session-id` from the response headers (`initialize` returns it in `mcp-session-id`), then reuse that header on every subsequent request.
+3. Issue tool calls with method `tools/call`, wrapping your payload as `{"params":{"name":"submit_backtest","arguments":{"request":{…BacktestRequest…}}}}`.
+4. `/mcp` also responds to GET with JSON describing the HTTP transport and supported protocols—use it as a lightweight health check before sending tool calls.
+5. Stream live progress by hitting `GET /mcp/progress?runId=<runId>` with `Accept: text/event-stream`; events (`progress`, `complete`, `error`) include status, summary, and timing metadata.
+
+If you prefer streaming-friendly clients (Claude Desktop, Cursor, etc.), run without `MCP_TRANSPORT=http` to keep the stdio transport; the server defaults to stdio for compatibility.
+
 ## Available Tools
 
 ### Backtest Operations
@@ -164,6 +174,18 @@ Get information about available data sources.
 
 Get supported timeframes.
 
+#### `check_data_availability`
+
+Check whether data exists for a symbol/timeframe/date range before submitting a backtest. \
+Returns `available` (true/false), the number of rows found (if any), suggested alternatives, and notes when intraday data requires TIINGO_API_KEY or POLYGON_API_KEY.
+
+**Parameters:**
+
+- `symbol` (string): Instrument ticker (e.g., "MSFT")
+- `timeframe` (enum): One of `1d`, `1h`, `15m`, `1m`
+- `start` (string, optional): Inclusive start date (ISO)
+- `end` (string, optional): Inclusive end date (ISO)
+
 ### Strategy Operations
 
 #### `list_strategies`
@@ -181,6 +203,8 @@ Get detailed info about a specific strategy.
 #### `list_custom_strategies`
 
 List custom user-defined strategies.
+
+Each entry now includes `description`, `version`, `tags`, and a `parameters` array describing the required options (name, type, default, min/max, description) so you can configure custom strategies without guessing.
 
 #### `get_custom_strategy_source`
 

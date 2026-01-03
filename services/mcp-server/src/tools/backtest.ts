@@ -51,7 +51,26 @@ export async function registerBacktestTools(
       required: ["request"],
     },
     async (args) => {
-      const request = args.request as Record<string, unknown>;
+      const request = args.request as Record<string, unknown> | undefined;
+      if (!request || typeof request !== "object") {
+        logger.warn("submit_backtest missing request wrapper");
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error:
+                    "Missing 'request' wrapper. Expected payload shape: {arguments:{request:{...}}}.",
+                  fix: "Wrap the BacktestRequest inside arguments.request when calling tools/call (e.g., {params:{name:'submit_backtest',arguments:{request:{...}}}}).",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
       const runId = randomUUID();
 
       try {
@@ -169,8 +188,7 @@ export async function registerBacktestTools(
           specificError = "No data available";
           actionableHint =
             "DATA ERROR: No data found for the requested symbol/timeframe/date range. " +
-            "Solutions: (1) Use '1d' timeframe instead of intraday, (2) Verify symbol is valid, " +
-            "(3) Check date range is reasonable, (4) For intraday data, ensure you have paid API subscription.";
+            "Run check_data_availability to explore alternative timeframes or confirm the CSV file exists, and remember intraday bars require TIINGO_API_KEY or POLYGON_API_KEY.";
         } else if (
           errorMessage.includes("Unknown strategy") ||
           errorMessage.includes("Strategy not found")
@@ -275,7 +293,7 @@ export async function registerBacktestTools(
         if (errorMessage.includes("No bars loaded")) {
           actionableHint =
             "DATA ERROR: No data available for the requested symbol/timeframe. " +
-            "Try: (1) Use '1d' timeframe instead of intraday, (2) Check symbol is valid, (3) Verify date range.";
+            "Run check_data_availability to inspect workable timeframes or confirm the CSV dataset, and remember intraday bars require TIINGO_API_KEY or POLYGON_API_KEY.";
         } else if (errorMessage.includes("Unknown strategy")) {
           actionableHint =
             "STRATEGY ERROR: Strategy name not recognized. " +

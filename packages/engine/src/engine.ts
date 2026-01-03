@@ -27,6 +27,12 @@ const DEFAULT_RISK_PROFILE: RiskProfile = {
   cooldownMinutes: 15,
 };
 
+const INTRADAY_TIMEFRAMES = new Set<BacktestRequest["data"][number]["timeframe"]>([
+  "1m",
+  "15m",
+  "1h",
+]);
+
 type StrategyModule = (typeof strategies)[keyof typeof strategies];
 
 type StrategyParams = Record<string, unknown>;
@@ -227,9 +233,17 @@ export async function runBacktest(
   const primaryBars = barsBySymbol[primaryRequest.symbol] ?? [];
 
   if (primaryBars.length === 0) {
+    const dailyPath = `storage/datasets/${primaryRequest.symbol.toLowerCase()}_${primaryRequest.timeframe}.csv`;
+    if (INTRADAY_TIMEFRAMES.has(primaryRequest.timeframe)) {
+      throw new Error(
+        `No intraday data available for ${primaryRequest.symbol} ${primaryRequest.timeframe}. ` +
+          "Intraday bars require TIINGO_API_KEY or POLYGON_API_KEY plus a matching dataset; run check_data_availability to explore fallback timeframes.",
+      );
+    }
+
     throw new Error(
       `No bars loaded for ${primaryRequest.symbol} ${primaryRequest.timeframe}. ` +
-        `Please ensure the data file exists at storage/datasets/${primaryRequest.symbol.toLowerCase()}_${primaryRequest.timeframe}.csv`,
+        `Please ensure the data file exists at ${dailyPath}, or use check_data_availability to inspect alternatives.`,
     );
   }
 

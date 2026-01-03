@@ -13,6 +13,44 @@ import type { RegisterTool } from "../types.js";
 
 type SqliteInstance = SQLiteDatabase<sqlite3.Database, sqlite3.Statement>;
 
+interface CustomStrategyParameter {
+  readonly name: string;
+  readonly type: "number" | "string" | "boolean";
+  readonly label?: string;
+  readonly description?: string;
+  readonly default?: number | string | boolean;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly required?: boolean;
+}
+
+interface CustomStrategyMetadata {
+  readonly description?: string;
+  readonly version?: string;
+  readonly author?: string;
+  readonly tags?: readonly string[];
+  readonly parameters?: readonly CustomStrategyParameter[];
+}
+
+const CUSTOM_METADATA_SUFFIX = ".meta.json";
+
+const METADATA_ENCODING = "utf-8";
+
+async function loadCustomStrategyMetadata(
+  customDir: string,
+  filename: string,
+): Promise<CustomStrategyMetadata | undefined> {
+  const metadataFilename = `${filename.replace(/\.ts$/u, "")}${CUSTOM_METADATA_SUFFIX}`;
+  const metadataPath = join(customDir, metadataFilename);
+  try {
+    const contents = await readFile(metadataPath, { encoding: METADATA_ENCODING });
+    return JSON.parse(contents) as CustomStrategyMetadata;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Register strategy-related tools.
  */
@@ -151,10 +189,21 @@ export async function registerStrategyTools(
         const files = await readdir(customDir);
         const tsFiles = files.filter((f) => f.endsWith(".ts"));
 
-        const strategies = tsFiles.map((file) => ({
-          filename: file,
-          name: file.replace(".ts", ""),
-        }));
+        const strategies = await Promise.all(
+          tsFiles.map(async (file) => {
+            const metadata = await loadCustomStrategyMetadata(customDir, file);
+            const nameWithoutExtension = file.replace(/\.ts$/u, "");
+            return {
+              filename: file,
+              name: nameWithoutExtension,
+              description: metadata?.description,
+              version: metadata?.version,
+              author: metadata?.author,
+              tags: metadata?.tags ?? [],
+              parameters: metadata?.parameters ?? [],
+            };
+          }),
+        );
 
         return {
           content: [
@@ -209,7 +258,26 @@ export async function registerStrategyTools(
       required: ["filename"],
     },
     async (args) => {
-      const filename = args.filename as string;
+      const rawFilename = args.filename;
+      if (typeof rawFilename !== "string" || rawFilename.trim().length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Missing filename",
+                  fix: "Provide the custom strategy filename including the .ts extension (e.g., 'macd-crossover.ts') in the arguments.",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      const filename = rawFilename.trim();
 
       // Validate filename (basic security check)
       if (!filename.endsWith(".ts") || filename.includes("..") || filename.includes("/")) {

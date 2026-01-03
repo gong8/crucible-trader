@@ -56,7 +56,7 @@ export type RunSummaryRow = {
   readonly executionTimeMs: number | null;
 };
 
-type SqliteInstance = SQLiteDatabase<sqlite3.Database, sqlite3.Statement>;
+export type SqliteInstance = SQLiteDatabase<sqlite3.Database, sqlite3.Statement>;
 
 /**
  * Opens and initializes the API database.
