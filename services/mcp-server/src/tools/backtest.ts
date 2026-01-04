@@ -52,8 +52,8 @@ export async function registerBacktestTools(
     },
     async (args) => {
       const request = args.request as Record<string, unknown> | undefined;
-      if (!request || typeof request !== "object") {
-        logger.warn("submit_backtest missing request wrapper");
+      if (!request || typeof request !== "object" || Array.isArray(request)) {
+        logger.error("submit_backtest: invalid or missing request wrapper", { args });
         return {
           content: [
             {
@@ -61,8 +61,9 @@ export async function registerBacktestTools(
               text: JSON.stringify(
                 {
                   error:
-                    "Missing 'request' wrapper. Expected payload shape: {arguments:{request:{...}}}.",
+                    "Missing or invalid 'request' parameter. Expected payload shape: {arguments:{request:{...}}}.",
                   fix: "Wrap the BacktestRequest inside arguments.request when calling tools/call (e.g., {params:{name:'submit_backtest',arguments:{request:{...}}}}).",
+                  received: args,
                 },
                 null,
                 2,
@@ -72,6 +73,8 @@ export async function registerBacktestTools(
         };
       }
       const runId = randomUUID();
+
+      logger.info("submit_backtest: received valid request", { runId, runName: request.runName });
 
       try {
         assertValid(BacktestRequestSchema, request);
@@ -118,22 +121,22 @@ export async function registerBacktestTools(
 
         logger.info("Backtest completed", { runId, executionTimeMs });
 
+        const successResponse = {
+          success: true,
+          runId,
+          status: "completed",
+          executionTimeMs,
+          summary: result.summary,
+          message: "Backtest completed successfully. Use get_backtest_results for full details.",
+        };
+
+        logger.info("Returning success response", { runId, hasError: false });
+
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  runId,
-                  status: "completed",
-                  executionTimeMs,
-                  summary: result.summary,
-                  message:
-                    "Backtest completed successfully. Use get_backtest_results for full details.",
-                },
-                null,
-                2,
-              ),
+              text: JSON.stringify(successResponse, null, 2),
             },
           ],
         };
@@ -228,6 +231,7 @@ export async function registerBacktestTools(
               type: "text",
               text: JSON.stringify(
                 {
+                  success: false,
                   runId,
                   error: specificError,
                   details: errorMessage,

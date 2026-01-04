@@ -77,9 +77,34 @@ Submit a new backtest request to the engine.
 
 - `request` (object): BacktestRequest with runName, data, strategy, costs, initialCash, etc.
 
-**Returns:** Run ID for tracking progress
+**Returns:** Success response with run ID and results (backtests run synchronously)
 
-**Example:**
+**Response Format:**
+
+```json
+{
+  "success": true,
+  "runId": "54e24bbf-e437-4773-8c08-a900337bf938",
+  "status": "completed",
+  "executionTimeMs": 1234,
+  "summary": { "sharpe": 1.28, "total_return": 0.0426, ... },
+  "message": "Backtest completed successfully. Use get_backtest_results for full details."
+}
+```
+
+**Error Response Format:**
+
+```json
+{
+  "success": false,
+  "runId": "...",
+  "error": "Specific error description",
+  "details": "Full error message",
+  "fix": "Actionable guidance"
+}
+```
+
+**Request Example:**
 
 ```json
 {
